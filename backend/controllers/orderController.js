@@ -1,0 +1,409 @@
+const Order = require("../models/Order");
+const Product = require("../models/Product");
+const CartActivity = require("../models/CartActivity");
+
+// Checkout and place order
+exports.checkout = async (req, res) => {
+  try {
+    const { items, paymentMethod = "UPI", customer } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Your cart is empty. Please scan products before checkout.",
+      });
+    }
+
+    // 1. Verify all products and check stock availability
+    const verifiedItems = [];
+    let grossSubtotal = 0;
+    let totalDiscount = 0;
+
+    for (const item of items) {
+      const productId = item.productId || item._id;
+      const quantity = Number(item.quantity);
+
+      if (!productId || !Number.isInteger(quantity) || quantity <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid product or quantity in cart.",
+        });
+      }
+
+      const product = await Product.findOne({ _id: productId, isActive: { $ne: false } });
+
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: `Product "${item.name || productId}" is no longer available.`,
+        });
+      }
+
+      if (product.stock < quantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient stock for "${product.name}". Only ${product.stock} units available.`,
+        });
+      }
+
+      const originalPrice = Number(product.price);
+      const discountPerUnit = Number(product.discount || 0);
+      const effectivePrice = Math.max(0, originalPrice - discountPerUnit);
+      const itemSubtotal = effectivePrice * quantity;
+
+      grossSubtotal += originalPrice * quantity;
+      totalDiscount += discountPerUnit * quantity;
+
+      verifiedItems.push({
+        product: product._id,
+        name: product.name,
+        brand: product.brand || "",
+        category: product.category,
+        barcode: product.barcode || "",
+        imageUrl: product.imageUrl || "",
+        price: effectivePrice,
+        quantity,
+        subtotal: itemSubtotal,
+      });
+    }
+
+    // 2. Compute final order summary
+    const discountAmount = totalDiscount;
+    const taxAmount = 0;
+    const totalAmount = Math.max(0, grossSubtotal - discountAmount + taxAmount);
+    const totalItems = verifiedItems.reduce((acc, curr) => acc + curr.quantity, 0);
+
+    // 3. Atomically deduct stock from inventory ONLY for completed online payments (UPI, Card)
+    // For "Cash" (Cash at Exit), inventory is NOT deducted until cashier confirms receipt at exit.
+    const isCashPayment = paymentMethod === "Cash";
+    const paymentStatus = isCashPayment ? "Pending" : "Completed";
+
+    if (!isCashPayment) {
+      for (const item of verifiedItems) {
+        await Product.updateOne(
+          { _id: item.product },
+          { $inc: { stock: -item.quantity } }
+        );
+      }
+    }
+
+    // 4. Generate unique Order number and Exit Receipt Barcode
+    const timestampStr = Date.now().toString().slice(-6);
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const orderNumber = `ORD-${timestampStr}-${randomSuffix}`;
+    const exitBarcode = `EXIT-${Date.now().toString().slice(-8)}`;
+    const paymentId = isCashPayment
+      ? `PENDING-CASH-${Date.now().toString().slice(-6)}`
+      : `${paymentMethod.toUpperCase()}-${Date.now().toString().slice(-6)}`;
+
+    const order = await Order.create({
+      orderNumber,
+      items: verifiedItems,
+      totalItems,
+      subtotalAmount: grossSubtotal,
+      discountAmount,
+      taxAmount,
+      totalAmount,
+      paymentMethod,
+      paymentStatus,
+      paymentId,
+      customer: {
+        name: customer?.name || "Mobile Shopper",
+        phone: customer?.phone || "",
+        email: customer?.email || "",
+      },
+      exitBarcode,
+    });
+
+    // 5. Log Cart completed
+    try {
+      await CartActivity.create({
+        sessionId: customer?.phone || "mobile-shopper",
+        customerName: customer?.name || "Mobile Shopper",
+        productName: `Completed Order (${totalItems} items)`,
+        quantity: totalItems,
+        price: totalAmount,
+        action: "cleared",
+        totalCartItems: 0,
+        totalCartAmount: 0,
+      });
+    } catch (_) {}
+
+    return res.status(201).json({
+      success: true,
+      message: isCashPayment
+        ? "Order registered. Please pay cash at the exit counter."
+        : "Order placed successfully! Inventory updated.",
+      order,
+    });
+  } catch (error) {
+    console.error("Checkout error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Checkout failed",
+      error: error.message,
+    });
+  }
+};
+
+// Log customer cart activity
+exports.logCartActivity = async (req, res) => {
+  try {
+    const {
+      sessionId = "mobile-shopper",
+      customerName = "Mobile Shopper",
+      productName,
+      productId,
+      quantity = 1,
+      price = 0,
+      action = "added",
+      totalCartItems = 1,
+      totalCartAmount = 0,
+    } = req.body;
+
+    if (!productName) {
+      return res.status(400).json({
+        success: false,
+        message: "Product name is required",
+      });
+    }
+
+    const activity = await CartActivity.create({
+      sessionId,
+      customerName,
+      productName,
+      productId,
+      quantity,
+      price,
+      action,
+      totalCartItems,
+      totalCartAmount,
+    });
+
+    return res.status(201).json({
+      success: true,
+      activity,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to record cart activity",
+      error: error.message,
+    });
+  }
+};
+
+// Get live customer cart activities
+exports.getCartActivity = async (req, res) => {
+  try {
+    const activities = await CartActivity.find().sort({ createdAt: -1 }).limit(20);
+    return res.status(200).json({
+      success: true,
+      count: activities.length,
+      activities,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch cart activities",
+      error: error.message,
+    });
+  }
+};
+
+// Get all orders
+exports.getOrders = async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch orders",
+      error: error.message,
+    });
+  }
+};
+
+// Get order by ID or orderNumber
+exports.getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findOne({
+      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { orderNumber: id }],
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      order,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch order",
+      error: error.message,
+    });
+  }
+};
+
+// Confirm cash payment by supermarket cashier/staff & atomically deduct inventory
+exports.confirmCashPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findOne({
+      $or: [
+        { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null },
+        { orderNumber: id },
+        { exitBarcode: id },
+      ],
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.paymentStatus === "Completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Order payment has already been completed.",
+        order,
+      });
+    }
+
+    // Atomically deduct stock from inventory now that cash is collected
+    for (const item of order.items) {
+      await Product.updateOne(
+        { _id: item.product },
+        { $inc: { stock: -item.quantity } }
+      );
+    }
+
+    order.paymentStatus = "Completed";
+    order.paymentId = `CASH-${Date.now().toString().slice(-6)}`;
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Cash payment confirmed successfully! Stock deducted.",
+      order,
+    });
+  } catch (error) {
+    console.error("Confirm cash error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to confirm cash payment",
+      error: error.message,
+    });
+  }
+};
+
+// Get consolidated Admin Dashboard statistics
+exports.getAdminStats = async (req, res) => {
+  try {
+    const products = await Product.find({ isActive: { $ne: false } });
+    const allOrders = await Order.find().sort({ createdAt: -1 });
+
+    const completedOrders = allOrders.filter((o) => o.paymentStatus === "Completed");
+    const pendingCashOrders = allOrders.filter(
+      (o) => o.paymentMethod === "Cash" && o.paymentStatus === "Pending"
+    );
+
+    const totalProducts = products.length;
+
+    let totalInventoryValue = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+    const categoryMap = {};
+
+    for (const p of products) {
+      const stock = Number(p.stock || 0);
+      const price = Number(p.price || 0);
+      totalInventoryValue += stock * price;
+
+      const threshold = Number(p.lowStockThreshold || 5);
+      if (stock === 0) {
+        outOfStockCount++;
+      } else if (stock <= threshold) {
+        lowStockCount++;
+      }
+
+      const cat = p.category || "Other";
+      if (!categoryMap[cat]) {
+        categoryMap[cat] = { count: 0, value: 0 };
+      }
+      categoryMap[cat].count += 1;
+      categoryMap[cat].value += stock * price;
+    }
+
+    const totalSales = completedOrders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
+    const totalOrders = completedOrders.length;
+    const pendingCashOrdersCount = pendingCashOrders.length;
+
+    // Format category distribution for charts
+    const categoryDistribution = Object.keys(categoryMap).map((cat) => ({
+      name: cat,
+      count: categoryMap[cat].count,
+      value: categoryMap[cat].value,
+    }));
+
+    // Recent orders (last 8)
+    const recentOrders = allOrders.slice(0, 8);
+
+    // Live customer cart activities (latest 8)
+    const recentCartActivity = await CartActivity.find().sort({ createdAt: -1 }).limit(8);
+
+    // Active carts (within past 2 hours)
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    let activeCartsCount = 0;
+    try {
+      const activeSessions = await CartActivity.distinct("sessionId", {
+        createdAt: { $gte: twoHoursAgo },
+        action: { $in: ["added", "updated"] },
+      });
+      activeCartsCount = activeSessions.length;
+    } catch (_) {
+      activeCartsCount = 0;
+    }
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        totalProducts,
+        totalInventoryValue,
+        totalSales,
+        totalOrders,
+        pendingCashOrdersCount,
+        allOrdersCount: allOrders.length,
+        lowStockCount,
+        outOfStockCount,
+        categoryDistribution,
+        recentOrders,
+        recentCartActivity,
+        activeCartsCount,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to generate dashboard statistics",
+      error: error.message,
+    });
+  }
+};

@@ -1,0 +1,278 @@
+/* Product Management Styling */
+
+.product-management-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.pm-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pm-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pm-filter-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid #e8edf5;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.02);
+  flex-wrap: wrap;
+}
+
+.pm-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  padding: 8px 14px;
+  flex: 1;
+  max-width: 420px;
+}
+
+.pm-search-wrap input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-size: 13.5px;
+  color: #1e293b;
+}
+
+.pm-filter-selects {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pm-select {
+  padding: 9px 14px;
+  border-radius: 9px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  outline: none;
+  cursor: pointer;
+}
+
+.barcode-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #1e40af;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.barcode-view-btn:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.stock-adjuster-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stock-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.stock-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.stock-count-display {
+  font-size: 13.5px;
+  font-weight: 700;
+  min-width: 26px;
+  text-align: center;
+}
+
+.pm-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.icon-action-btn.print {
+  background: #f1f5f9;
+  color: #475569;
+}
+.icon-action-btn.print:hover {
+  background: #e2e8f0;
+}
+
+.icon-action-btn.edit {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.icon-action-btn.edit:hover {
+  background: #dbeafe;
+}
+
+.icon-action-btn.delete {
+  background: #fef2f2;
+  color: #ef4444;
+}
+.icon-action-btn.delete:hover {
+  background: #fee2e2;
+}
+
+/* Modal Styling */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(3px);
+  padding: 16px;
+}
+
+.modal-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 620px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  animation: modalEnter 0.2s ease-out;
+}
+
+@keyframes modalEnter {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #e8edf5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 17px;
+  color: #0f172a;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.close-btn:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.modal-form {
+  padding: 24px;
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.modal-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.modal-form input,
+.modal-form select,
+.modal-form textarea {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.modal-form input:focus,
+.modal-form select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+

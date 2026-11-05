@@ -1,0 +1,758 @@
+/* ===================================================================
+   GrocerEase Super Admin Dashboard Styles
+   =================================================================== */
+
+.grocer-dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Dashboard Topbar Row */
+.dashboard-topbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.page-heading {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+
+.page-subheading {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+.dashboard-action-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-select-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.action-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.action-pill-btn.primary {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+}
+
+.action-pill-btn.primary:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.action-pill-btn.refresh {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.action-pill-btn.refresh:hover {
+  background: #dbeafe;
+}
+
+.spin {
+  animation: spinAnim 1s linear infinite;
+}
+
+@keyframes spinAnim {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dashboard-alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 12px 18px;
+  border-radius: 10px;
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dashboard-alert-banner button {
+  margin-left: auto;
+  background: #b91c1c;
+  color: #ffffff;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* ===================================================================
+   4 Stat Cards (Matching Behance GrocerEase Mockup)
+   =================================================================== */
+.grocer-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.grocer-stat-card {
+  background: #ffffff;
+  border: 1px solid #e8edf5;
+  border-radius: 16px;
+  padding: 22px 20px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.grocer-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.stat-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+.stat-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon-wrapper.blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.stat-icon-wrapper.green {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.stat-icon-wrapper.red {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.stat-icon-wrapper.yellow {
+  background: #fefce8;
+  color: #eab308;
+}
+
+.stat-main-value h2 {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 10px;
+  letter-spacing: -0.5px;
+}
+
+.stat-trend-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stat-trend-footer.positive {
+  color: #10b981;
+}
+
+.stat-trend-footer.negative {
+  color: #eab308;
+}
+
+.stat-trend-footer.alert {
+  color: #ef4444;
+}
+
+/* ===================================================================
+   Middle Split Grid (Table + Donut Chart)
+   =================================================================== */
+.grocer-middle-grid {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 22px;
+}
+
+.dashboard-content-card {
+  background: #ffffff;
+  border: 1px solid #e8edf5;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+}
+
+.card-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title-icon-badge.blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.title-icon-badge.yellow {
+  background: #fefce8;
+  color: #ca8a04;
+}
+
+.card-title-group h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.card-subtitle-text {
+  font-size: 12px;
+  color: #64748b;
+  margin: 4px 0 0;
+}
+
+.card-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inline-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  width: 170px;
+}
+
+.inline-search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12px;
+  color: #334155;
+  width: 100%;
+}
+
+.inline-search-box svg {
+  color: #94a3b8;
+}
+
+.see-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.see-all-btn:hover {
+  text-decoration: underline;
+}
+
+.chart-filter-tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+/* ===================================================================
+   Table Styling
+   =================================================================== */
+.overview-table-container {
+  overflow-x: auto;
+  flex: 1;
+}
+
+.grocer-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 600px;
+}
+
+.grocer-table th {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.grocer-table th:first-child {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+.grocer-table th:last-child {
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.grocer-table td {
+  padding: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.grocer-table tr:hover td {
+  background: #fafbfd;
+}
+
+.product-identity-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.product-thumb-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 3px;
+}
+
+.product-thumb-placeholder {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.product-text-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.product-title-text {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 13.5px;
+}
+
+.product-category-text {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.stock-number-cell strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.threshold-cell {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.price-cell {
+  font-weight: 700;
+  color: #1e3a8a;
+  font-size: 14px;
+}
+
+.barcode-tag {
+  display: inline-block;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.order-number-tag {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.payment-method-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.date-cell {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.status-badge.in-stock {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-badge.below-threshold {
+  background: #fefce8;
+  color: #a16207;
+}
+
+.status-badge.stock-low {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.status-badge.reorder {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ===================================================================
+   Donut Chart Container & Legend
+   =================================================================== */
+.donut-chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.distribution-legend {
+  width: 100%;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.legend-label-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-name {
+  color: #334155;
+  font-weight: 600;
+}
+
+.legend-percentage {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.empty-state-box {
+  padding: 30px;
+  text-align: center;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ===================================================================
+   Live Customer Cart Activity Styles
+   =================================================================== */
+.live-cart-card {
+  border-left: 4px solid #8b5cf6;
+}
+
+.title-icon-badge.purple {
+  background: #f3e8ff;
+  color: #8b5cf6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-dot-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulseGreen 1.6s infinite;
+}
+
+@keyframes pulseGreen {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.live-shopper-counter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.live-indicator-tag {
+  background: #ecfdf5;
+  color: #059669;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.shopper-count-tag {
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+.cart-activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.cart-activity-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  transition: all 0.2s;
+  gap: 14px;
+}
+
+.cart-activity-pill:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+.activity-icon-badge {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.activity-details {
+  flex: 1;
+}
+
+.activity-main-line {
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.activity-main-line strong {
+  color: #0f172a;
+}
+
+.action-tag {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin: 0 4px;
+}
+
+.action-tag.add {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.action-tag.update {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.action-tag.clear {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.product-highlight {
+  font-weight: 700;
+  color: #4338ca;
+}
+
+.activity-sub-line {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.activity-time-tag {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+/* ===================================================================
+   Responsive Adjustments
+   =================================================================== */
+@media (max-width: 1200px) {
+  .grocer-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grocer-middle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .grocer-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-topbar-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dashboard-action-group {
+    width: 100%;
+  }
+
+  .dashboard-action-group button,
+  .dashboard-action-group .filter-select-pill {
+    flex: 1;
+  }
+}

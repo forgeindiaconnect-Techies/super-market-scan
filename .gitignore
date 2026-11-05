@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*/**/.env
+*/**/.env.*
+!*/**/.env.example
+
+# Large binaries & tools
+mongosh.exe
+mongosh_crypt_v1.dll
+*.exe
+*.dll
+.sbom.json
+LICENSE-crypt-library
+LICENSE-mongosh
+README
+THIRD_PARTY_NOTICES
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+web-build/
+*/dist/
+*/build/
+
+# Expo
+.expo/
+*/.expo/
+expo-env.d.ts
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
