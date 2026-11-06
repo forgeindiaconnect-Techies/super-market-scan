@@ -42,6 +42,7 @@ type CartContextType = {
   totalAmount: number;
   recentOrders: OrderRecord[];
   addRecentOrder: (order: OrderRecord) => void;
+  updateRecentOrder: (order: OrderRecord) => void;
 };
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -220,6 +221,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setRecentOrders((prev) => [order, ...prev.slice(0, 19)]);
   };
 
+  const updateRecentOrder = (updated: OrderRecord) => {
+    setRecentOrders((prev) => {
+      const idx = prev.findIndex((o) => o._id === updated._id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...updated };
+        return next;
+      }
+      return [updated, ...prev];
+    });
+  };
+
   const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const grossAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalAmount = cart.reduce(
@@ -242,6 +255,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         totalAmount,
         recentOrders,
         addRecentOrder,
+        updateRecentOrder,
       }}
     >
       {children}

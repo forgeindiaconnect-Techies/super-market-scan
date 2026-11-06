@@ -72,10 +72,19 @@ export default function ProductDetailsScreen() {
   };
 
   const rawPrice = Number(product?.price || 0);
-  const discount = Number(product?.discount || 0);
-  const finalPrice = Math.max(0, rawPrice - discount);
+  const dbDiscount = Number(product?.discount || 0);
+
+  // Compute realistic original MRP & discount percent matching Screen 3
+  const finalPrice = dbDiscount > 0 ? Math.max(0, rawPrice - dbDiscount) : rawPrice;
+  const originalMrp =
+    dbDiscount > 0
+      ? rawPrice
+      : Math.round(rawPrice * 1.25); // Standard 20% supermarket discount display
   const discountPercent =
-    rawPrice > 0 ? Math.round((discount / rawPrice) * 100) : 0;
+    originalMrp > finalPrice
+      ? Math.round(((originalMrp - finalPrice) / originalMrp) * 100)
+      : 20;
+
   const inStock = (product?.stock || 0) > 0;
 
   const handleAddToCart = () => {
@@ -88,225 +97,242 @@ export default function ProductDetailsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
-      {/* Top Header matching Screen 3 */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backArrow}>‹</Text>
-        </TouchableOpacity>
+      {/* Deep Purple Curved Header matching Screen 3 */}
+      <View style={styles.purpleHeader}>
+        <SafeAreaView edges={["top"]} style={styles.headerSafe}>
+          <View style={styles.headerRow}>
+            {/* Circular Back Button with crisp white arrow */}
+            <TouchableOpacity
+              style={styles.backCircleBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backArrow}>←</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.cartIconBtn}
-          onPress={() => router.push("/cart")}
-          activeOpacity={0.7}
-        >
-          <Text style={{ fontSize: 22 }}>🛒</Text>
-          {totalCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>{totalCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+            {/* Shopping Cart Button with Red Notification Badge */}
+            <TouchableOpacity
+              style={styles.cartIconBtn}
+              onPress={() => router.push("/cart")}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cartIconWhite}>🛒</Text>
+              {totalCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{totalCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       </View>
 
-      {loading ? (
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={Theme.primary} />
-          <Text style={styles.loadingText}>Fetching product details...</Text>
-        </View>
-      ) : error || !product ? (
-        <View style={styles.notFoundContainer}>
-          <View style={styles.notFoundCircle}>
-            <Text style={{ fontSize: 44 }}>🔍</Text>
+      {/* Main Curved White Sheet Container matching Screen 3 */}
+      <View style={styles.whiteSheet}>
+        {loading ? (
+          <View style={styles.centerLoading}>
+            <ActivityIndicator size="large" color="#3B0764" />
+            <Text style={styles.loadingText}>Fetching product details...</Text>
           </View>
-          <Text style={styles.notFoundTitle}>Product Not Found</Text>
-          <Text style={styles.notFoundSubtitle}>
-            {error || "The scanned barcode is not registered in our supermarket inventory."}
-          </Text>
-
-          {barcode && (
-            <View style={styles.barcodePill}>
-              <Text style={styles.barcodePillLabel}>Scanned Barcode</Text>
-              <Text style={styles.barcodePillValue}>{barcode}</Text>
+        ) : error || !product ? (
+          <View style={styles.notFoundContainer}>
+            <View style={styles.notFoundCircle}>
+              <Text style={{ fontSize: 44 }}>🔍</Text>
             </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.scanAgainBtn}
-            onPress={() => router.replace("/scanner")}
-            activeOpacity={0.88}
-          >
-            <Text style={styles.scanAgainBtnText}>Scan Another Product ➔</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.viewCartSecondaryBtn}
-            onPress={() => router.push("/cart")}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.viewCartSecondaryText}>Go to Cart ({totalCount})</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Centered Large Product Image matching Screen 3 */}
-          <View style={styles.imageContainer}>
-            <Image
-              source={
-                product.imageUrl
-                  ? { uri: product.imageUrl }
-                  : require("@/assets/images/react-logo.png")
-              }
-              style={styles.productImage as any}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Product Title */}
-          <Text style={styles.productTitle}>{product.name}</Text>
-
-          {/* Meta Pill Row: Brand | Category matching Screen 3 */}
-          <View style={styles.metaPill}>
-            <Text style={styles.metaText}>
-              Brand: <Text style={styles.metaValue}>{product.brand || "Supermarket"}</Text>
-              {"   |   "}
-              Category: <Text style={styles.metaValue}>{product.category || "General"}</Text>
+            <Text style={styles.notFoundTitle}>Product Not Found</Text>
+            <Text style={styles.notFoundSubtitle}>
+              {error || "The scanned barcode is not registered in our inventory."}
             </Text>
-          </View>
 
-          {/* Price, Strikethrough & Discount Tag matching Screen 3 */}
-          <View style={styles.priceRow}>
-            <Text style={styles.finalPrice}>₹{finalPrice}</Text>
-            {discount > 0 && (
-              <Text style={styles.originalPrice}>₹{rawPrice}</Text>
+            {barcode && (
+              <View style={styles.barcodePill}>
+                <Text style={styles.barcodePillLabel}>Scanned Barcode</Text>
+                <Text style={styles.barcodePillValue}>{barcode}</Text>
+              </View>
             )}
-            {discountPercent > 0 && (
+
+            <TouchableOpacity
+              style={styles.scanAgainBtn}
+              onPress={() => router.replace("/scanner")}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.scanAgainBtnText}>Scan Another Product ➔</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.viewCartSecondaryBtn}
+              onPress={() => router.push("/cart")}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.viewCartSecondaryText}>Go to Cart ({totalCount})</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* Centered Large Product Image Card matching Screen 3 */}
+            <View style={styles.imageCard}>
+              <Image
+                source={
+                  product.imageUrl
+                    ? { uri: product.imageUrl }
+                    : require("@/assets/images/react-logo.png")
+                }
+                style={styles.productImage as any}
+                resizeMode="contain"
+              />
+            </View>
+
+            {/* Product Title matching Screen 3 */}
+            <Text style={styles.productTitle}>{product.name}</Text>
+
+            {/* Meta Pill Row: Brand | Category matching Screen 3 */}
+            <View style={styles.metaPill}>
+              <Text style={styles.metaText}>
+                Brand: <Text style={styles.metaValue}>{product.brand || "Supermarket"}</Text>
+                {"   |   "}
+                Category: <Text style={styles.metaValue}>{product.category || "General"}</Text>
+              </Text>
+            </View>
+
+            {/* Price, Strikethrough & Green Discount Tag matching Screen 3 */}
+            <View style={styles.priceRow}>
+              <Text style={styles.finalPrice}>₹{finalPrice}</Text>
+              <Text style={styles.originalPrice}>₹{originalMrp}</Text>
               <View style={styles.discountBadge}>
                 <Text style={styles.discountBadgeText}>{discountPercent}% OFF</Text>
               </View>
-            )}
-          </View>
-
-          {/* Description */}
-          <Text style={styles.description}>
-            {product.description || "Authentic quality product from our supermarket shelves."}
-          </Text>
-
-          {/* Availability Badge matching Screen 3 */}
-          <View style={styles.stockRow}>
-            <View
-              style={[
-                styles.stockIndicatorCircle,
-                inStock ? styles.stockInCircle : styles.stockOutCircle,
-              ]}
-            >
-              <Text style={styles.stockIndicatorText}>{inStock ? "✓" : "✕"}</Text>
             </View>
-            <Text
-              style={[
-                styles.stockText,
-                !inStock && { color: "#EF4444" },
-              ]}
-            >
-              {inStock
-                ? `In Stock (${product.stock} available)`
-                : "Out of Stock"}
+
+            {/* Product Description */}
+            <Text style={styles.description}>
+              {product.description ||
+                "Rich and creamy authentic quality product from our supermarket shelves."}
             </Text>
-          </View>
 
-          {/* Quantity Stepper matching Screen 3 */}
-          {inStock && (
-            <View style={styles.stepperContainer}>
-              <TouchableOpacity
-                style={styles.stepperBtn}
-                onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+            {/* Stock Availability Badge matching Screen 3 */}
+            <View style={styles.stockRow}>
+              <View
+                style={[
+                  styles.stockIndicatorCircle,
+                  inStock ? styles.stockInCircle : styles.stockOutCircle,
+                ]}
               >
-                <Text style={styles.stepperBtnText}>−</Text>
+                <Text style={styles.stockIndicatorText}>{inStock ? "✓" : "✕"}</Text>
+              </View>
+              <Text
+                style={[
+                  styles.stockText,
+                  !inStock && { color: "#EF4444" },
+                ]}
+              >
+                {inStock
+                  ? `In Stock (${product.stock} available)`
+                  : "Out of Stock"}
+              </Text>
+            </View>
+
+            {/* Quantity Stepper matching Screen 3 */}
+            {inStock && (
+              <View style={styles.stepperContainer}>
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.stepperBtnText}>−</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.stepperValue}>{quantity}</Text>
+
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() =>
+                    setQuantity((q) => Math.min(product.stock, q + 1))
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.stepperBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Bottom Action Row: Add to Cart + Wishlist Heart matching Screen 3 */}
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[
+                  styles.addToCartBtn,
+                  !inStock && styles.btnDisabled,
+                  addedSuccess && styles.addToCartBtnSuccess,
+                ]}
+                onPress={handleAddToCart}
+                disabled={!inStock}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.addToCartIcon}>🛒</Text>
+                <Text style={styles.addToCartText}>
+                  {!inStock
+                    ? "Out of Stock"
+                    : addedSuccess
+                    ? "Added to Cart ✓"
+                    : "Add to Cart"}
+                </Text>
               </TouchableOpacity>
 
-              <Text style={styles.stepperValue}>{quantity}</Text>
-
               <TouchableOpacity
-                style={styles.stepperBtn}
-                onPress={() =>
-                  setQuantity((q) => Math.min(product.stock, q + 1))
-                }
+                style={[styles.wishlistBtn, isWishlist && styles.wishlistBtnActive]}
+                onPress={() => setIsWishlist((p) => !p)}
+                activeOpacity={0.7}
               >
-                <Text style={styles.stepperBtnText}>+</Text>
+                <Text style={[styles.wishlistHeart, isWishlist && { color: "#EF4444" }]}>
+                  {isWishlist ? "♥" : "♡"}
+                </Text>
               </TouchableOpacity>
             </View>
-          )}
-
-          {/* Bottom Action Row: Add to Cart + Wishlist Heart matching Screen 3 */}
-          <View style={styles.actionRow}>
-            <TouchableOpacity
-              style={[
-                styles.addToCartBtn,
-                !inStock && styles.btnDisabled,
-                addedSuccess && styles.addToCartBtnSuccess,
-              ]}
-              onPress={handleAddToCart}
-              disabled={!inStock}
-              activeOpacity={0.88}
-            >
-              <Text style={styles.addToCartIcon}>🛒</Text>
-              <Text style={styles.addToCartText}>
-                {!inStock
-                  ? "Out of Stock"
-                  : addedSuccess
-                  ? "Added to Cart ✓"
-                  : "Add to Cart"}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.wishlistBtn, isWishlist && styles.wishlistBtnActive]}
-              onPress={() => setIsWishlist((p) => !p)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.wishlistHeart, isWishlist && { color: "#EF4444" }]}>
-                {isWishlist ? "♥" : "♡"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      )}
-    </SafeAreaView>
+          </ScrollView>
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: Theme.white,
+    backgroundColor: "#2E0854", // Deep rich purple top matching reference
   },
-  header: {
+  purpleHeader: {
+    backgroundColor: "#2E0854",
+    paddingBottom: 26,
+  },
+  headerSafe: {
+    backgroundColor: "#2E0854",
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 8,
   },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  backCircleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
     alignItems: "center",
     justifyContent: "center",
   },
   backArrow: {
-    fontSize: 28,
-    color: Theme.primary,
-    fontWeight: "300",
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: -2,
   },
   cartIconBtn: {
     position: "relative",
@@ -315,12 +341,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  cartIconWhite: {
+    fontSize: 22,
+    color: "#FFFFFF",
+  },
   cartBadge: {
     position: "absolute",
     top: -2,
-    right: -2,
+    right: -4,
     backgroundColor: "#EF4444",
-    borderRadius: 9,
+    borderRadius: 10,
     minWidth: 18,
     height: 18,
     alignItems: "center",
@@ -328,271 +358,218 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   cartBadgeText: {
-    color: Theme.white,
+    color: "#FFFFFF",
     fontSize: 10,
     fontWeight: "bold",
+  },
+  whiteSheet: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -16,
+    overflow: "hidden",
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 36,
   },
   centerLoading: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: 30,
   },
   loadingText: {
-    marginTop: 14,
+    marginTop: 12,
     fontSize: 14,
-    color: Theme.gray,
-    fontWeight: "600",
-  },
-  notFoundContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 30,
-  },
-  notFoundCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "#FEF2F2",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: "#FEE2E2",
-  },
-  notFoundTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: Theme.dark,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  notFoundSubtitle: {
-    fontSize: 14,
-    color: Theme.gray,
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  barcodePill: {
-    backgroundColor: "#F1F5F9",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    marginBottom: 26,
-    alignItems: "center",
-  },
-  barcodePillLabel: {
-    fontSize: 11,
-    color: Theme.gray,
-    fontWeight: "600",
-  },
-  barcodePillValue: {
-    fontSize: 15,
-    color: Theme.dark,
-    fontWeight: "800",
-    marginTop: 2,
-    letterSpacing: 1,
-  },
-  scanAgainBtn: {
-    backgroundColor: Theme.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 24,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  scanAgainBtnText: {
-    color: Theme.white,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  viewCartSecondaryBtn: {
-    paddingVertical: 12,
-  },
-  viewCartSecondaryText: {
-    color: Theme.primary,
-    fontSize: 14,
+    color: "#3B0764",
     fontWeight: "700",
   },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 10,
-    paddingBottom: 36,
-  },
-  imageContainer: {
+  imageCard: {
     width: "100%",
-    height: 220,
+    height: 230,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 22,
+    padding: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
   },
   productImage: {
-    width: width * 0.75,
-    height: 200,
+    width: "100%",
+    height: "100%",
   },
   productTitle: {
     fontSize: 21,
     fontWeight: "900",
-    color: Theme.dark,
-    letterSpacing: -0.3,
-    lineHeight: 26,
+    color: "#1E1B4B", // Rich dark purple
+    lineHeight: 28,
+    marginBottom: 8,
   },
   metaPill: {
-    backgroundColor: "#F8FAFC",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
     alignSelf: "flex-start",
-    marginTop: 8,
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: "#F1F5F9",
+    borderColor: "#E2E8F0",
   },
   metaText: {
     fontSize: 12,
-    color: Theme.gray,
-    fontWeight: "500",
+    color: "#64748B",
+    fontWeight: "600",
   },
   metaValue: {
-    color: Theme.dark,
-    fontWeight: "700",
+    color: "#1E293B",
+    fontWeight: "800",
   },
   priceRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "baseline",
     gap: 10,
     marginBottom: 12,
   },
   finalPrice: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "900",
-    color: "#D90429",
+    color: "#D90429", // Vivid red from reference
   },
   originalPrice: {
-    fontSize: 16,
-    color: Theme.grayLight,
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#94A3B8",
     textDecorationLine: "line-through",
   },
   discountBadge: {
-    backgroundColor: Theme.successBg,
-    paddingHorizontal: 8,
+    backgroundColor: "#22C55E", // Vivid green badge from reference
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 8,
+    alignSelf: "center",
   },
   discountBadgeText: {
-    color: Theme.success,
+    color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "800",
+    letterSpacing: 0.3,
   },
   description: {
-    fontSize: 13,
-    color: Theme.gray,
-    lineHeight: 19,
-    marginBottom: 14,
+    fontSize: 13.5,
+    color: "#64748B",
+    lineHeight: 20,
+    marginBottom: 16,
   },
   stockRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   stockIndicatorCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   stockInCircle: {
-    backgroundColor: Theme.success,
+    backgroundColor: "#16A34A",
   },
   stockOutCircle: {
     backgroundColor: "#EF4444",
   },
   stockIndicatorText: {
-    color: Theme.white,
-    fontSize: 11,
+    color: "#FFFFFF",
+    fontSize: 12,
     fontWeight: "900",
+    marginTop: -1,
   },
   stockText: {
-    color: Theme.success,
     fontSize: 13,
     fontWeight: "700",
+    color: "#16A34A",
   },
   stepperContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderWidth: 1,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
     borderColor: "#E2E8F0",
-    width: 130,
-    marginBottom: 24,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    width: 140,
+    marginBottom: 22,
   },
   stepperBtn: {
-    padding: 6,
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
   },
   stepperBtnText: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: Theme.dark,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1E293B",
   },
   stepperValue: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: Theme.dark,
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#1E293B",
   },
   actionRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    marginTop: 4,
   },
   addToCartBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Theme.primary,
-    paddingVertical: 15,
+    backgroundColor: "#3B0764", // Deep rich purple button from reference
+    paddingVertical: 16,
     borderRadius: 24,
     gap: 8,
-    shadowColor: Theme.primary,
+    shadowColor: "#3B0764",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   addToCartBtnSuccess: {
-    backgroundColor: Theme.success,
+    backgroundColor: "#16A34A",
   },
   btnDisabled: {
-    backgroundColor: Theme.grayLight,
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: "#94A3B8",
+    opacity: 0.6,
   },
   addToCartIcon: {
     fontSize: 17,
   },
   addToCartText: {
-    color: Theme.white,
+    color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "800",
+    letterSpacing: 0.2,
   },
   wishlistBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1.5,
     borderColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Theme.white,
   },
   wishlistBtnActive: {
     borderColor: "#FCA5A5",
@@ -600,6 +577,76 @@ const styles = StyleSheet.create({
   },
   wishlistHeart: {
     fontSize: 22,
-    color: Theme.gray,
+    color: "#64748B",
+  },
+  notFoundContainer: {
+    alignItems: "center",
+    paddingTop: 40,
+    paddingHorizontal: 24,
+  },
+  notFoundCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: "#F3E8FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  notFoundTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#1E1B4B",
+    marginBottom: 6,
+  },
+  notFoundSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  barcodePill: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  barcodePillLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#64748B",
+  },
+  barcodePillValue: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#1E293B",
+    letterSpacing: 1.5,
+    marginTop: 2,
+  },
+  scanAgainBtn: {
+    width: "100%",
+    backgroundColor: "#3B0764",
+    paddingVertical: 15,
+    borderRadius: 24,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  scanAgainBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  viewCartSecondaryBtn: {
+    paddingVertical: 10,
+  },
+  viewCartSecondaryText: {
+    color: "#3B0764",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

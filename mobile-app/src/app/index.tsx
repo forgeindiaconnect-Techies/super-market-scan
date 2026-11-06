@@ -21,20 +21,21 @@ export default function WelcomeHomeScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Radiant ambient glow curves matching Screen 1 */}
-      <View style={styles.ambientGlowTop} />
-      <View style={styles.ambientGlowCenter} />
-      <View style={styles.ambientGlowBottom} />
+      {/* Elegant atmospheric background gradients matching Screen 1 */}
+      <View style={styles.radialAuraTop} />
+      <View style={styles.radialAuraRight} />
+      <View style={styles.ambientBottomShade} />
 
       <SafeAreaView style={styles.content}>
         {/* Top Branding Section matching Screen 1 */}
         <View style={styles.brandSection}>
-          {/* Golden Cart Outline with Sprout Leaf */}
+          {/* Golden Vector Cart with Sprout Leaf */}
           <View style={styles.cartIconWrapper}>
-            <View style={styles.sproutBadge}>
-              <Text style={styles.sproutEmoji}>🍃</Text>
-            </View>
-            <Text style={styles.cartSymbol}>🛒</Text>
+            <Image
+              source={require("@/assets/images/gold-cart-logo.png")}
+              style={styles.cartLogoImage}
+              resizeMode="contain"
+            />
           </View>
 
           <Text style={styles.titlePrimary}>Smart</Text>
@@ -42,7 +43,7 @@ export default function WelcomeHomeScreen() {
           <Text style={styles.tagline}>Scan • Shop • Pay</Text>
         </View>
 
-        {/* Centerpiece Hero Grocery Bag matching Screen 1 */}
+        {/* Centerpiece Hero Grocery Bag with Vegetables & Gold Ribbon */}
         <View style={styles.heroSection}>
           <View style={styles.heroImageContainer}>
             <Image
@@ -78,71 +79,61 @@ const styles = StyleSheet.create({
     backgroundColor: "#2E0854", // Deep rich purple from reference
     position: "relative",
   },
-  ambientGlowTop: {
+  radialAuraTop: {
     position: "absolute",
-    top: -90,
-    left: -40,
-    right: -40,
-    height: 340,
-    borderRadius: 200,
+    top: -100,
+    left: -60,
+    right: -60,
+    height: 380,
+    borderRadius: 220,
     backgroundColor: "#5B16A6",
     opacity: 0.55,
   },
-  ambientGlowCenter: {
+  radialAuraRight: {
     position: "absolute",
-    top: height * 0.38,
-    left: 20,
-    right: 20,
-    height: 220,
-    borderRadius: 110,
+    top: height * 0.28,
+    right: -80,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
     backgroundColor: "#7C22DE",
-    opacity: 0.22,
+    opacity: 0.25,
   },
-  ambientGlowBottom: {
+  ambientBottomShade: {
     position: "absolute",
-    bottom: -60,
+    bottom: 0,
     left: 0,
     right: 0,
-    height: 200,
+    height: 160,
     backgroundColor: "#1F0438",
   },
   content: {
     flex: 1,
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 28,
-    paddingTop: 16,
-    paddingBottom: 28,
+    paddingHorizontal: 26,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
   brandSection: {
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 6,
   },
   cartIconWrapper: {
-    position: "relative",
-    width: 72,
-    height: 72,
+    width: 82,
+    height: 82,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  sproutBadge: {
-    position: "absolute",
-    top: 2,
-    right: 8,
-    zIndex: 2,
-  },
-  sproutEmoji: {
-    fontSize: 18,
-  },
-  cartSymbol: {
-    fontSize: 52,
-    color: "#F6BC45",
+  cartLogoImage: {
+    width: 80,
+    height: 80,
   },
   titlePrimary: {
     fontSize: 32,
     fontWeight: "900",
-    color: Theme.white,
+    color: "#FFFFFF",
     letterSpacing: -0.5,
     lineHeight: 36,
     textAlign: "center",
@@ -150,28 +141,28 @@ const styles = StyleSheet.create({
   titleSecondary: {
     fontSize: 32,
     fontWeight: "900",
-    color: Theme.white,
+    color: "#F6BC45", // Metallic golden champagne matching reference
     letterSpacing: -0.5,
     lineHeight: 36,
     textAlign: "center",
   },
   tagline: {
     fontSize: 14,
-    color: "#E2CEFE",
-    fontWeight: "600",
+    color: "#FDE68A",
+    fontWeight: "700",
     marginTop: 6,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   heroSection: {
     flex: 1,
     width: "100%",
     justifyContent: "center",
     alignItems: "center",
-    marginVertical: 10,
+    marginVertical: 4,
   },
   heroImageContainer: {
-    width: width * 0.88,
-    height: height * 0.42,
+    width: width * 0.92,
+    height: height * 0.44,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -182,7 +173,7 @@ const styles = StyleSheet.create({
   bottomSection: {
     width: "100%",
     alignItems: "center",
-    gap: 14,
+    gap: 12,
   },
   getStartedButton: {
     width: "100%",
@@ -193,7 +184,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     shadowColor: "#F6BC45",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.45,
     shadowRadius: 14,
     elevation: 8,
   },

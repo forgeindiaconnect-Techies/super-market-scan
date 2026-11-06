@@ -372,8 +372,17 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
+    const { id } = req.params;
+    let query = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query = { _id: id, isActive: true };
+    } else {
+      const candidates = getBarcodeVariants(id);
+      query = { barcode: { $in: candidates }, isActive: true };
+    }
+
     const product = await Product.findOneAndUpdate(
-      { _id: req.params.id, isActive: true },
+      query,
       { $set: updates },
       { new: true, runValidators: true }
     );
@@ -418,8 +427,17 @@ exports.updateProductStock = async (req, res) => {
       });
     }
 
+    const { id } = req.params;
+    let query = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query = { _id: id, isActive: true };
+    } else {
+      const candidates = getBarcodeVariants(id);
+      query = { barcode: { $in: candidates }, isActive: true };
+    }
+
     const product = await Product.findOneAndUpdate(
-      { _id: req.params.id, isActive: true },
+      query,
       { $set: { stock } },
       { new: true, runValidators: true }
     );
@@ -448,8 +466,17 @@ exports.updateProductStock = async (req, res) => {
 // Soft-delete a product (preserves its database record)
 exports.deleteProduct = async (req, res) => {
   try {
+    const { id } = req.params;
+    let query = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query = { _id: id, isActive: true };
+    } else {
+      const candidates = getBarcodeVariants(id);
+      query = { barcode: { $in: candidates }, isActive: true };
+    }
+
     const product = await Product.findOneAndUpdate(
-      { _id: req.params.id, isActive: true },
+      query,
       { $set: { isActive: false } },
       { new: true }
     );

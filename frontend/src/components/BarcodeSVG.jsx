@@ -3,39 +3,62 @@ import JsBarcode from "jsbarcode";
 
 export default function BarcodeSVG({
   value,
-  height = 55,
+  barcode,
+  width = 1.8,
+  height = 50,
   showText = true,
+  displayValue,
+  format = "CODE128",
   className = "",
   style = {},
 }) {
   const svgRef = useRef(null);
+  const codeValue = String(barcode || value || "").trim();
+  const shouldShowText = displayValue !== undefined ? displayValue : showText;
 
   useEffect(() => {
-    if (!value || !svgRef.current) return;
+    if (!codeValue || !svgRef.current) return;
 
     try {
-      JsBarcode(svgRef.current, String(value).trim(), {
-        format: "CODE128",
-        width: 2,
+      JsBarcode(svgRef.current, codeValue, {
+        format: format || "CODE128",
+        width,
         height,
-        displayValue: showText,
-        fontSize: 12,
-        margin: 10,
+        displayValue: shouldShowText,
+        fontSize: 11,
+        font: "monospace",
+        fontOptions: "bold",
+        margin: 6,
         background: "#ffffff",
-        lineColor: "#111827",
+        lineColor: "#0f172a",
       });
-    } catch (error) {
-      console.error("Barcode generation failed:", error);
+    } catch (err) {
+      // Fallback to standard CODE128 if specific format failed
+      try {
+        JsBarcode(svgRef.current, codeValue, {
+          format: "CODE128",
+          width,
+          height,
+          displayValue: shouldShowText,
+          fontSize: 11,
+          font: "monospace",
+          margin: 6,
+          background: "#ffffff",
+          lineColor: "#0f172a",
+        });
+      } catch (fallbackErr) {
+        console.warn("Barcode rendering fallback:", fallbackErr.message);
+      }
     }
-  }, [value, height, showText]);
+  }, [codeValue, width, height, shouldShowText, format]);
 
-  if (!value) return null;
+  if (!codeValue) return null;
 
   return (
     <svg
       ref={svgRef}
       className={className}
-      style={style}
+      style={{ display: "block", margin: "0 auto", maxWidth: "100%", ...style }}
     />
   );
 }

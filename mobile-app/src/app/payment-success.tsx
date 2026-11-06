@@ -1,19 +1,22 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
   ScrollView,
+  Image,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Share,
+  Dimensions,
+  Animated,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCart, OrderRecord } from "../context/CartContext";
-import { Theme } from "../constants/colors";
 import { API_URL, safeFetch } from "../constants/api";
+import { generateAndShareReceipt } from "../utils/receiptGenerator";
+
+const { width } = Dimensions.get("window");
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();
@@ -21,79 +24,122 @@ export default function PaymentSuccessScreen() {
     orderId?: string;
     method?: string;
   }>();
-  const { recentOrders } = useCart();
+  const { recentOrders, updateRecentOrder } = useCart();
 
   const [order, setOrder] = useState<OrderRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+
+  // Pulse animation for live sync status
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.35,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  // Initial load & Real-time Live Polling every 2.0s
+  useEffect(() => {
+    let isMounted = true;
+
+    // 1. Initial hydrate from recentOrders cache if available
     if (orderId && recentOrders.length > 0) {
       const match = recentOrders.find((o) => o._id === orderId);
       if (match) {
         setOrder(match);
-        setLoading(false);
+      }
+    } else if (!orderId && recentOrders.length > 0) {
+      setOrder(recentOrders[0]);
+    }
+
+    // 2. Fetch live status from backend
+    const fetchLiveStatus = async () => {
+      const targetId = orderId || (recentOrders.length > 0 ? recentOrders[0]._id : null);
+      if (!targetId || !API_URL) {
+        if (isMounted) setLoading(false);
         return;
       }
-    }
 
-    if (!orderId && recentOrders.length > 0) {
-      setOrder(recentOrders[0]);
-      setLoading(false);
-      return;
-    }
+      try {
+        const res = await safeFetch(`${API_URL}/orders/${targetId}`, {}, 4000);
+        const data = await res.json();
+        if (isMounted && data?.success && data?.order) {
+          setOrder(data.order);
+          updateRecentOrder(data.order);
+        }
+      } catch (_) {
+        // silent fail during polling
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
 
-    if (orderId && API_URL) {
-      safeFetch(`${API_URL}/orders/${orderId}`, {}, 5000)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.order) {
-            setOrder(data.order);
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
-  }, [orderId, recentOrders]);
+    // First fetch
+    fetchLiveStatus();
 
-  const isCashAtExit =
-    method === "Cash" ||
-    order?.paymentMethod === "Cash" ||
-    order?.paymentStatus === "Pending";
+    // Polling interval: poll every 2 seconds
+    const interval = setInterval(() => {
+      fetchLiveStatus();
+    }, 2000);
 
-  const handleDownloadShare = async () => {
-    try {
-      await Share.share({
-        message: `Smart Supermarket Digital Receipt\nOrder: ${
-          order?.orderNumber || "#SSM20250430"
-        }\nTotal Amount: ₹${order?.totalAmount || 280}\nPayment: ${
-          isCashAtExit ? "Pending - Cash at Exit" : `Paid via ${order?.paymentMethod || "UPI"}`
-        }\nExit Gate Code: ${order?.exitBarcode || "EXIT-9281-4401"}`,
-      });
-    } catch (_) {}
-  };
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [orderId]);
+
+  const currentStatus = order?.paymentStatus || (method === "Cash" ? "Pending" : "Pending");
+
+  const isPending = currentStatus === "Pending";
+  const isApproved = currentStatus === "Approved";
+  const isCompleted = currentStatus === "Completed";
 
   const orderNum = order?.orderNumber || "#SSM20250430";
   const amount = order?.totalAmount || 280;
-  const payMethod = order?.paymentMethod || (isCashAtExit ? "Cash" : "UPI");
+  const payMethod = order?.paymentMethod || method || "UPI";
+  const exitBarcode = order?.exitBarcode || "EXIT-" + Date.now().toString().slice(-8);
+
+  const handleDownloadReceipt = async () => {
+    if (!order) return;
+    setDownloading(true);
+    try {
+      await generateAndShareReceipt(order);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <View style={styles.safeArea}>
       <StatusBar style="light" />
 
-      {/* Top purple ambient header curve matching Screen 7 */}
+      {/* Top Purple Arch Background matching Screen 7 reference */}
       <View style={styles.topPurpleBackdrop} />
 
-      {/* Confetti particles background for successful payments */}
-      {!isCashAtExit && (
-        <View style={styles.confettiTop}>
-          <Text style={[styles.confettiParticle, { top: 22, left: 24, color: "#FBBF24" }]}>✦</Text>
-          <Text style={[styles.confettiParticle, { top: 40, left: 70, color: "#34D399" }]}>■</Text>
-          <Text style={[styles.confettiParticle, { top: 26, left: 140, color: "#F472B6" }]}>▲</Text>
-          <Text style={[styles.confettiParticle, { top: 50, right: 130, color: "#FBBF24" }]}>●</Text>
-          <Text style={[styles.confettiParticle, { top: 20, right: 70, color: "#60A5FA" }]}>✦</Text>
-          <Text style={[styles.confettiParticle, { top: 44, right: 28, color: "#FB7185" }]}>■</Text>
+      {/* Festive Falling Party Confetti when Payment is Completed */}
+      {isCompleted && (
+        <View style={styles.confettiContainer} pointerEvents="none">
+          <Text style={[styles.confettiParticle, { top: 16, left: 28, color: "#FBBF24" }]}>✦</Text>
+          <Text style={[styles.confettiParticle, { top: 32, left: 65, color: "#34D399" }]}>■</Text>
+          <Text style={[styles.confettiParticle, { top: 18, left: 130, color: "#F472B6" }]}>▲</Text>
+          <Text style={[styles.confettiParticle, { top: 44, left: 175, color: "#FBBF24" }]}>●</Text>
+          <Text style={[styles.confettiParticle, { top: 14, right: 120, color: "#60A5FA" }]}>✦</Text>
+          <Text style={[styles.confettiParticle, { top: 38, right: 75, color: "#FB7185" }]}>■</Text>
+          <Text style={[styles.confettiParticle, { top: 22, right: 28, color: "#A78BFA" }]}>▲</Text>
+          <Text style={[styles.confettiParticle, { top: 60, left: 45, color: "#F59E0B" }]}>●</Text>
+          <Text style={[styles.confettiParticle, { top: 68, right: 55, color: "#10B981" }]}>✦</Text>
         </View>
       )}
 
@@ -101,34 +147,118 @@ export default function PaymentSuccessScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {isCashAtExit ? (
-          /* Cash at Exit Confirmation View */
+        {isPending ? (
+          /* ========================================================================= */
+          /* STAGE 1: PAYMENT PENDING (Awaiting Admin Approval / Cash at Exit)          */
+          /* Matching user attached screenshot media_1793870169070_915dcb14.jpg        */
+          /* ========================================================================= */
           <View style={styles.centerAlignBox}>
-            <View style={styles.cashIconCircle}>
+            <View style={styles.pendingIconCircle}>
               <Text style={{ fontSize: 36 }}>💵</Text>
             </View>
 
             <Text style={styles.headingTitle}>Order Registered</Text>
+
             <View style={styles.pendingBadge}>
               <Text style={styles.pendingBadgeText}>
-                Payment Pending – Cash at Exit
+                {payMethod === "Cash"
+                  ? "Payment Pending – Cash at Exit"
+                  : "Payment Pending – Awaiting Admin Approval"}
               </Text>
             </View>
 
-            {/* Instruction Card */}
+            {/* Turnstile Exit Procedure Card */}
             <View style={styles.cashInstructionCard}>
               <Text style={styles.cashInstructionHeader}>Turnstile Exit Procedure:</Text>
               <Text style={styles.cashInstructionBody}>
                 1. Please take your selected items to Exit Turnstile 1–4.{"\n"}
-                2. Show your Exit Barcode below to the cashier.{"\n"}
-                3. Pay cash amount: ₹{amount}. Once cashier confirms, your exit gate will open automatically!
+                2. Show your Exit Barcode below to the store cashier or terminal.{"\n"}
+                3. Total Amount: ₹{amount}. Once cashier approves payment, your exit gate will open automatically!
               </Text>
 
               <View style={styles.exitBarcodeBox}>
                 <Text style={styles.exitBarcodeLabel}>EXIT GATE PASS BARCODE</Text>
-                <Text style={styles.exitBarcodeCode}>
-                  {order?.exitBarcode || "EXIT-" + Date.now().toString().slice(-8)}
+                <Text style={styles.exitBarcodeCode}>{exitBarcode}</Text>
+              </View>
+            </View>
+
+            {/* Order Card with live sync status */}
+            <View style={styles.orderCard}>
+              <Text style={styles.orderNumberLabel}>Order {orderNum}</Text>
+              <Text style={styles.orderAmountText}>₹{amount}</Text>
+
+              <View style={styles.liveSyncRow}>
+                <Animated.View
+                  style={[styles.liveDot, { opacity: pulseAnim, backgroundColor: "#D97706" }]}
+                />
+                <Text style={[styles.paymentMethodText, { color: "#D97706" }]}>
+                  Status: Payment Pending ({payMethod})
                 </Text>
+              </View>
+
+              <Text style={styles.waitingNoteText}>
+                ⚡ Real-time Sync Active: Waiting for Super Admin approval in dashboard...
+              </Text>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.buttonGroup}>
+              <TouchableOpacity
+                style={styles.downloadReceiptBtn}
+                onPress={handleDownloadReceipt}
+                disabled={downloading}
+                activeOpacity={0.8}
+              >
+                {downloading ? (
+                  <ActivityIndicator size="small" color="#2E0854" />
+                ) : (
+                  <>
+                    <Text style={styles.downloadIcon}>⤓</Text>
+                    <Text style={styles.downloadReceiptText}>Download Receipt</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.continueShoppingBtn}
+                onPress={() => router.replace("/orders")}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.continueShoppingText}>View in My Orders →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : isApproved ? (
+          /* ========================================================================= */
+          /* STAGE 2: PAYMENT APPROVED (Super Admin Approved, Final Verification)      */
+          /* ========================================================================= */
+          <View style={styles.centerAlignBox}>
+            <View style={styles.approvedIconCircle}>
+              <Text style={{ fontSize: 36 }}>🛡️</Text>
+            </View>
+
+            <Text style={[styles.headingTitle, { color: "#4F46E5" }]}>
+              Payment Approved!
+            </Text>
+
+            <View style={styles.approvedBadge}>
+              <Text style={styles.approvedBadgeText}>
+                ✓ Payment Approved by Super Admin
+              </Text>
+            </View>
+
+            {/* Approval Notice Card */}
+            <View style={[styles.cashInstructionCard, { borderColor: "#C7D2FE", backgroundColor: "#EEF2FF" }]}>
+              <Text style={[styles.cashInstructionHeader, { color: "#3730A3" }]}>
+                Turnstile Gate Unlocked:
+              </Text>
+              <Text style={[styles.cashInstructionBody, { color: "#312E81" }]}>
+                Super Admin has verified and approved your {payMethod} payment. You can now scan your pass at the turnstile gate.
+              </Text>
+
+              <View style={[styles.exitBarcodeBox, { backgroundColor: "#FFFFFF", borderColor: "#A5B4FC" }]}>
+                <Text style={[styles.exitBarcodeLabel, { color: "#4F46E5" }]}>EXIT GATE PASS BARCODE</Text>
+                <Text style={[styles.exitBarcodeCode, { color: "#312E81" }]}>{exitBarcode}</Text>
               </View>
             </View>
 
@@ -136,8 +266,18 @@ export default function PaymentSuccessScreen() {
             <View style={styles.orderCard}>
               <Text style={styles.orderNumberLabel}>Order {orderNum}</Text>
               <Text style={styles.orderAmountText}>₹{amount}</Text>
-              <Text style={[styles.paymentMethodText, { color: "#D97706" }]}>
-                Status: Payment Pending (Cash)
+
+              <View style={styles.liveSyncRow}>
+                <Animated.View
+                  style={[styles.liveDot, { opacity: pulseAnim, backgroundColor: "#4F46E5" }]}
+                />
+                <Text style={[styles.paymentMethodText, { color: "#4F46E5" }]}>
+                  Status: Payment Approved ({payMethod})
+                </Text>
+              </View>
+
+              <Text style={[styles.waitingNoteText, { color: "#4F46E5" }]}>
+                ⚡ Payment Approved! Ready for exit turnstile clearance.
               </Text>
             </View>
 
@@ -145,11 +285,18 @@ export default function PaymentSuccessScreen() {
             <View style={styles.buttonGroup}>
               <TouchableOpacity
                 style={styles.downloadReceiptBtn}
-                onPress={handleDownloadShare}
+                onPress={handleDownloadReceipt}
+                disabled={downloading}
                 activeOpacity={0.8}
               >
-                <Text style={styles.downloadIcon}>📋</Text>
-                <Text style={styles.downloadReceiptText}>Share Order Slip</Text>
+                {downloading ? (
+                  <ActivityIndicator size="small" color="#2E0854" />
+                ) : (
+                  <>
+                    <Text style={styles.downloadIcon}>⤓</Text>
+                    <Text style={styles.downloadReceiptText}>Download Receipt</Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -157,77 +304,69 @@ export default function PaymentSuccessScreen() {
                 onPress={() => router.replace("/orders")}
                 activeOpacity={0.88}
               >
-                <Text style={styles.continueShoppingText}>
-                  View in My Orders ➔
-                </Text>
+                <Text style={styles.continueShoppingText}>View in My Orders →</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : (
-          /* Payment Successful View matching Screen 7 */
+          /* ========================================================================= */
+          /* STAGE 3: PAYMENT COMPLETED (Success State matching Screen 7 reference)     */
+          /* ========================================================================= */
           <View style={styles.centerAlignBox}>
-            {/* Large Green Checkmark Circle */}
+            {/* Bright Green Circular Checkmark with Halo Glow */}
             <View style={styles.checkmarkOuterCircle}>
               <View style={styles.checkmarkCircle}>
                 <Text style={styles.checkmarkIcon}>✔</Text>
               </View>
             </View>
 
-            {/* Headings */}
+            {/* Headings matching Screen 7 */}
             <Text style={styles.headingTitle}>Payment Successful!</Text>
             <Text style={styles.headingSubtitle}>
               Your order has been placed successfully
             </Text>
 
-            {/* Order Details Card */}
+            {/* Order Details Card matching Screen 7 */}
             <View style={styles.orderCard}>
               <Text style={styles.orderNumberLabel}>Order {orderNum}</Text>
               <Text style={styles.orderAmountText}>₹{amount}</Text>
               <Text style={styles.paymentMethodText}>Paid via {payMethod}</Text>
             </View>
 
-            {/* Action Buttons */}
+            {/* Action Buttons matching Screen 7 */}
             <View style={styles.buttonGroup}>
               <TouchableOpacity
                 style={styles.downloadReceiptBtn}
-                onPress={handleDownloadShare}
+                onPress={handleDownloadReceipt}
+                disabled={downloading}
                 activeOpacity={0.8}
               >
-                <Text style={styles.downloadIcon}>📥</Text>
-                <Text style={styles.downloadReceiptText}>Download Receipt</Text>
+                {downloading ? (
+                  <ActivityIndicator size="small" color="#2E0854" />
+                ) : (
+                  <>
+                    <Text style={styles.downloadIcon}>⤓</Text>
+                    <Text style={styles.downloadReceiptText}>Download Receipt</Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.continueShoppingBtn}
-                onPress={() => router.replace("/orders")}
+                onPress={() => router.replace("/")}
                 activeOpacity={0.88}
               >
-                <Text style={styles.continueShoppingText}>
-                  Continue Shopping ➔
-                </Text>
+                <Text style={styles.continueShoppingText}>Continue Shopping →</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Cute Smiling Yellow Grocery Bag Mascot matching Screen 7 */}
+            {/* Cute Smiling Yellow Paper Bag Mascot matching Screen 7 */}
             <View style={styles.mascotContainer}>
-              <View style={styles.mascotBag}>
-                {/* Mascot Bag Handles */}
-                <View style={styles.mascotHandle} />
-                {/* Cute Face: Eyes & Happy Smile */}
-                <View style={styles.mascotFace}>
-                  <View style={styles.mascotEyesRow}>
-                    <View style={styles.mascotEye} />
-                    <View style={styles.mascotEye} />
-                  </View>
-                  <View style={styles.mascotSmile} />
-                </View>
-              </View>
-              {/* Leaves/Grass underneath */}
-              <View style={styles.grassCluster}>
-                <Text style={{ fontSize: 24 }}>🌿</Text>
-                <Text style={{ fontSize: 26, marginHorizontal: -4 }}>🌱</Text>
-                <Text style={{ fontSize: 22 }}>🍃</Text>
-              </View>
+              <Image
+                source={require("@/assets/images/mascot-success.png")}
+                style={styles.mascotImage}
+                resizeMode="contain"
+              />
             </View>
           </View>
         )}
@@ -239,42 +378,43 @@ export default function PaymentSuccessScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Theme.white,
+    backgroundColor: "#FFFFFF",
     position: "relative",
   },
   topPurpleBackdrop: {
     position: "absolute",
-    top: 0,
-    left: -30,
-    right: -30,
-    height: 180,
-    backgroundColor: "#3B0764",
-    borderBottomLeftRadius: 220,
-    borderBottomRightRadius: 220,
+    top: -40,
+    left: -40,
+    right: -40,
+    height: 220,
+    backgroundColor: "#2E0854", // Deep rich purple top matching reference
+    borderBottomLeftRadius: 260,
+    borderBottomRightRadius: 260,
   },
-  confettiTop: {
+  confettiContainer: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 140,
+    height: 150,
     zIndex: 2,
   },
   confettiParticle: {
     position: "absolute",
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: "900",
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 54,
-    paddingBottom: 40,
+    paddingTop: 58,
+    paddingBottom: 24,
     alignItems: "center",
   },
   centerAlignBox: {
     width: "100%",
     alignItems: "center",
   },
-  cashIconCircle: {
+  pendingIconCircle: {
     width: 80,
     height: 80,
     borderRadius: 40,
@@ -282,8 +422,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "#FDE68A",
+  },
+  approvedIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: "#C7D2FE",
   },
   pendingBadge: {
     backgroundColor: "#FEF3C7",
@@ -298,219 +449,203 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     fontSize: 13,
   },
+  approvedBadge: {
+    backgroundColor: "#EEF2FF",
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginTop: 6,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  approvedBadgeText: {
+    color: "#4F46E5",
+    fontWeight: "800",
+    fontSize: 13,
+  },
   cashInstructionCard: {
     width: "100%",
     backgroundColor: "#F8FAFC",
     borderWidth: 1.5,
     borderColor: "#E2E8F0",
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   cashInstructionHeader: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: Theme.dark,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1E293B",
     marginBottom: 6,
   },
   cashInstructionBody: {
-    fontSize: 12,
-    color: Theme.gray,
-    lineHeight: 18,
+    fontSize: 13,
+    color: "#475569",
+    lineHeight: 20,
+    marginBottom: 12,
   },
   exitBarcodeBox: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: "#FAF5FF",
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E9D5FF",
+    borderColor: "#CBD5E1",
+    paddingVertical: 12,
     alignItems: "center",
   },
   exitBarcodeLabel: {
     fontSize: 10,
-    fontWeight: "800",
-    color: Theme.primary,
+    fontWeight: "700",
     letterSpacing: 1,
+    color: "#64748B",
+    marginBottom: 4,
   },
   exitBarcodeCode: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "900",
-    color: Theme.dark,
-    marginTop: 4,
     letterSpacing: 2,
+    color: "#1E293B",
   },
   checkmarkOuterCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: "#FFFFFF",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(16, 185, 129, 0.16)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 18,
-    shadowColor: "#000",
+    marginBottom: 16,
+  },
+  checkmarkCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#10B981",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#10B981",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 8,
   },
-  checkmarkCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#16A34A",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#16A34A",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
-  },
   checkmarkIcon: {
-    color: Theme.white,
-    fontSize: 34,
+    color: "#FFFFFF",
+    fontSize: 42,
     fontWeight: "900",
+    lineHeight: 46,
   },
   headingTitle: {
     fontSize: 24,
-    fontWeight: "900",
-    color: "#16A34A", // Green heading matching Screen 7
-    marginBottom: 4,
+    fontWeight: "800",
+    color: "#10B981",
     textAlign: "center",
+    marginBottom: 6,
   },
   headingSubtitle: {
-    fontSize: 13,
-    color: Theme.gray,
-    marginBottom: 20,
+    fontSize: 14,
+    color: "#475569",
     textAlign: "center",
+    marginBottom: 20,
   },
   orderCard: {
     width: "100%",
-    backgroundColor: "#FAF5FF",
-    borderRadius: 20,
-    paddingVertical: 18,
+    backgroundColor: "#F3E8FF",
+    borderRadius: 18,
+    paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#E9D5FF",
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#E9D5FF",
   },
   orderNumberLabel: {
     fontSize: 13,
     fontWeight: "700",
-    color: Theme.gray,
+    color: "#3B0764",
     marginBottom: 4,
   },
   orderAmountText: {
     fontSize: 32,
     fontWeight: "900",
-    color: "#166534",
+    color: "#15803D",
     marginBottom: 4,
   },
   paymentMethodText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
-    color: Theme.gray,
+    color: "#475569",
+  },
+  liveSyncRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  waitingNoteText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#B45309",
+    marginTop: 6,
+    textAlign: "center",
   },
   buttonGroup: {
     width: "100%",
     gap: 12,
+    marginBottom: 20,
   },
   downloadReceiptBtn: {
-    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    width: "100%",
     paddingVertical: 14,
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: "#E2E8F0",
-    backgroundColor: Theme.white,
-    gap: 8,
+    borderColor: "#2E0854",
   },
   downloadIcon: {
-    fontSize: 16,
-  },
-  downloadReceiptText: {
-    color: Theme.dark,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  continueShoppingBtn: {
-    width: "100%",
-    backgroundColor: Theme.primary,
-    paddingVertical: 15,
-    borderRadius: 24,
-    alignItems: "center",
-    shadowColor: Theme.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  continueShoppingText: {
-    color: Theme.white,
-    fontSize: 14,
+    fontSize: 18,
+    color: "#2E0854",
+    marginRight: 8,
     fontWeight: "800",
   },
-  mascotContainer: {
-    alignItems: "center",
-    marginTop: 28,
+  downloadReceiptText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#2E0854",
   },
-  mascotBag: {
-    width: 86,
-    height: 74,
-    backgroundColor: "#FBBF24",
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+  continueShoppingBtn: {
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
-    shadowColor: "#F59E0B",
+    width: "100%",
+    paddingVertical: 14,
+    backgroundColor: "#2E0854",
+    borderRadius: 24,
+    shadowColor: "#2E0854",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 6,
     elevation: 4,
   },
-  mascotHandle: {
-    position: "absolute",
-    top: -14,
-    width: 36,
-    height: 22,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderWidth: 4,
-    borderColor: "#D97706",
-    backgroundColor: "transparent",
+  continueShoppingText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
-  mascotFace: {
+  mascotContainer: {
+    width: "100%",
     alignItems: "center",
     marginTop: 4,
+    marginBottom: 10,
   },
-  mascotEyesRow: {
-    flexDirection: "row",
-    gap: 14,
-    marginBottom: 6,
-  },
-  mascotEye: {
-    width: 6,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#1F2937",
-  },
-  mascotSmile: {
-    width: 18,
-    height: 9,
-    borderBottomLeftRadius: 9,
-    borderBottomRightRadius: 9,
-    backgroundColor: "#1F2937",
-  },
-  grassCluster: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: -8,
+  mascotImage: {
+    width: width * 0.72,
+    height: 170,
   },
 });

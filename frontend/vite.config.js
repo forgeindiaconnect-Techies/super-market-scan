@@ -4,4 +4,11 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    fs: {
+      strict: false,
+      allow: ['..', 'C:/Users/Forgeindiaconnect/.gemini'],
+    },
+  },
 })
+

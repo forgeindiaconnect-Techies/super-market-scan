@@ -314,3 +314,12 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 600px) {
+  .form-input-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-column-card {
+    padding: 18px 14px;
+  }
+}

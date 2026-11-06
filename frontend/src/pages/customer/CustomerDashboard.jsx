@@ -189,6 +189,55 @@ export default function CustomerDashboard() {
       .includes(search.toLowerCase())
   );
 
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [customerName, setCustomerName] = useState("Aarav Sharma");
+  const [customerPhone, setCustomerPhone] = useState("+91 98765 43210");
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [completedOrder, setCompletedOrder] = useState(null);
+
+  const handleCheckout = async (e) => {
+    e.preventDefault();
+    if (cart.length === 0) return;
+
+    setPlacingOrder(true);
+    setError("");
+
+    try {
+      const itemsPayload = cart.map((item) => ({
+        productId: item._id,
+        quantity: item.quantity,
+        price: item.price,
+        name: item.name,
+        barcode: item.barcode,
+        category: item.category,
+      }));
+
+      const res = await API.post("/orders/checkout", {
+        items: itemsPayload,
+        paymentMethod,
+        customer: {
+          name: customerName.trim() || "Guest Shopper",
+          phone: customerPhone.trim() || "+91 98765 00000",
+          email: `${(customerName || "guest").toLowerCase().replace(/\s+/g, "")}@customer.com`,
+        },
+      });
+
+      if (res.data?.success && res.data.order) {
+        setCompletedOrder(res.data.order);
+        setCart([]);
+        setCheckoutOpen(false);
+      } else {
+        setError(res.data?.message || "Checkout failed. Please try again.");
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      setError(err.response?.data?.message || "Failed to process checkout.");
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
   return (
     <div className="customer-dashboard">
       <section className="customer-hero">
@@ -349,12 +398,258 @@ export default function CustomerDashboard() {
           ))
         )}
 
-        <h2 style={{ textAlign: "right", marginTop: 20 }}>
-          Total: ₹{total.toLocaleString("en-IN")}
-        </h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
+          <h2 style={{ margin: 0 }}>Total: ₹{total.toLocaleString("en-IN")}</h2>
+          <button
+            className="primary-button"
+            disabled={cart.length === 0}
+            onClick={() => setCheckoutOpen(true)}
+            style={{
+              background: "#16a34a",
+              color: "#ffffff",
+              padding: "10px 24px",
+              borderRadius: "10px",
+              fontWeight: "700",
+              cursor: "pointer",
+            }}
+          >
+            Proceed to Checkout →
+          </button>
+        </div>
 
         {loading && <LoaderCircle className="spin" />}
       </section>
+
+      {/* Checkout Modal */}
+      {checkoutOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              padding: 24,
+              maxWidth: 440,
+              width: "100%",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Complete Checkout</h3>
+              <button
+                type="button"
+                onClick={() => setCheckoutOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCheckout} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
+                Full Name
+                <input
+                  type="text"
+                  required
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    marginTop: 4,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </label>
+
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
+                Phone Number
+                <input
+                  type="text"
+                  required
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    marginTop: 4,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </label>
+
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
+                Payment Method
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    marginTop: 4,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <option value="UPI">UPI (PhonePe, GPay, Paytm)</option>
+                  <option value="Cash">Cash at Supermarket Exit</option>
+                  <option value="Card">Debit / Credit Card</option>
+                </select>
+              </label>
+
+              <div
+                style={{
+                  background: "#f8fafc",
+                  padding: 12,
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: "#475569",
+                  display: "flex",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span>Items: {itemCount}</span>
+                <strong>Grand Total: ₹{total.toLocaleString("en-IN")}</strong>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setCheckoutOpen(false)}
+                  style={{
+                    flex: 1,
+                    padding: "10px 16px",
+                    borderRadius: 8,
+                    border: "1px solid #e2e8f0",
+                    background: "#f1f5f9",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={placingOrder}
+                  style={{
+                    flex: 2,
+                    padding: "10px 16px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: "#2563eb",
+                    color: "#ffffff",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  {placingOrder ? "Processing..." : `Pay ₹${total.toLocaleString("en-IN")}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Completed Order Success Modal */}
+      {completedOrder && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              padding: 24,
+              maxWidth: 440,
+              width: "100%",
+              textAlign: "center",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+            }}
+          >
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: "50%",
+                background: "#dcfce7",
+                color: "#16a34a",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 12px",
+                fontSize: 26,
+              }}
+            >
+              ✓
+            </div>
+            <h3 style={{ margin: "0 0 6px 0", fontSize: 20, fontWeight: 800 }}>Order Placed Successfully!</h3>
+            <p style={{ margin: "0 0 14px 0", color: "#64748b", fontSize: 13 }}>
+              Order #{completedOrder.orderNumber} is registered in the supermarket system.
+            </p>
+
+            <div
+              style={{
+                background: "#f8fafc",
+                border: "1px dashed #cbd5e1",
+                borderRadius: 10,
+                padding: 14,
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Gate Pass Exit Barcode:</div>
+              <strong style={{ fontSize: 16, letterSpacing: 2, color: "#0f172a" }}>
+                {completedOrder.exitBarcode}
+              </strong>
+              <div style={{ marginTop: 8, fontSize: 12, color: "#2563eb", fontWeight: 700 }}>
+                Status: {completedOrder.paymentStatus} ({completedOrder.paymentMethod})
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCompletedOrder(null)}
+              style={{
+                width: "100%",
+                padding: "10px 16px",
+                borderRadius: 8,
+                border: "none",
+                background: "#2563eb",
+                color: "#ffffff",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Continue Shopping
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

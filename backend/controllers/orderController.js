@@ -1,6 +1,54 @@
+const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const CartActivity = require("../models/CartActivity");
+
+// Helper function to safely deduct order inventory once
+async function deductOrderInventory(order) {
+  if (order.inventoryDeducted) return;
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      const currentOrder = await Order.findById(order._id).session(session);
+
+      if (!currentOrder) {
+        throw new Error("Order not found.");
+      }
+
+      if (currentOrder.inventoryDeducted) {
+        return;
+      }
+
+      for (const item of currentOrder.items) {
+        const result = await Product.updateOne(
+          {
+            _id: item.product,
+            stock: { $gte: item.quantity },
+          },
+          {
+            $inc: { stock: -item.quantity },
+          },
+          { session }
+        );
+
+        if (result.matchedCount !== 1) {
+          throw new Error(
+            `Insufficient stock or product unavailable: ${item.name}`
+          );
+        }
+      }
+
+      currentOrder.inventoryDeducted = true;
+      await currentOrder.save({ session });
+    });
+
+    order.inventoryDeducted = true;
+  } finally {
+    await session.endSession();
+  }
+}
 
 // Checkout and place order
 exports.checkout = async (req, res) => {
@@ -73,19 +121,13 @@ exports.checkout = async (req, res) => {
     const totalAmount = Math.max(0, grossSubtotal - discountAmount + taxAmount);
     const totalItems = verifiedItems.reduce((acc, curr) => acc + curr.quantity, 0);
 
-    // 3. Atomically deduct stock from inventory ONLY for completed online payments (UPI, Card)
-    // For "Cash" (Cash at Exit), inventory is NOT deducted until cashier confirms receipt at exit.
+    // 3. Set initial payment status:
+    // Flow: 1. Customer places order (Pending) -> 2. Super Admin approves (Approved) -> 3. Payment completed & verified (Completed)
     const isCashPayment = paymentMethod === "Cash";
-    const paymentStatus = isCashPayment ? "Pending" : "Completed";
 
-    if (!isCashPayment) {
-      for (const item of verifiedItems) {
-        await Product.updateOne(
-          { _id: item.product },
-          { $inc: { stock: -item.quantity } }
-        );
-      }
-    }
+    // Customer checkout must always start as Pending.
+    const paymentStatus = "Pending";
+    const inventoryDeducted = false;
 
     // 4. Generate unique Order number and Exit Receipt Barcode
     const timestampStr = Date.now().toString().slice(-6);
@@ -94,7 +136,7 @@ exports.checkout = async (req, res) => {
     const exitBarcode = `EXIT-${Date.now().toString().slice(-8)}`;
     const paymentId = isCashPayment
       ? `PENDING-CASH-${Date.now().toString().slice(-6)}`
-      : `${paymentMethod.toUpperCase()}-${Date.now().toString().slice(-6)}`;
+      : `PENDING-${paymentMethod.toUpperCase()}-${Date.now().toString().slice(-6)}`;
 
     const order = await Order.create({
       orderNumber,
@@ -113,6 +155,7 @@ exports.checkout = async (req, res) => {
         email: customer?.email || "",
       },
       exitBarcode,
+      inventoryDeducted,
     });
 
     // 5. Log Cart completed
@@ -133,7 +176,7 @@ exports.checkout = async (req, res) => {
       success: true,
       message: isCashPayment
         ? "Order registered. Please pay cash at the exit counter."
-        : "Order placed successfully! Inventory updated.",
+        : "Order placed successfully! Awaiting payment verification.",
       order,
     });
   } catch (error) {
@@ -259,6 +302,174 @@ exports.getOrderById = async (req, res) => {
   }
 };
 
+// Super Admin approves customer payment (Status: Approved)
+exports.approvePayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findOne({
+      $or: [
+        { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null },
+        { orderNumber: id },
+        { exitBarcode: id },
+      ],
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.paymentStatus !== "Pending") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot approve this order because its status is ${order.paymentStatus}.`,
+      });
+    }
+
+    order.paymentStatus = "Approved";
+    order.approvedAt = new Date();
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Order #${order.orderNumber} payment approved by Super Admin.`,
+      order,
+    });
+  } catch (error) {
+    console.error("Approve payment error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to approve payment",
+      error: error.message,
+    });
+  }
+};
+
+// Super Admin / System completes customer payment and verifies transaction (Status: Completed)
+exports.completePayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findOne({
+      $or: [
+        { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null },
+        { orderNumber: id },
+        { exitBarcode: id },
+      ],
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.paymentStatus !== "Approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Payment must be approved before completion.",
+      });
+    }
+
+    // Atomically deduct stock from inventory if not done already
+    await deductOrderInventory(order);
+
+    order.paymentStatus = "Completed";
+    order.completedAt = new Date();
+    if (!order.paymentId || order.paymentId.startsWith("PENDING")) {
+      order.paymentId = `${order.paymentMethod.toUpperCase()}-${Date.now().toString().slice(-6)}`;
+    }
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Order #${order.orderNumber} marked as Completed & stock verified.`,
+      order,
+    });
+  } catch (error) {
+    console.error("Complete payment error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to complete payment",
+      error: error.message,
+    });
+  }
+};
+
+// Update order payment status dynamically
+exports.updatePaymentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { paymentStatus } = req.body;
+
+    if (!["Pending", "Approved", "Completed", "Failed"].includes(paymentStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment status. Must be Pending, Approved, Completed, or Failed.",
+      });
+    }
+
+    const order = await Order.findOne({
+      $or: [
+        { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null },
+        { orderNumber: id },
+        { exitBarcode: id },
+      ],
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (paymentStatus === "Completed" && order.paymentStatus !== "Approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Payment must be approved before completion.",
+      });
+    }
+
+    if (paymentStatus === "Completed" && order.paymentMethod === "Cash") {
+      return res.status(400).json({
+        success: false,
+        message: "Cash orders must use the cash confirmation workflow.",
+      });
+    }
+
+    if (paymentStatus === "Completed") {
+      await deductOrderInventory(order);
+      order.completedAt = new Date();
+      if (!order.paymentId || order.paymentId.startsWith("PENDING")) {
+        order.paymentId = `${order.paymentMethod.toUpperCase()}-${Date.now().toString().slice(-6)}`;
+      }
+    } else if (paymentStatus === "Approved") {
+      order.approvedAt = new Date();
+    }
+
+    order.paymentStatus = paymentStatus;
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Order #${order.orderNumber} status changed to ${paymentStatus}.`,
+      order,
+    });
+  } catch (error) {
+    console.error("Update payment status error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update payment status",
+      error: error.message,
+    });
+  }
+};
+
 // Confirm cash payment by supermarket cashier/staff & atomically deduct inventory
 exports.confirmCashPayment = async (req, res) => {
   try {
@@ -279,23 +490,25 @@ exports.confirmCashPayment = async (req, res) => {
       });
     }
 
-    if (order.paymentStatus === "Completed") {
+    if (order.paymentMethod !== "Cash") {
       return res.status(400).json({
         success: false,
-        message: "Order payment has already been completed.",
-        order,
+        message: "This order is not a cash payment.",
+      });
+    }
+
+    if (order.paymentStatus !== "Approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Order must be approved before cash confirmation.",
       });
     }
 
     // Atomically deduct stock from inventory now that cash is collected
-    for (const item of order.items) {
-      await Product.updateOne(
-        { _id: item.product },
-        { $inc: { stock: -item.quantity } }
-      );
-    }
+    await deductOrderInventory(order);
 
     order.paymentStatus = "Completed";
+    order.completedAt = new Date();
     order.paymentId = `CASH-${Date.now().toString().slice(-6)}`;
     await order.save();
 
@@ -321,6 +534,8 @@ exports.getAdminStats = async (req, res) => {
     const allOrders = await Order.find().sort({ createdAt: -1 });
 
     const completedOrders = allOrders.filter((o) => o.paymentStatus === "Completed");
+    const approvedOrders = allOrders.filter((o) => o.paymentStatus === "Approved");
+    const pendingOrders = allOrders.filter((o) => o.paymentStatus === "Pending");
     const pendingCashOrders = allOrders.filter(
       (o) => o.paymentMethod === "Cash" && o.paymentStatus === "Pending"
     );
@@ -403,6 +618,134 @@ exports.getAdminStats = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to generate dashboard statistics",
+      error: error.message,
+    });
+  }
+};
+
+// Reports Management - Uses only existing MongoDB records
+exports.getReports = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+
+    const startDate = from ? new Date(from) : null;
+    const endDate = to ? new Date(to) : null;
+
+    if (
+      (from && Number.isNaN(startDate.getTime())) ||
+      (to && Number.isNaN(endDate.getTime()))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid report date range.",
+      });
+    }
+
+    if (endDate) {
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    const allOrders = await Order.find().sort({ createdAt: -1 }).lean();
+    const products = await Product.find().sort({ createdAt: -1 }).lean();
+
+    const filteredOrders = allOrders.filter((order) => {
+      const reportDate = new Date(
+        order.paymentStatus === "Completed"
+          ? order.completedAt || order.createdAt
+          : order.createdAt
+      );
+
+      if (Number.isNaN(reportDate.getTime())) return false;
+      if (startDate && reportDate < startDate) return false;
+      if (endDate && reportDate > endDate) return false;
+
+      return true;
+    });
+
+    const completedOrders = filteredOrders.filter(
+      (order) => order.paymentStatus === "Completed"
+    );
+
+    const totalSales = completedOrders.reduce(
+      (sum, order) => sum + Number(order.totalAmount || 0),
+      0
+    );
+
+    const productsSold = completedOrders.reduce(
+      (sum, order) =>
+        sum +
+        (order.items || []).reduce(
+          (itemSum, item) => itemSum + Number(item.quantity || 0),
+          0
+        ),
+      0
+    );
+
+    const customerKeys = new Set();
+
+    filteredOrders.forEach((order) => {
+      const customer = order.customer || {};
+      const key = customer.phone || customer.email || customer.name;
+
+      if (key) customerKeys.add(String(key).trim().toLowerCase());
+    });
+
+    const lowStockProducts = products.filter(
+      (product) =>
+        Number(product.stock) > 0 &&
+        Number(product.stock) <= Number(product.lowStockThreshold ?? 5)
+    );
+
+    const outOfStockProducts = products.filter(
+      (product) => Number(product.stock) <= 0
+    );
+
+    const paymentMethods = {};
+
+    completedOrders.forEach((order) => {
+      const method = order.paymentMethod || "Unknown";
+
+      if (!paymentMethods[method]) {
+        paymentMethods[method] = { orders: 0, sales: 0 };
+      }
+
+      paymentMethods[method].orders += 1;
+      paymentMethods[method].sales += Number(order.totalAmount || 0);
+    });
+
+    return res.status(200).json({
+      success: true,
+      summary: {
+        totalSales,
+        totalOrders: filteredOrders.length,
+        completedOrders: completedOrders.length,
+        pendingOrders: filteredOrders.filter(
+          (order) => order.paymentStatus === "Pending"
+        ).length,
+        approvedOrders: filteredOrders.filter(
+          (order) => order.paymentStatus === "Approved"
+        ).length,
+        failedOrders: filteredOrders.filter(
+          (order) => order.paymentStatus === "Failed"
+        ).length,
+        productsSold,
+        totalCustomers: customerKeys.size,
+        lowStockCount: lowStockProducts.length,
+        outOfStockCount: outOfStockProducts.length,
+      },
+      paymentMethods,
+      orders: filteredOrders,
+      completedOrders,
+      products,
+      lowStockProducts,
+      outOfStockProducts,
+    });
+  } catch (error) {
+    console.error("Reports API Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to generate reports.",
       error: error.message,
     });
   }

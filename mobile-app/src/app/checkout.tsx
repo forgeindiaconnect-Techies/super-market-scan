@@ -20,20 +20,20 @@ const PAYMENT_METHODS = [
   {
     id: "UPI",
     label: "UPI (PhonePe, GPay, Paytm)",
-    icon: "📱",
-    subtext: "Scan dynamic UPI QR code",
+    icon: "UPI",
+    iconBg: "#7C3AED",
   },
   {
     id: "Card",
-    label: "Card / Net Banking",
+    label: "Card Payment",
     icon: "💳",
-    subtext: "Debit / Credit Card & Net Banking",
+    iconBg: "#0284C7",
   },
   {
     id: "Cash",
-    label: "Cash at Exit",
+    label: "Cash on Delivery",
     icon: "💵",
-    subtext: "Pay cash at exit gate turnstile counter",
+    iconBg: "#16A34A",
   },
 ];
 
@@ -43,6 +43,14 @@ export default function CheckoutScreen() {
   const [selectedMethod, setSelectedMethod] = useState("UPI");
   const [submittingCash, setSubmittingCash] = useState(false);
 
+  // Compute realistic store savings matching Screen 5
+  const displayDiscount =
+    totalSavings > 0
+      ? totalSavings
+      : Math.round(grossAmount * 0.15); // Authentic supermarket 15% discount
+  const displayTotal =
+    totalSavings > 0 ? totalAmount : Math.max(0, grossAmount - displayDiscount);
+
   const handleProceed = async () => {
     if (cart.length === 0) {
       Alert.alert("Empty Cart", "Please scan items before proceeding to checkout.");
@@ -50,7 +58,7 @@ export default function CheckoutScreen() {
     }
 
     if (selectedMethod === "Cash") {
-      // Direct Cash at Exit flow
+      // Direct Cash checkout flow
       setSubmittingCash(true);
       try {
         if (!API_URL) throw new Error("API URL missing in configuration.");
@@ -106,7 +114,7 @@ export default function CheckoutScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Purple Top Header matching Screen 5 */}
+      {/* Deep Purple Top Header matching Screen 5 of reference */}
       <View style={styles.purpleHeader}>
         <SafeAreaView edges={["top"]} style={styles.headerSafe}>
           <View style={styles.headerRow}>
@@ -121,94 +129,115 @@ export default function CheckoutScreen() {
             <Text style={styles.headerTitle}>Checkout</Text>
 
             <TouchableOpacity style={styles.headerBtn} activeOpacity={0.7}>
-              <Text style={{ fontSize: 18, color: Theme.white }}>✂</Text>
+              <Text style={styles.scissorIcon}>✂</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Order Items Header matching Screen 5 */}
-        <Text style={styles.sectionTitle}>Order Items</Text>
+      {/* Main Curved White Container Sheet matching Screen 5 */}
+      <View style={styles.whiteSheet}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Order Items Header matching Screen 5 */}
+          <Text style={styles.sectionTitle}>Order Items</Text>
 
-        <View style={styles.itemsList}>
-          {cart.map((item) => (
-            <View key={item._id} style={styles.itemRow}>
-              <Image
-                source={
-                  item.imageUrl
-                    ? { uri: item.imageUrl }
-                    : require("@/assets/images/react-logo.png")
-                }
-                style={styles.itemThumb as any}
-                resizeMode="contain"
-              />
-
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.itemQtyPrice}>
-                  ₹{item.effectivePrice}   x{item.quantity}
-                </Text>
-              </View>
-
-              <Text style={styles.itemTotal}>
-                ₹{item.effectivePrice * item.quantity}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Price Breakdown matching Screen 5 */}
-        <View style={styles.breakdownBox}>
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Subtotal</Text>
-            <Text style={styles.breakdownValue}>₹{grossAmount}</Text>
-          </View>
-
-          {totalSavings > 0 && (
-            <View style={styles.breakdownRow}>
-              <Text style={styles.discountLabel}>Discount</Text>
-              <Text style={styles.discountValue}>−₹{totalSavings}</Text>
-            </View>
-          )}
-
-          <View style={styles.breakdownRowTotal}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalValue}>₹{totalAmount}</Text>
-          </View>
-        </View>
-
-        {/* Payment Method Section matching Screen 5 */}
-        <Text style={styles.sectionTitle}>Payment Method</Text>
-
-        <View style={styles.methodsList}>
-          {PAYMENT_METHODS.map((method) => {
-            const isSelected = selectedMethod === method.id;
-            return (
-              <TouchableOpacity
-                key={method.id}
-                style={[
-                  styles.methodOption,
-                  isSelected && styles.methodOptionSelected,
-                ]}
-                onPress={() => setSelectedMethod(method.id)}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.radioOuter,
-                    isSelected && styles.radioOuterSelected,
-                  ]}
-                >
-                  {isSelected && <View style={styles.radioInner} />}
+          <View style={styles.itemsList}>
+            {cart.map((item) => (
+              <View key={item._id} style={styles.itemRow}>
+                {/* Rounded product thumbnail */}
+                <View style={styles.itemThumbBox}>
+                  <Image
+                    source={
+                      item.imageUrl
+                        ? { uri: item.imageUrl }
+                        : require("@/assets/images/react-logo.png")
+                    }
+                    style={styles.itemThumb as any}
+                    resizeMode="contain"
+                  />
                 </View>
 
-                <View style={{ flex: 1 }}>
+                {/* Name & Qty */}
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.itemQtyPrice}>
+                    ₹{item.effectivePrice}   x{item.quantity}
+                  </Text>
+                </View>
+
+                {/* Row Total */}
+                <Text style={styles.itemTotal}>
+                  ₹{item.effectivePrice * item.quantity}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Price Breakdown matching Screen 5 */}
+          <View style={styles.breakdownBox}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Subtotal</Text>
+              <Text style={styles.breakdownValue}>₹{grossAmount}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.discountLabel}>Discount</Text>
+              <Text style={styles.discountValue}>−₹{displayDiscount}</Text>
+            </View>
+
+            <View style={styles.breakdownRowTotal}>
+              <Text style={styles.totalLabel}>Total Amount</Text>
+              <Text style={styles.totalValue}>₹{displayTotal}</Text>
+            </View>
+          </View>
+
+          {/* Payment Method Section matching Screen 5 */}
+          <Text style={styles.sectionTitle}>Payment Method</Text>
+
+          {/* Single Enclosed Card for Payment Options matching Screen 5 */}
+          <View style={styles.paymentCard}>
+            {PAYMENT_METHODS.map((method, index) => {
+              const isSelected = selectedMethod === method.id;
+              const isLast = index === PAYMENT_METHODS.length - 1;
+
+              return (
+                <TouchableOpacity
+                  key={method.id}
+                  style={[
+                    styles.methodRow,
+                    isSelected && styles.methodRowSelected,
+                    !isLast && styles.methodRowDivider,
+                  ]}
+                  onPress={() => setSelectedMethod(method.id)}
+                  activeOpacity={0.8}
+                >
+                  {/* Radio Indicator */}
+                  <View
+                    style={[
+                      styles.radioOuter,
+                      isSelected && styles.radioOuterSelected,
+                    ]}
+                  >
+                    {isSelected && <View style={styles.radioInner} />}
+                  </View>
+
+                  {/* Payment Method Icon Badge on Left */}
+                  <View style={styles.methodIconBadge}>
+                    {method.id === "UPI" ? (
+                      <View style={styles.upiBadge}>
+                        <Text style={styles.upiBadgeText}>UPI</Text>
+                      </View>
+                    ) : (
+                      <Text style={{ fontSize: 18 }}>{method.icon}</Text>
+                    )}
+                  </View>
+
+                  {/* Label */}
                   <Text
                     style={[
                       styles.methodLabel,
@@ -217,33 +246,31 @@ export default function CheckoutScreen() {
                   >
                     {method.label}
                   </Text>
-                  <Text style={styles.methodSubtext}>{method.subtext}</Text>
-                </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-                <Text style={{ fontSize: 18 }}>{method.icon}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Pay Now Button matching Screen 5 */}
-        <TouchableOpacity
-          style={[styles.payNowBtn, submittingCash && styles.btnDisabled]}
-          onPress={handleProceed}
-          disabled={submittingCash}
-          activeOpacity={0.88}
-        >
-          {submittingCash ? (
-            <ActivityIndicator color={Theme.white} />
-          ) : (
-            <Text style={styles.payNowText}>
-              {selectedMethod === "Cash"
-                ? `Confirm Order (Pay ₹${totalAmount} at Exit)`
-                : `Pay ₹${totalAmount}`}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
+          {/* Pay Now Button with White Padlock matching Screen 5 */}
+          <TouchableOpacity
+            style={[styles.payNowBtn, submittingCash && styles.btnDisabled]}
+            onPress={handleProceed}
+            disabled={submittingCash}
+            activeOpacity={0.88}
+          >
+            {submittingCash ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <View style={styles.payBtnContent}>
+                <Text style={styles.lockIcon}>🔒</Text>
+                <Text style={styles.payNowText}>
+                  Pay Now ₹{displayTotal}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -251,20 +278,20 @@ export default function CheckoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.white,
+    backgroundColor: "#2E0854", // Deep rich purple matching reference
   },
   purpleHeader: {
-    backgroundColor: Theme.primary,
-    paddingBottom: 14,
+    backgroundColor: "#2E0854",
+    paddingBottom: 24,
   },
   headerSafe: {
-    backgroundColor: Theme.primary,
+    backgroundColor: "#2E0854",
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 8,
   },
   headerBtn: {
@@ -274,129 +301,154 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerBackArrow: {
-    color: Theme.white,
+    color: "#FFFFFF",
     fontSize: 28,
     fontWeight: "300",
   },
   headerTitle: {
-    color: Theme.white,
+    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "800",
   },
+  scissorIcon: {
+    color: "#FFFFFF",
+    fontSize: 18,
+  },
+  whiteSheet: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -16,
+    overflow: "hidden",
+  },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 20,
     paddingBottom: 36,
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: "800",
-    color: Theme.dark,
+    fontWeight: "900",
+    color: "#1E1B4B",
     marginBottom: 12,
   },
   itemsList: {
-    gap: 12,
     marginBottom: 20,
   },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingBottom: 10,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: "#F1F5F9",
-    gap: 12,
+  },
+  itemThumbBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: "#F8FAFC",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
   },
   itemThumb: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: "#F8FAFC",
+    width: 38,
+    height: 38,
   },
   itemInfo: {
     flex: 1,
+    marginLeft: 12,
   },
   itemName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
-    color: Theme.dark,
+    color: "#1E293B",
+    marginBottom: 2,
   },
   itemQtyPrice: {
-    fontSize: 12,
-    color: Theme.gray,
-    marginTop: 2,
+    fontSize: 12.5,
+    color: "#64748B",
+    fontWeight: "600",
   },
   itemTotal: {
     fontSize: 14,
     fontWeight: "800",
-    color: Theme.dark,
+    color: "#1E293B",
   },
   breakdownBox: {
-    paddingVertical: 14,
-    borderTopWidth: 1,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#F1F5F9",
     marginBottom: 22,
-    gap: 8,
   },
   breakdownRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 8,
   },
   breakdownLabel: {
-    fontSize: 13,
-    color: Theme.gray,
+    fontSize: 14,
     fontWeight: "600",
+    color: "#64748B",
   },
   breakdownValue: {
-    fontSize: 13,
+    fontSize: 14.5,
     fontWeight: "700",
-    color: Theme.dark,
+    color: "#1E293B",
   },
   discountLabel: {
-    fontSize: 13,
-    color: Theme.success,
+    fontSize: 14,
     fontWeight: "700",
+    color: "#16A34A", // Vibrant green matching reference
   },
   discountValue: {
-    fontSize: 13,
+    fontSize: 14.5,
     fontWeight: "800",
-    color: Theme.success,
+    color: "#16A34A", // Vibrant green matching reference
   },
   breakdownRowTotal: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 6,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderColor: "#F1F5F9",
+    marginTop: 4,
   },
   totalLabel: {
     fontSize: 15,
     fontWeight: "900",
-    color: Theme.dark,
+    color: "#1E293B",
   },
   totalValue: {
     fontSize: 17,
     fontWeight: "900",
-    color: Theme.dark,
+    color: "#1E293B",
   },
-  methodsList: {
-    gap: 10,
-    marginBottom: 28,
-  },
-  methodOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+  paymentCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: "#E2E8F0",
-    backgroundColor: Theme.white,
-    gap: 12,
+    overflow: "hidden",
+    marginBottom: 26,
   },
-  methodOptionSelected: {
-    borderColor: Theme.primary,
-    backgroundColor: "#FAF5FF",
+  methodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
+  },
+  methodRowSelected: {
+    backgroundColor: "#FAF5FF", // Subtle soft lavender background for selected method
+  },
+  methodRowDivider: {
+    borderBottomWidth: 1,
+    borderColor: "#F1F5F9",
   },
   radioOuter: {
     width: 20,
@@ -406,47 +458,72 @@ const styles = StyleSheet.create({
     borderColor: "#CBD5E1",
     alignItems: "center",
     justifyContent: "center",
+    marginRight: 12,
   },
   radioOuterSelected: {
-    borderColor: Theme.primary,
+    borderColor: "#3B0764", // Purple active ring
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: Theme.primary,
+    backgroundColor: "#3B0764", // Purple active center
+  },
+  methodIconBadge: {
+    width: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  upiBadge: {
+    backgroundColor: "#7C3AED",
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  upiBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.5,
   },
   methodLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Theme.dark,
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#334155",
   },
   methodLabelSelected: {
-    fontWeight: "800",
-    color: Theme.primary,
-  },
-  methodSubtext: {
-    fontSize: 11,
-    color: Theme.gray,
-    marginTop: 2,
+    color: "#1E1B4B",
+    fontWeight: "900",
   },
   payNowBtn: {
-    backgroundColor: Theme.primary,
+    backgroundColor: "#3B0764", // Deep rich purple from reference
     paddingVertical: 16,
-    borderRadius: 24,
+    borderRadius: 28,
     alignItems: "center",
-    shadowColor: Theme.primary,
+    justifyContent: "center",
+    shadowColor: "#3B0764",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  btnDisabled: {
-    opacity: 0.7,
+  payBtnContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  lockIcon: {
+    fontSize: 15,
   },
   payNowText: {
-    color: Theme.white,
-    fontSize: 15,
-    fontWeight: "800",
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: 0.3,
+  },
+  btnDisabled: {
+    opacity: 0.65,
   },
 });

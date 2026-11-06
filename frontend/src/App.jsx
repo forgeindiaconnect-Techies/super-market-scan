@@ -4,8 +4,12 @@ import AdminLayout from "./layouts/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ProductManagement from "./pages/admin/ProductManagement";
 import AddProduct from "./pages/admin/AddProduct";
+import InventoryManagement from "./pages/admin/InventoryManagement";
 import BarcodeManagement from "./pages/admin/BarcodeManagement";
 import OrdersManagement from "./pages/admin/OrdersManagement";
+import CustomersManagement from "./pages/admin/CustomersManagement";
+import ReportsManagement from "./pages/admin/ReportsManagement";
+import SettingsManagement from "./pages/admin/SettingsManagement";
 import CustomerLayout from "./layouts/CustomerLayout";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
 
@@ -15,17 +19,18 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/admin" replace />} />
 
-        {/* Super Admin Management Portal (GrocerEase UI) */}
+        {/* Super Admin Management Portal (GrocerEase Innovative SaaS UI) */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="products" element={<ProductManagement />} />
           <Route path="add-product" element={<AddProduct />} />
-          <Route path="inventory" element={<ProductManagement />} />
+          <Route path="inventory" element={<InventoryManagement />} />
           <Route path="barcodes" element={<BarcodeManagement />} />
           <Route path="orders" element={<OrdersManagement />} />
-          <Route path="customers" element={<OrdersManagement />} />
-          <Route path="analytics" element={<AdminDashboard />} />
-          <Route path="settings" element={<AdminDashboard />} />
+          <Route path="customers" element={<CustomersManagement />} />
+          <Route path="reports" element={<ReportsManagement />} />
+          <Route path="analytics" element={<ReportsManagement />} />
+          <Route path="settings" element={<SettingsManagement />} />
         </Route>
 
         {/* Customer Self-Checkout Web Mirror */}

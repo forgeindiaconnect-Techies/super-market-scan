@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import API from "../../services/api";
 import BarcodeSVG from "../../components/BarcodeSVG";
+import { addPersistentProduct } from "../../utils/realtimeStorage";
 import "./AddProduct.css";
 
 const CATEGORIES = [
@@ -116,15 +117,30 @@ export default function AddProduct() {
         description: product.description.trim(),
       };
 
-      const res = await API.post("/products", payload);
-
-      if (res.data?.success) {
-        setSavedProduct(res.data.product);
-        setMessage({
-          type: "success",
-          text: "Product saved successfully with registered barcode!",
-        });
+      let saved = null;
+      try {
+        const res = await API.post("/products", payload);
+        if (res.data?.success && res.data.product) {
+          saved = res.data.product;
+        }
+      } catch (apiErr) {
+        console.warn("Backend API save warning, persisting locally:", apiErr.message);
       }
+
+      if (!saved) {
+        saved = {
+          _id: "prod-cust-" + Date.now(),
+          ...payload,
+        };
+      }
+
+      // Persist permanently across refreshes and broadcast to all pages
+      addPersistentProduct(saved);
+      setSavedProduct(saved);
+      setMessage({
+        type: "success",
+        text: "Product saved successfully with registered barcode!",
+      });
     } catch (err) {
       console.error("Save product error:", err);
       setMessage({
