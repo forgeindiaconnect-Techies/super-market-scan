@@ -10,7 +10,7 @@ Write-Host "1. Staging updated files..." -ForegroundColor Yellow
 git add -A
 
 Write-Host "2. Committing changes..." -ForegroundColor Yellow
-git commit -m "feat: complete UI/UX alignment across Admin Dashboard, Orders Ledger, and Settings"
+git commit -m "feat: fix mobile receipt download, professional supermarket tax invoice, and complete UI/UX alignment"
 
 Write-Host "3. Ensuring branch is main..." -ForegroundColor Yellow
 git branch -M main
@@ -28,4 +28,3 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host " Please verify your GitHub credentials or run 'gh auth login'." -ForegroundColor Red
     Write-Host "========================================================" -ForegroundColor Red
 }
-

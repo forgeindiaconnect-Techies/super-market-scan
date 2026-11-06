@@ -12,7 +12,7 @@ echo 1. Staging updated files...
 git add -A
 
 echo 2. Committing changes...
-git commit -m "feat: complete UI/UX alignment across Admin Dashboard, Orders Ledger, and Settings"
+git commit -m "feat: fix mobile receipt download, professional supermarket tax invoice, and complete UI/UX alignment"
 
 echo 3. Ensuring main branch...
 git branch -M main
@@ -33,4 +33,3 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 pause
-
