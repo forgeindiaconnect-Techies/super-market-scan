@@ -1,5 +1,4 @@
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import { Alert, Platform } from "react-native";
 import { OrderRecord } from "../context/CartContext";
 

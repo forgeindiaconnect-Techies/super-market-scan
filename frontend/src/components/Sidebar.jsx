@@ -12,24 +12,31 @@ import {
   Settings,
   LogOut,
   X,
-  Tag,
 } from "lucide-react";
-let giftBoxImg = "/gift-box-3d.jpg";
+
+let sidebarWavesBg = "/sidebar-waves-bg.jpg";
 try {
-  // eslint-disable-next-line
-  giftBoxImg = new URL("../assets/gift-box-3d.jpg", import.meta.url).href;
+  sidebarWavesBg = new URL("../assets/sidebar-waves-bg.jpg", import.meta.url).href;
 } catch (_) {
-  giftBoxImg = "/gift-box-3d.jpg";
+  sidebarWavesBg = "/sidebar-waves-bg.jpg";
+}
+
+let groceryBasketImg = "/grocery-basket-3d.jpg";
+try {
+  groceryBasketImg = new URL("../assets/grocery-basket-3d.jpg", import.meta.url).href;
+} catch (_) {
+  groceryBasketImg = "/grocery-basket-3d.jpg";
 }
 
 const navItems = [
   { path: "/admin", label: "Dashboard", icon: Home, end: true },
   { path: "/admin/products", label: "Products", icon: Package },
+  { path: "/admin/add-product", label: "Add Product", icon: PlusCircle },
+  { path: "/admin/inventory", label: "Inventory", icon: Boxes },
+  { path: "/admin/barcodes", label: "Barcodes", icon: Barcode },
   { path: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { path: "/admin/customers", label: "Customers", icon: Users },
-  { path: "/admin/inventory", label: "Inventory", icon: Boxes },
   { path: "/admin/reports", label: "Reports", icon: BarChart2 },
-  { path: "/admin/barcodes", label: "Offers", icon: Tag },
   { path: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -37,8 +44,16 @@ export default function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
 
   return (
-    <aside className={`admin-sidebar ${isOpen ? "open" : ""}`}>
-      {/* 1. GrocerEase Brand Header - Compact Matching Image 2 */}
+    <aside
+      className={`admin-sidebar ${isOpen ? "open" : ""}`}
+      style={{
+        backgroundImage: `url(${sidebarWavesBg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center bottom",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      {/* 1. GrocerEase Brand Header */}
       <div className="sidebar-brand-header">
         <Link to="/admin" className="sidebar-brand-link" onClick={onClose}>
           <div className="sidebar-brand-icon">
@@ -59,7 +74,7 @@ export default function Sidebar({ isOpen, onClose }) {
         </button>
       </div>
 
-      {/* 2. Navigation Items - Compact Density Matching Image 2 */}
+      {/* 2. Navigation Items matching target reference */}
       <nav className="sidebar-nav">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -86,7 +101,7 @@ export default function Sidebar({ isOpen, onClose }) {
           );
         })}
 
-        {/* Logout Navigation Item - Neutral slate/white matching reference */}
+        {/* Logout Navigation Item */}
         <button
           type="button"
           className="nav-item sidebar-logout-btn"
@@ -108,11 +123,11 @@ export default function Sidebar({ isOpen, onClose }) {
         <div className="sidebar-store-card">
           <div className="store-basket-art">
             <img
-              src="/storefront-3d.jpg"
-              alt="GrocerEase Store"
+              src={groceryBasketImg}
+              alt="Smart Shopping"
               className="store-basket-art-img"
               onError={(e) => {
-                e.currentTarget.src = "/grocery-basket-3d.jpg";
+                e.currentTarget.src = "/storefront-3d.jpg";
               }}
             />
           </div>
