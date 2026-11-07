@@ -35,13 +35,9 @@ export default function MyCartScreen() {
     ]);
   };
 
-  // Compute realistic store savings matching Screen 4
-  const displayDiscount =
-    totalSavings > 0
-      ? totalSavings
-      : Math.round(grossAmount * 0.15); // Authentic supermarket 15% discount
-  const displayTotal =
-    totalSavings > 0 ? totalAmount : Math.max(0, grossAmount - displayDiscount);
+  // Exact real-time price & savings from database (NEVER fake 15% discount)
+  const displayDiscount = totalSavings;
+  const displayTotal = totalAmount;
 
   return (
     <View style={styles.container}>
@@ -161,10 +157,12 @@ export default function MyCartScreen() {
                   <Text style={styles.summaryValue}>₹{grossAmount}</Text>
                 </View>
 
-                <View style={styles.summaryRow}>
-                  <Text style={styles.discountLabel}>Discount</Text>
-                  <Text style={styles.discountValue}>−₹{displayDiscount}</Text>
-                </View>
+                {displayDiscount > 0 && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.discountLabel}>Discount</Text>
+                    <Text style={styles.discountValue}>−₹{displayDiscount}</Text>
+                  </View>
+                )}
 
                 <View style={styles.summaryRowTotal}>
                   <Text style={styles.totalLabel}>Total</Text>

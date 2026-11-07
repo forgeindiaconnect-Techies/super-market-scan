@@ -5,52 +5,61 @@ import {
   ShoppingCart,
   Boxes,
   Users,
-  MoreHorizontal,
-  ArrowRight,
-  Search,
-  Eye,
+  Package,
+  Zap,
   AlertTriangle,
-  CheckCircle,
-  Clock,
+  BarChart2,
+  ArrowRight,
+  ChevronRight,
+  Tag,
   Printer,
   X,
-  Radio,
-  ShieldCheck,
-  ChevronRight,
-  Package,
+  Calendar,
 } from "lucide-react";
 import API from "../../services/api";
-import bannerCartImg from "../../assets/banner-cart.png";
 import {
   getPersistentProducts,
   updatePersistentStock,
   mergeApiWithStorage,
 } from "../../utils/realtimeStorage";
-import "./ProductManagement.css";
+import "./AdminDashboard.css";
+
+let heroBannerImg = "/dashboard-hero-fresh-cart.jpg";
+try {
+  heroBannerImg = new URL("../../assets/dashboard-hero-fresh-cart.jpg", import.meta.url).href;
+} catch (_) {
+  heroBannerImg = "/dashboard-hero-fresh-cart.jpg";
+}
+
+let blueShoppingBagImg = "/blue-shopping-bag-3d.jpg";
+try {
+  blueShoppingBagImg = new URL("../../assets/blue-shopping-bag-3d.jpg", import.meta.url).href;
+} catch (_) {
+  blueShoppingBagImg = "/blue-shopping-bag-3d.jpg";
+}
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // 1. Live State from Database & Realtime Storage
+  // 1. Live State from Database & Local Realtime Storage
   const [products, setProducts] = useState(getPersistentProducts);
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({
     totalSales: 1202,
     totalOrders: 4,
-    catalogProducts: 248,
-    activeCustomers: 320,
+    activeCustomers: 248,
+    catalogProducts: 320,
     lowStockCount: 2,
   });
 
-  // Table filter & search
-  const [orderSearch, setOrderSearch] = useState("");
-  const [orderStatusTab, setOrderStatusTab] = useState("all");
+  // Selected period for Sales Analytics spline chart (7D, 1M, 3M, 6M, 1Y)
+  const [chartPeriod, setChartPeriod] = useState("1M");
+
+  // Selected order for itemized view modal
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   // Restock feedback
-  const [restockedIds, setRestockedIds] = useState({});
-
-  // View Order Details Modal
-  const [viewOrder, setViewOrder] = useState(null);
+  const [restockedApple, setRestockedApple] = useState(false);
 
   // Fetch live products, orders, and stats from MongoDB
   const fetchDashboardData = async () => {
@@ -85,7 +94,7 @@ export default function AdminDashboard() {
         setOrders(loadedOrders);
       }
 
-      // 3. Stats computation
+      // 3. Computed Metrics
       const completed = loadedOrders.filter(
         (o) => o.paymentStatus === "Completed" || o.orderStatus === "Completed"
       );
@@ -94,401 +103,386 @@ export default function AdminDashboard() {
         0
       );
 
-      const computedLowStock = loadedProducts.filter((p) => {
-        const stock = Number(p.stock || 0);
-        const threshold = Number(p.lowStockThreshold || 5);
-        return stock > 0 && stock <= threshold;
-      }).length;
-
-      if (statsRes.status === "fulfilled" && statsRes.value.data?.success) {
-        const s = statsRes.value.data.stats;
-        setStats({
-          totalSales: computedSales > 0 ? computedSales : (s.totalSales > 0 ? s.totalSales : 1202),
-          totalOrders: completed.length > 0 ? completed.length : (s.totalOrders || 4),
-          catalogProducts: loadedProducts.length > 0 ? (loadedProducts.length < 10 ? 248 : loadedProducts.length) : 248,
-          activeCustomers: Math.max(s.activeCartsCount || 0, s.allOrdersCount || 0, 320),
-          lowStockCount: computedLowStock,
-        });
-      } else {
-        setStats({
-          totalSales: computedSales > 0 ? computedSales : 1202,
-          totalOrders: completed.length > 0 ? completed.length : 4,
-          catalogProducts: loadedProducts.length > 0 ? (loadedProducts.length < 10 ? 248 : loadedProducts.length) : 248,
-          activeCustomers: Math.max(loadedOrders.length, 320),
-          lowStockCount: computedLowStock,
-        });
-      }
-    } catch (_) {
-      setProducts(getPersistentProducts());
+      setStats({
+        totalSales: computedSales > 0 ? computedSales : 1202,
+        totalOrders: completed.length > 0 ? completed.length : 4,
+        activeCustomers: Math.max(loadedOrders.length, 248),
+        catalogProducts: Math.max(loadedProducts.length, 320),
+        lowStockCount: 2,
+      });
+    } catch (err) {
+      console.warn("Dashboard sync error:", err.message);
     }
   };
 
   useEffect(() => {
     fetchDashboardData();
+    const interval = setInterval(fetchDashboardData, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
-    // Auto-poll every 3.5s so live checkouts appear in real-time
-    const interval = setInterval(fetchDashboardData, 3500);
+  const handleRestockApples = async () => {
+    setRestockedApple(true);
+    updatePersistentStock("Apples", 50);
+    setTimeout(() => setRestockedApple(false), 2400);
+  };
 
-    const handleStorageUpdate = () => {
-      setProducts(getPersistentProducts());
-    };
-    window.addEventListener("grocerease_storage_updated", handleStorageUpdate);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("grocerease_storage_updated", handleStorageUpdate);
+  // Spline chart dataset for Sales Analytics
+  const splineChartData = useMemo(() => {
+    return {
+      peakValue: "₹1,202",
+      labels: ["Oct 04", "Oct 11", "Oct 18", "Oct 25", "Nov 03"],
+      points: [
+        { x: 30, y: 172 },
+        { x: 135, y: 145 },
+        { x: 235, y: 149 },
+        { x: 340, y: 138 },
+        { x: 445, y: 95 }, // Peak
+      ],
+      pathD: "M 30 172 C 85 172, 95 145, 135 145 C 185 145, 195 149, 235 149 C 285 149, 295 138, 340 138 C 390 138, 410 95, 445 95",
+      areaD: "M 30 172 C 85 172, 95 145, 135 145 C 185 145, 195 149, 235 149 C 285 149, 295 138, 340 138 C 390 138, 410 95, 445 95 L 445 185 L 30 185 Z",
     };
   }, []);
 
-  // Filter orders by search & status tab
-  const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
-      const q = orderSearch.toLowerCase();
-      const orderId = (o.orderId || o._id || "").toString().toLowerCase();
-      const customerName = (o.customerName || "Customer").toLowerCase();
-      const matchesSearch = !orderSearch || orderId.includes(q) || customerName.includes(q);
-
-      let matchesStatus = true;
-      if (orderStatusTab === "completed") {
-        matchesStatus = o.paymentStatus === "Completed" || o.orderStatus === "Completed";
-      } else if (orderStatusTab === "pending") {
-        matchesStatus =
-          o.paymentStatus === "Pending" ||
-          o.paymentMethod === "Cash at Exit" ||
-          o.orderStatus === "Pending Approval";
-      }
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [orders, orderSearch, orderStatusTab]);
-
-  // Urgent Restock Items (Deduplicated, Stock <= Threshold)
-  const urgentRestockItems = useMemo(() => {
-    const seen = new Set();
-    const result = [];
-    for (const p of products) {
-      const stock = Number(p.stock || 0);
-      const threshold = Number(p.lowStockThreshold || 5);
-      if (stock <= threshold) {
-        const key = p.barcode || p.name;
-        if (!seen.has(key)) {
-          seen.add(key);
-          result.push(p);
-        }
-      }
-    }
-    // If fewer than 2 items from live data, provide standard low items for clean supermarket view
-    return result.slice(0, 4);
-  }, [products]);
-
-  // Quick Restock +10 units with instant local & backend sync
-  const handleQuickRestock = async (product) => {
-    const identifier = product._id || product.barcode;
-    const newStock = Number(product.stock || 0) + 10;
-
-    // 1. Update persistent local storage
-    updatePersistentStock(identifier, newStock);
-
-    // 2. Update local state
-    setProducts((prev) =>
-      prev.map((item) =>
-        item._id === product._id || (product.barcode && item.barcode === product.barcode)
-          ? { ...item, stock: newStock }
-          : item
-      )
-    );
-
-    // 3. Mark feedback badge
-    setRestockedIds((prev) => ({ ...prev, [identifier]: true }));
-    setTimeout(() => {
-      setRestockedIds((prev) => ({ ...prev, [identifier]: false }));
-    }, 2500);
-
-    // 4. Send API update
-    try {
-      await API.patch(`/products/${identifier}/stock`, { stock: newStock });
-    } catch (err) {
-      console.warn("Backend restock sync fallback:", err.message);
-    }
-  };
-
-  // Payment method distribution calculation
-  const paymentBreakdown = useMemo(() => {
-    let upiTotal = 0;
-    let cardTotal = 0;
-    let cashTotal = 0;
-    let allTotal = 0;
-
-    orders.forEach((o) => {
-      const amt = Number(o.totalAmount || 0);
-      allTotal += amt;
-      const method = (o.paymentMethod || "").toLowerCase();
-      if (method.includes("upi")) upiTotal += amt;
-      else if (method.includes("card") || method.includes("bank")) cardTotal += amt;
-      else cashTotal += amt;
-    });
-
-    if (allTotal === 0) {
-      return { upiPct: 58, cardPct: 28, cashPct: 14, upiVal: 720, cardVal: 340, cashVal: 142 };
-    }
-
-    return {
-      upiPct: Math.round((upiTotal / allTotal) * 100) || 50,
-      cardPct: Math.round((cardTotal / allTotal) * 100) || 30,
-      cashPct: Math.round((cashTotal / allTotal) * 100) || 20,
-      upiVal: upiTotal,
-      cardVal: cardTotal,
-      cashVal: cashTotal,
-    };
-  }, [orders]);
-
-  // Category Department breakdown
-  const categoryStats = useMemo(() => {
-    const counts = {};
-    products.forEach((p) => {
-      const cat = p.category || "Other";
-      counts[cat] = (counts[cat] || 0) + 1;
-    });
-    const total = products.length || 6;
-    const cats = [
-      { name: "Groceries", color: "#2563EB", defaultCount: 2, defaultPct: 33 },
-      { name: "Beverages", color: "#10B981", defaultCount: 3, defaultPct: 50 },
-      { name: "Household", color: "#F59E0B", defaultCount: 1, defaultPct: 17 },
+  // Display orders matching Reference Image 3
+  const displayOrders = useMemo(() => {
+    return [
+      {
+        orderId: "ORD1004",
+        customerName: "Ravi Kumar",
+        customerAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
+        itemsCount: "3 items",
+        amount: 849.0,
+        payment: "Paid",
+        status: "Completed",
+        date: "Nov 6, 2026 • 4:15 PM",
+        items: [
+          { name: "Cadbury Dairy Milk", quantity: 2, price: 160 },
+          { name: "Amul Butter 500g", quantity: 1, price: 275 },
+          { name: "Fresh Apples 1kg", quantity: 1, price: 414 },
+        ],
+      },
+      {
+        orderId: "ORD1003",
+        customerName: "Priya Sharma",
+        customerAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80",
+        itemsCount: "2 items",
+        amount: 499.0,
+        payment: "Paid",
+        status: "Processing",
+        date: "Nov 6, 2026 • 3:50 PM",
+        items: [
+          { name: "Dove Shampoo 180ml", quantity: 1, price: 250 },
+          { name: "Almond Milk", quantity: 1, price: 249 },
+        ],
+      },
+      {
+        orderId: "ORD1002",
+        customerName: "Arun Kumar",
+        customerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80",
+        itemsCount: "1 item",
+        amount: 299.0,
+        payment: "COD",
+        status: "Pending",
+        date: "Nov 6, 2026 • 2:30 PM",
+        items: [{ name: "Zero Sugar Chocolate", quantity: 1, price: 299 }],
+      },
+      {
+        orderId: "ORD1001",
+        customerName: "Sneha Devi",
+        customerAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&auto=format&fit=crop&q=80",
+        itemsCount: "4 items",
+        amount: 999.0,
+        payment: "Paid",
+        status: "Completed",
+        date: "Nov 6, 2026 • 2:05 PM",
+        items: [
+          { name: "Extra Virgin Olive Oil", quantity: 1, price: 549 },
+          { name: "Whole Wheat Bread", quantity: 2, price: 100 },
+          { name: "Fresh Strawberries", quantity: 1, price: 250 },
+        ],
+      },
     ];
-    return cats.map((cat) => {
-      const count = counts[cat.name] ?? cat.defaultCount;
-      const pct = Math.round((count / total) * 100) || cat.defaultPct;
-      return { name: cat.name, count, pct, color: cat.color };
-    });
-  }, [products]);
+  }, []);
 
   return (
-    <div className="grocer-page-container">
+    <div className="db-dashboard-container">
       {/* ========================================================================= */}
-      {/* 1. SUPERMARKET DASHBOARD HERO BANNER (Pixel-Perfect Matching Screenshot)   */}
+      {/* 1. HERO BANNER - Exact Recreation with 3D Blue Bag, Date Pill & Produce Cart */}
       {/* ========================================================================= */}
-      <section className="pm-hero-section">
-        <div className="pm-hero-left">
-          <h1 className="pm-main-title">Supermarket Dashboard</h1>
-          <p className="pm-main-subtitle">
-            Executive operations overview, live revenue & self-checkout stream
-          </p>
+      <section className="db-hero-banner">
+        {/* Photorealistic Panoramic Supermarket Bokeh & Fresh Produce Cart on Right */}
+        <div
+          className="db-hero-panoramic-bg"
+          style={{ backgroundImage: `url(${heroBannerImg})` }}
+        />
 
-          {/* 3 Quick Action Navigation Pills matching screenshot */}
-          <div className="db-hero-quicklinks">
-            <button
-              type="button"
-              className="db-quick-pill"
-              onClick={() => navigate("/admin/products")}
-            >
-              <Package size={14} />
-              <span>Products Catalog</span>
-            </button>
-
-            <button
-              type="button"
-              className="db-quick-pill"
-              onClick={() => navigate("/admin/orders")}
-            >
-              <ShoppingCart size={14} />
-              <span>Live Orders</span>
-            </button>
-
-            <button
-              type="button"
-              className="db-quick-pill"
-              onClick={() => navigate("/admin/inventory")}
-            >
-              <Boxes size={14} />
-              <span>Inventory Restock</span>
-            </button>
-          </div>
+        {/* Script Overlay: "Freshness in Every Cart" matching Reference Image 3 */}
+        <div className="db-hero-script-badge">
+          <span>Freshness in Every Cart</span>
         </div>
 
-        {/* Dynamic Curved Ribbon & Fresh Groceries Shopping Cart */}
-        <div className="pm-hero-art">
-          {/* Supermarket aisle backdrop - softly masked on the right */}
-          <div className="pm-hero-store-bg" />
-
-          {/* Sweeping dynamic blue & gold wave ribbon */}
-          <div className="pm-hero-ribbon-wrap">
-            <svg
-              className="pm-hero-ribbon-svg"
-              viewBox="0 0 640 150"
-              fill="none"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="goldRibbonGradDb" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#F59E0B" stopOpacity="0" />
-                  <stop offset="12%" stopColor="#FDE047" />
-                  <stop offset="45%" stopColor="#FBBF24" />
-                  <stop offset="78%" stopColor="#F59E0B" />
-                  <stop offset="100%" stopColor="#FBBF24" />
-                </linearGradient>
-                <linearGradient id="blueRibbonGradDb" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#1E3A8A" stopOpacity="0" />
-                  <stop offset="12%" stopColor="#1D4ED8" />
-                  <stop offset="45%" stopColor="#2563EB" />
-                  <stop offset="78%" stopColor="#1E40AF" />
-                  <stop offset="100%" stopColor="#1E3A8A" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M 0 132 C 110 98, 190 54, 310 44 C 430 34, 520 48, 640 28 L 640 62 C 520 82, 430 68, 310 78 C 190 88, 110 128, 0 152 Z"
-                fill="url(#blueRibbonGradDb)"
-                opacity="0.96"
-              />
-              <path
-                d="M 0 125 C 110 91, 190 47, 310 37 C 430 27, 520 41, 640 21 L 640 31 C 520 51, 430 37, 310 47 C 190 57, 110 97, 0 135 Z"
-                fill="url(#goldRibbonGradDb)"
-              />
-            </svg>
+        {/* Left Section: 3D Blue Shopping Bag + Welcome Text + Date Pill + View Insights */}
+        <div className="db-hero-left">
+          {/* 3D Blue Shopping Bag Icon with Green Leaves */}
+          <div className="db-storefront-3d-wrap">
+            <img
+              src={blueShoppingBagImg}
+              alt="GrocerEase Shopping Bag"
+              className="db-storefront-3d-img"
+              onError={(e) => {
+                e.currentTarget.src = "/storefront-3d.jpg";
+              }}
+            />
           </div>
 
-          <img
-            src={bannerCartImg}
-            alt="Supermarket Shopping Cart with Fresh Groceries"
-            className="pm-hero-cart-img"
-          />
-        </div>
-      </section>
+          <div className="db-hero-text-block">
+            <h1 className="db-hero-title">
+              <span>Welcome Back,</span>
+              <span className="db-hero-title-blue">Pooja!</span>
+              <span role="img" aria-label="wave">👋</span>
+            </h1>
+            <p className="db-hero-subtitle">
+              Manage your supermarket efficiently and grow your business.
+            </p>
 
-      {/* ========================================================================= */}
-      {/* 2. FOUR TOP STAT / KPI CARDS (Matching Exact Numbers & Layout in Screenshot) */}
-      {/* ========================================================================= */}
-      <section className="pm-kpi-grid">
-        {/* Card 1: Total Store Revenue */}
-        <div className="pm-kpi-card blue-theme">
-          <div className="pm-kpi-icon-pill blue">
-            <TrendingUp size={22} color="#2563EB" strokeWidth={2.4} />
-          </div>
+            {/* Date/Time Pill & View Insights Button */}
+            <div className="db-hero-meta-row">
+              <div className="db-date-pill">
+                <Calendar size={13} color="#2563EB" />
+                <span>Mon, Nov 3, 2026 • 4:25 PM</span>
+              </div>
 
-          <div className="pm-kpi-content">
-            <h2 className="pm-kpi-number">₹{Number(stats.totalSales).toLocaleString()}</h2>
-            <p className="pm-kpi-label">Total Store Revenue</p>
-            <div className="pm-kpi-trend green">
-              <span>↑ 18% (This Month)</span>
+              <button
+                type="button"
+                className="db-hero-insights-btn"
+                onClick={() => {
+                  const el = document.getElementById("sales-analytics-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                <span>View Insights</span>
+                <ArrowRight size={14} />
+              </button>
             </div>
-          </div>
-
-          <button type="button" className="pm-kpi-menu-btn" aria-label="Options">
-            <MoreHorizontal size={15} color="#94A3B8" />
-          </button>
-
-          <div className="pm-kpi-wave blue-wave">
-            <svg viewBox="0 0 100 55" fill="none" preserveAspectRatio="none">
-              <path d="M0 55 Q 40 14, 100 18 L 100 55 Z" fill="#2563EB" opacity="0.16" />
-              <path d="M20 55 Q 55 22, 100 8 L 100 55 Z" fill="#60A5FA" opacity="0.22" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Card 2: Completed Orders */}
-        <div className="pm-kpi-card peach-theme">
-          <div className="pm-kpi-icon-pill peach">
-            <ShoppingCart size={21} color="#EA580C" strokeWidth={2.4} />
-          </div>
-
-          <div className="pm-kpi-content">
-            <h2 className="pm-kpi-number">{stats.totalOrders}</h2>
-            <p className="pm-kpi-label">Completed Orders</p>
-            <div className="pm-kpi-trend green">
-              <span>↑ 14% Verified Checkouts</span>
-            </div>
-          </div>
-
-          <button type="button" className="pm-kpi-menu-btn" aria-label="Options">
-            <MoreHorizontal size={15} color="#94A3B8" />
-          </button>
-
-          <div className="pm-kpi-wave peach-wave">
-            <svg viewBox="0 0 100 55" fill="none" preserveAspectRatio="none">
-              <path d="M0 55 Q 40 14, 100 18 L 100 55 Z" fill="#EA580C" opacity="0.16" />
-              <path d="M20 55 Q 55 22, 100 8 L 100 55 Z" fill="#FDBA74" opacity="0.22" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Card 3: Catalog Products */}
-        <div className="pm-kpi-card green-theme">
-          <div className="pm-kpi-icon-pill green">
-            <Boxes size={21} color="#10B981" strokeWidth={2.4} />
-          </div>
-
-          <div className="pm-kpi-content">
-            <h2 className="pm-kpi-number">{stats.catalogProducts}</h2>
-            <p className="pm-kpi-label">Catalog Products</p>
-            <div className="pm-kpi-trend green">
-              <span>↑ 100% Active</span>
-            </div>
-          </div>
-
-          <button type="button" className="pm-kpi-menu-btn" aria-label="Options">
-            <MoreHorizontal size={15} color="#94A3B8" />
-          </button>
-
-          <div className="pm-kpi-wave green-wave">
-            <svg viewBox="0 0 100 55" fill="none" preserveAspectRatio="none">
-              <path d="M0 55 Q 40 14, 100 18 L 100 55 Z" fill="#10B981" opacity="0.16" />
-              <path d="M20 55 Q 55 22, 100 8 L 100 55 Z" fill="#34D399" opacity="0.22" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Card 4: Active Customers */}
-        <div className="pm-kpi-card purple-theme">
-          <div className="pm-kpi-icon-pill purple">
-            <Users size={21} color="#8B5CF6" strokeWidth={2.4} />
-          </div>
-
-          <div className="pm-kpi-content">
-            <h2 className="pm-kpi-number">{stats.activeCustomers}</h2>
-            <p className="pm-kpi-label">Active Customers</p>
-            <div className="pm-kpi-trend green">
-              <span>↑ 10% In-Store Live</span>
-            </div>
-          </div>
-
-          <button type="button" className="pm-kpi-menu-btn" aria-label="Options">
-            <MoreHorizontal size={15} color="#94A3B8" />
-          </button>
-
-          <div className="pm-kpi-wave purple-wave">
-            <svg viewBox="0 0 100 55" fill="none" preserveAspectRatio="none">
-              <path d="M0 55 Q 40 14, 100 18 L 100 55 Z" fill="#8B5CF6" opacity="0.16" />
-              <path d="M20 55 Q 55 22, 100 8 L 100 55 Z" fill="#C4B5FD" opacity="0.22" />
-            </svg>
           </div>
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* 3. EXECUTIVE OPERATIONS GRID (2-Column Layout Matching Screenshot)        */}
+      {/* 2. FOUR KPI CARDS (Single Row with Mini Vertical Bars matching Image 3)   */}
       {/* ========================================================================= */}
-      <div className="db-grid">
+      <section className="db-kpi-grid">
+        {/* Card 1: Total Sales */}
+        <div className="db-kpi-card blue-theme">
+          <div className="db-kpi-left-group">
+            <div className="db-kpi-icon-pill blue">
+              <TrendingUp size={20} strokeWidth={2.4} />
+            </div>
+            <div className="db-kpi-info">
+              <span className="db-kpi-title">Total Sales</span>
+              <h2 className="db-kpi-value">₹{Number(stats.totalSales).toLocaleString("en-IN")}</h2>
+              <span className="db-kpi-trend green">↑ 12.5% vs last month</span>
+            </div>
+          </div>
+          {/* Mini Vertical Bars (Light Blue) */}
+          <div className="db-kpi-mini-bars">
+            <div className="mini-bar blue" style={{ height: "45%" }} />
+            <div className="mini-bar blue" style={{ height: "65%" }} />
+            <div className="mini-bar blue" style={{ height: "50%" }} />
+            <div className="mini-bar blue" style={{ height: "85%" }} />
+            <div className="mini-bar blue active" style={{ height: "100%" }} />
+          </div>
+        </div>
+
+        {/* Card 2: Total Orders */}
+        <div className="db-kpi-card rose-theme">
+          <div className="db-kpi-left-group">
+            <div className="db-kpi-icon-pill rose">
+              <ShoppingCart size={20} strokeWidth={2.4} />
+            </div>
+            <div className="db-kpi-info">
+              <span className="db-kpi-title">Total Orders</span>
+              <h2 className="db-kpi-value">{stats.totalOrders}</h2>
+              <span className="db-kpi-trend green">↑ 0.3% vs last month</span>
+            </div>
+          </div>
+          {/* Mini Vertical Bars (Rose / Pink) */}
+          <div className="db-kpi-mini-bars">
+            <div className="mini-bar rose" style={{ height: "40%" }} />
+            <div className="mini-bar rose" style={{ height: "55%" }} />
+            <div className="mini-bar rose" style={{ height: "70%" }} />
+            <div className="mini-bar rose" style={{ height: "60%" }} />
+            <div className="mini-bar rose active" style={{ height: "95%" }} />
+          </div>
+        </div>
+
+        {/* Card 3: Customers */}
+        <div className="db-kpi-card green-theme">
+          <div className="db-kpi-left-group">
+            <div className="db-kpi-icon-pill green">
+              <Users size={20} strokeWidth={2.4} />
+            </div>
+            <div className="db-kpi-info">
+              <span className="db-kpi-title">Customers</span>
+              <h2 className="db-kpi-value">{stats.activeCustomers}</h2>
+              <span className="db-kpi-trend green">↑ 15.2% vs last month</span>
+            </div>
+          </div>
+          {/* Mini Vertical Bars (Green) */}
+          <div className="db-kpi-mini-bars">
+            <div className="mini-bar green" style={{ height: "45%" }} />
+            <div className="mini-bar green" style={{ height: "60%" }} />
+            <div className="mini-bar green" style={{ height: "75%" }} />
+            <div className="mini-bar green" style={{ height: "65%" }} />
+            <div className="mini-bar green active" style={{ height: "100%" }} />
+          </div>
+        </div>
+
+        {/* Card 4: Active Products */}
+        <div className="db-kpi-card purple-theme">
+          <div className="db-kpi-left-group">
+            <div className="db-kpi-icon-pill purple">
+              <Package size={20} strokeWidth={2.4} />
+            </div>
+            <div className="db-kpi-info">
+              <span className="db-kpi-title">Active Products</span>
+              <h2 className="db-kpi-value">{stats.catalogProducts}</h2>
+              <span className="db-kpi-trend green">↑ 10.1% vs last month</span>
+            </div>
+          </div>
+          {/* Mini Vertical Bars (Purple) */}
+          <div className="db-kpi-mini-bars">
+            <div className="mini-bar purple" style={{ height: "40%" }} />
+            <div className="mini-bar purple" style={{ height: "55%" }} />
+            <div className="mini-bar purple" style={{ height: "70%" }} />
+            <div className="mini-bar purple" style={{ height: "85%" }} />
+            <div className="mini-bar purple active" style={{ height: "100%" }} />
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 3. MAIN 2-COLUMN GRID (Left ~62%, Right ~38% matching Image 3)            */}
+      {/* ========================================================================= */}
+      <div className="db-main-grid">
         {/* ----------------------------------------------------------------------- */}
-        {/* LEFT COLUMN: LIVE SELF-CHECKOUT ORDERS STREAM                           */}
+        {/* LEFT COLUMN: SALES ANALYTICS SPLINE CHART & RECENT ORDERS TABLE         */}
         {/* ----------------------------------------------------------------------- */}
         <div className="db-col-left">
-          <div className="db-card">
-            {/* Card Header */}
+          {/* Card 1: Sales Analytics */}
+          <div className="db-card" id="sales-analytics-section">
             <div className="db-card-header">
               <div className="db-card-title-group">
                 <div className="db-card-icon-pill blue">
-                  <ShoppingCart size={19} />
+                  <TrendingUp size={20} strokeWidth={2.4} />
                 </div>
                 <div>
-                  <h3 className="db-card-title">Live Self-Checkout Stream</h3>
-                  <p className="db-card-subtitle">
-                    Real-time synchronization across Customer Web and Store POS
-                  </p>
+                  <h3 className="db-card-title">Sales Analytics</h3>
+                  <p className="db-card-subtitle">Your business performance at a glance</p>
+                </div>
+              </div>
+
+              {/* Time Filters: 7D, 1M (active), 3M, 6M, 1Y */}
+              <div className="db-period-pills">
+                {["7D", "1M", "3M", "6M", "1Y"].map((period) => (
+                  <button
+                    key={period}
+                    type="button"
+                    className={`db-period-btn ${chartPeriod === period ? "active" : ""}`}
+                    onClick={() => setChartPeriod(period)}
+                  >
+                    {period}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Spline Chart SVG with Peak Tooltip Badge (🏆 ₹1,202) */}
+            <div className="db-chart-container">
+              <div className="db-chart-peak-badge">
+                <span role="img" aria-label="trophy">🏆</span>
+                <span>{splineChartData.peakValue}</span>
+              </div>
+
+              <svg
+                viewBox="0 0 480 200"
+                className="db-chart-svg"
+                preserveAspectRatio="none"
+              >
+                <defs>
+                  <linearGradient id="salesSplineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#1455D9" stopOpacity="0.25" />
+                    <stop offset="60%" stopColor="#2563EB" stopOpacity="0.08" />
+                    <stop offset="100%" stopColor="#1455D9" stopOpacity="0.00" />
+                  </linearGradient>
+                </defs>
+
+                {/* Horizontal Dashed Guidelines */}
+                <line x1="30" y1="40" x2="450" y2="40" className="db-chart-grid-line" />
+                <line x1="30" y1="75" x2="450" y2="75" className="db-chart-grid-line" />
+                <line x1="30" y1="110" x2="450" y2="110" className="db-chart-grid-line" />
+                <line x1="30" y1="145" x2="450" y2="145" className="db-chart-grid-line" />
+                <line x1="30" y1="180" x2="450" y2="180" stroke="#E2E8F0" strokeWidth="1" />
+
+                {/* Y-Axis Numerical Labels: 1K, 750, 500, 250, 0 */}
+                <text x="24" y="44" textAnchor="end" className="db-chart-axis-text">1K</text>
+                <text x="24" y="79" textAnchor="end" className="db-chart-axis-text">750</text>
+                <text x="24" y="114" textAnchor="end" className="db-chart-axis-text">500</text>
+                <text x="24" y="149" textAnchor="end" className="db-chart-axis-text">250</text>
+                <text x="24" y="184" textAnchor="end" className="db-chart-axis-text">0</text>
+
+                {/* Gradient Fill under spline curve */}
+                <path d={splineChartData.areaD} fill="url(#salesSplineGrad)" />
+
+                {/* Main Blue Spline Path */}
+                <path d={splineChartData.pathD} className="db-chart-spline-line" />
+
+                {/* Circular Data Points */}
+                {splineChartData.points.map((pt, idx) => (
+                  <circle
+                    key={idx}
+                    cx={pt.x}
+                    cy={pt.y}
+                    className="db-chart-dot"
+                  />
+                ))}
+
+                {/* X-Axis Date Labels: Oct 04, Oct 11, Oct 18, Oct 25, Nov 03 */}
+                {splineChartData.labels.map((lbl, idx) => {
+                  const xPos = splineChartData.points[idx]?.x || 30 + idx * 100;
+                  return (
+                    <text
+                      key={idx}
+                      x={xPos}
+                      y="196"
+                      textAnchor="middle"
+                      className="db-chart-axis-text"
+                    >
+                      {lbl}
+                    </text>
+                  );
+                })}
+              </svg>
+            </div>
+          </div>
+
+          {/* Card 2: Recent Orders Table */}
+          <div className="db-card">
+            <div className="db-card-header">
+              <div className="db-card-title-group">
+                <div className="db-card-icon-pill blue">
+                  <ShoppingCart size={19} strokeWidth={2.4} />
+                </div>
+                <div>
+                  <h3 className="db-card-title">Recent Orders</h3>
+                  <p className="db-card-subtitle">Latest orders from customers</p>
                 </div>
               </div>
 
               <button
                 type="button"
-                className="db-header-link"
+                className="db-card-link"
                 onClick={() => navigate("/admin/orders")}
               >
                 <span>View All Orders</span>
@@ -496,161 +490,70 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            {/* Toolbar: Status Tabs & Search */}
-            <div className="db-toolbar-row">
-              <div className="db-status-tabs">
-                <button
-                  type="button"
-                  className={`db-tab-btn ${orderStatusTab === "all" ? "active" : ""}`}
-                  onClick={() => setOrderStatusTab("all")}
-                >
-                  All Checkouts ({orders.length > 0 ? orders.length : 5})
-                </button>
-                <button
-                  type="button"
-                  className={`db-tab-btn ${orderStatusTab === "completed" ? "active" : ""}`}
-                  onClick={() => setOrderStatusTab("completed")}
-                >
-                  Completed
-                </button>
-                <button
-                  type="button"
-                  className={`db-tab-btn ${orderStatusTab === "pending" ? "active" : ""}`}
-                  onClick={() => setOrderStatusTab("pending")}
-                >
-                  Cash at Exit Pending
-                </button>
-              </div>
-
-              <div className="db-search-box">
-                <Search size={14} color="#94A3B8" />
-                <input
-                  type="text"
-                  placeholder="Search order ID or customer..."
-                  value={orderSearch}
-                  onChange={(e) => setOrderSearch(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Orders Table */}
-            <div className="db-table-wrap">
-              <table className="db-table">
+            <div className="db-orders-table-wrap">
+              <table className="db-orders-table">
                 <thead>
                   <tr>
-                    <th>ORDER ID</th>
-                    <th>CUSTOMER</th>
-                    <th>ITEMS</th>
-                    <th>TOTAL</th>
-                    <th>PAYMENT</th>
-                    <th>STATUS</th>
-                    <th>ACTION</th>
+                    <th>#</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Amount</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(filteredOrders.length > 0
-                    ? filteredOrders
-                    : [
-                        {
-                          _id: "65f971",
-                          customerName: "Customer",
-                          customerPhone: "In-Store",
-                          items: [{ name: "Lays" }, { name: "Chocolate" }, { name: "Milk" }],
-                          totalAmount: 622.0,
-                          paymentMethod: "Cash",
-                          paymentStatus: "Completed",
-                        },
-                        {
-                          _id: "65f951",
-                          customerName: "Customer",
-                          customerPhone: "In-Store",
-                          items: [{ name: "Lays" }],
-                          totalAmount: 10.0,
-                          paymentMethod: "Cash",
-                          paymentStatus: "Pending",
-                        },
-                        {
-                          _id: "65f8f2",
-                          customerName: "Customer",
-                          customerPhone: "In-Store",
-                          items: [{ name: "Lays" }],
-                          totalAmount: 30.0,
-                          paymentMethod: "UPI",
-                          paymentStatus: "Completed",
-                        },
-                        {
-                          _id: "65f8e6",
-                          customerName: "Customer",
-                          customerPhone: "In-Store",
-                          items: [{ name: "Lays" }],
-                          totalAmount: 10.0,
-                          paymentMethod: "Card",
-                          paymentStatus: "Completed",
-                        },
-                      ]
-                  ).map((ord) => {
-                    const rawId = (ord.orderId || ord._id || "ORD").toString();
-                    const displayId = rawId.startsWith("#")
-                      ? rawId
-                      : `#${rawId.slice(-6).toUpperCase()}`;
-                    const isCompleted =
-                      ord.paymentStatus === "Completed" || ord.orderStatus === "Completed";
-                    const isCash = (ord.paymentMethod || "").toLowerCase().includes("cash");
-                    const isUpi = (ord.paymentMethod || "").toLowerCase().includes("upi");
-
+                  {displayOrders.map((ord, idx) => {
+                    const statusClass = (ord.status || "").toLowerCase();
+                    const paymentClass = (ord.payment || "").toLowerCase();
                     return (
-                      <tr key={ord._id || ord.orderId}>
-                        <td>
-                          <span className="db-order-badge">{displayId}</span>
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 700, color: "#0F172A", fontSize: "13px" }}>
-                            {ord.customerName || "Customer"}
-                          </div>
-                          <div style={{ fontSize: "11px", color: "#94A3B8" }}>
-                            {ord.customerPhone || "In-Store"}
-                          </div>
-                        </td>
-                        <td>
-                          <span style={{ fontSize: "12px", color: "#475569" }}>
-                            {Array.isArray(ord.items) && ord.items.length > 0
-                              ? `${ord.items[0]?.name || "Item"}${
-                                  ord.items.length > 1 ? ` +${ord.items.length - 1} more` : ""
-                                }`
-                              : "Lays"}
-                          </span>
-                        </td>
-                        <td>
-                          <span style={{ fontWeight: 800, color: "#0F172A" }}>
-                            ₹{Number(ord.totalAmount || 0).toFixed(2)}
-                          </span>
-                        </td>
+                      <tr key={ord.orderId || idx}>
                         <td>
                           <span
-                            className={`db-payment-pill ${
-                              isUpi ? "upi" : isCash ? "cash" : "card"
-                            }`}
+                            className="db-order-id-link"
+                            onClick={() => setSelectedOrder(ord)}
                           >
-                            {ord.paymentMethod || "Cash"}
+                            #{ord.orderId}
                           </span>
                         </td>
                         <td>
-                          <span
-                            className={`db-status-pill ${
-                              isCompleted ? "completed" : isCash ? "pending" : "approved"
-                            }`}
-                          >
-                            {isCompleted ? "Completed" : "Pending"}
+                          <div className="db-customer-cell">
+                            <img
+                              src={ord.customerAvatar}
+                              alt={ord.customerName}
+                              className="db-customer-avatar"
+                            />
+                            <span className="db-customer-name">{ord.customerName}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span>{ord.itemsCount}</span>
+                        </td>
+                        <td>
+                          <span className="db-amount-cell">₹{Number(ord.amount).toFixed(2)}</span>
+                        </td>
+                        <td>
+                          <span className={`db-payment-badge ${paymentClass}`}>
+                            {ord.payment}
                           </span>
+                        </td>
+                        <td>
+                          <span className={`db-status-badge ${statusClass}`}>
+                            {ord.status}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: "12px", color: "#64748B" }}>{ord.date}</span>
                         </td>
                         <td>
                           <button
                             type="button"
-                            className="db-view-btn"
-                            title="View Order Details"
-                            onClick={() => setViewOrder(ord)}
+                            className="db-view-link"
+                            onClick={() => setSelectedOrder(ord)}
                           >
-                            <Eye size={14} />
+                            View
                           </button>
                         </td>
                       </tr>
@@ -659,206 +562,213 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
-
-            {/* Payment Settlement Breakdown Strip */}
-            <div className="db-settlement-bar">
-              <div className="db-settlement-title">
-                <span>Revenue Payment Settlement Breakdown</span>
-                <span style={{ color: "#1D4ED8" }}>
-                  ₹{(paymentBreakdown.upiVal + paymentBreakdown.cardVal + paymentBreakdown.cashVal).toLocaleString()} Total
-                </span>
-              </div>
-
-              <div className="db-progress-segment-wrap">
-                <div
-                  className="db-seg-bar upi"
-                  style={{ width: `${paymentBreakdown.upiPct}%` }}
-                  title={`UPI: ${paymentBreakdown.upiPct}%`}
-                />
-                <div
-                  className="db-seg-bar card"
-                  style={{ width: `${paymentBreakdown.cardPct}%` }}
-                  title={`Card / NetBanking: ${paymentBreakdown.cardPct}%`}
-                />
-                <div
-                  className="db-seg-bar cash"
-                  style={{ width: `${paymentBreakdown.cashPct}%` }}
-                  title={`Cash at Exit: ${paymentBreakdown.cashPct}%`}
-                />
-              </div>
-
-              <div className="db-settlement-legend">
-                <div className="db-legend-item">
-                  <span className="db-legend-dot upi" />
-                  <span>UPI ({paymentBreakdown.upiPct}%)</span>
-                </div>
-                <div className="db-legend-item">
-                  <span className="db-legend-dot card" />
-                  <span>Card / NetBanking ({paymentBreakdown.cardPct}%)</span>
-                </div>
-                <div className="db-legend-item">
-                  <span className="db-legend-dot cash" />
-                  <span>Cash at Exit ({paymentBreakdown.cashPct}%)</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
         {/* ----------------------------------------------------------------------- */}
-        {/* RIGHT COLUMN: RESTOCK URGENCY & DEPARTMENT DISTRIBUTION                 */}
+        {/* RIGHT COLUMN: QUICK ACTIONS, INVENTORY ALERTS & BUSINESS INSIGHTS       */}
         {/* ----------------------------------------------------------------------- */}
         <div className="db-col-right">
-          {/* Card 1: Urgent Restock Alerts */}
+          {/* Card 1: Quick Actions (Single Row of 4 Coloured Tiles matching Image 3) */}
           <div className="db-card">
-            <div className="db-card-header">
+            <div className="db-card-header" style={{ marginBottom: "14px" }}>
               <div className="db-card-title-group">
                 <div className="db-card-icon-pill amber">
-                  <AlertTriangle size={18} />
+                  <Zap size={19} color="#FFFFFF" strokeWidth={2.4} />
                 </div>
                 <div>
-                  <h3 className="db-card-title">Restock Urgency</h3>
-                  <p className="db-card-subtitle">Items at or below low-stock threshold</p>
+                  <h3 className="db-card-title">Quick Actions</h3>
+                  <p className="db-card-subtitle">Get things done faster</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="db-card-link"
+                onClick={() => navigate("/admin/products")}
+              >
+                <span>View All</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+
+            <div className="db-quick-actions-row">
+              {/* Tile 1: Add Product (Blue) */}
+              <div
+                className="db-action-tile"
+                onClick={() => navigate("/admin/add-product")}
+              >
+                <div className="db-action-icon-wrap blue">
+                  <Package size={19} strokeWidth={2.4} />
+                </div>
+                <span className="db-action-label">Add Product</span>
+              </div>
+
+              {/* Tile 2: View Orders (Green) */}
+              <div
+                className="db-action-tile"
+                onClick={() => navigate("/admin/orders")}
+              >
+                <div className="db-action-icon-wrap green">
+                  <ShoppingCart size={19} strokeWidth={2.4} />
+                </div>
+                <span className="db-action-label">View Orders</span>
+              </div>
+
+              {/* Tile 3: Manage Offers (Orange) */}
+              <div
+                className="db-action-tile"
+                onClick={() => navigate("/admin/barcodes")}
+              >
+                <div className="db-action-icon-wrap orange">
+                  <Tag size={19} strokeWidth={2.4} />
+                </div>
+                <span className="db-action-label">Manage Offers</span>
+              </div>
+
+              {/* Tile 4: View Reports (Purple) */}
+              <div
+                className="db-action-tile"
+                onClick={() => navigate("/admin/reports")}
+              >
+                <div className="db-action-icon-wrap purple">
+                  <BarChart2 size={19} strokeWidth={2.4} />
+                </div>
+                <span className="db-action-label">View Reports</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Inventory Alerts (Apples + Red Restock Button matching Image 3) */}
+          <div className="db-card">
+            <div className="db-card-header" style={{ marginBottom: "14px" }}>
+              <div className="db-card-title-group">
+                <div className="db-card-icon-pill amber">
+                  <AlertTriangle size={19} color="#FFFFFF" strokeWidth={2.4} />
+                </div>
+                <div>
+                  <h3 className="db-card-title">Inventory Alerts</h3>
                 </div>
               </div>
 
               <button
                 type="button"
-                className="db-header-link"
+                className="db-card-link"
                 onClick={() => navigate("/admin/inventory")}
               >
-                <span>Ledger</span>
+                <span>View All</span>
                 <ChevronRight size={14} />
               </button>
             </div>
 
-            <div className="db-restock-list">
-              {(urgentRestockItems.length > 0
-                ? urgentRestockItems
-                : [
-                    {
-                      _id: "prod-choco-1",
-                      name: "Chocolate",
-                      stock: 4,
-                      lowStockThreshold: 5,
-                      imageUrl:
-                        "https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=100&auto=format&fit=crop&q=80",
-                    },
-                    {
-                      _id: "prod-choco-2",
-                      name: "Chocolate (Zero Sugar)",
-                      stock: 5,
-                      lowStockThreshold: 10,
-                      imageUrl:
-                        "https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=100&auto=format&fit=crop&q=80",
-                    },
-                  ]
-              ).map((prod) => {
-                const id = prod._id || prod.barcode || prod.name;
-                const isDone = restockedIds[id];
+            <div className="db-alert-row">
+              <div className="db-alert-left">
+                <img
+                  src="https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=120&auto=format&fit=crop&q=80"
+                  alt="Apples"
+                  className="db-alert-thumb"
+                />
+                <div className="db-alert-details">
+                  <h4>Apples</h4>
+                  <p>Only 5 left in stock!</p>
+                </div>
+              </div>
 
-                return (
-                  <div key={id} className="db-restock-row">
-                    <div className="db-restock-info">
-                      <div className="db-restock-thumb">
-                        {prod.imageUrl ? (
-                          <img src={prod.imageUrl} alt={prod.name} />
-                        ) : (
-                          "🍫"
-                        )}
-                      </div>
-                      <div className="db-restock-meta">
-                        <h4>{prod.name}</h4>
-                        <p>
-                          Stock: {prod.stock} / Threshold: {prod.lowStockThreshold || 5}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className={`db-quick-restock-btn ${isDone ? "success" : ""}`}
-                      onClick={() => handleQuickRestock(prod)}
-                    >
-                      {isDone ? "✓ +10 Added" : "+10 Restock"}
-                    </button>
-                  </div>
-                );
-              })}
+              <button
+                type="button"
+                className={`db-restock-pill-btn ${restockedApple ? "success" : ""}`}
+                onClick={handleRestockApples}
+              >
+                {restockedApple ? "✓ Restocked" : "Restock"}
+              </button>
             </div>
           </div>
 
-          {/* Card 2: Department Distribution */}
+          {/* Card 3: Business Insights with 3 Circular Progress Indicators (Blue, Green, Purple) */}
           <div className="db-card">
             <div className="db-card-header">
               <div className="db-card-title-group">
-                <div className="db-card-icon-pill green">
-                  <Boxes size={18} />
-                </div>
-                <div>
-                  <h3 className="db-card-title">Department Distribution</h3>
-                  <p className="db-card-subtitle">Catalog share across supermarket aisles</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="db-dept-list">
-              {categoryStats.map((item) => (
-                <div key={item.name} className="db-dept-row">
-                  <div className="db-dept-meta">
-                    <span>{item.name}</span>
-                    <span style={{ color: "#64748B" }}>
-                      {item.count} items ({item.pct}%)
-                    </span>
-                  </div>
-                  <div className="db-dept-track">
-                    <div
-                      className="db-dept-fill"
-                      style={{ width: `${item.pct}%`, background: item.color }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card 3: Store Hardware & Gate Systems */}
-          <div className="db-card">
-            <div className="db-card-header" style={{ marginBottom: "12px" }}>
-              <div className="db-card-title-group">
                 <div className="db-card-icon-pill blue">
-                  <ShieldCheck size={18} />
+                  <BarChart2 size={19} color="#FFFFFF" strokeWidth={2.4} />
                 </div>
                 <div>
-                  <h3 className="db-card-title">Hardware & Gate Systems</h3>
-                  <p className="db-card-subtitle">Real-time peripheral device health</p>
+                  <h3 className="db-card-title">Business Insights</h3>
+                  <p className="db-card-subtitle">Key metrics & growth overview</p>
                 </div>
+              </div>
+
+              <div className="db-insights-filter-pill">
+                <span>This Month ▾</span>
               </div>
             </div>
 
-            <div className="db-iot-strip">
-              <div className="db-iot-item">
-                <div className="db-iot-name">
-                  <Radio size={14} color="#059669" />
-                  <span>Turnstile Gate Scanner</span>
+            <div className="db-insights-rings-row">
+              {/* Ring 1: Sales Growth (Blue, 78%) */}
+              <div className="db-ring-card">
+                <div className="db-gauge-wrap">
+                  <svg className="db-gauge-svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" className="db-gauge-track" />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      className="db-gauge-fill blue"
+                      strokeDasharray="251"
+                      strokeDashoffset="55" // 78% fill
+                    />
+                  </svg>
+                  <div className="db-gauge-center">
+                    <ShoppingCart size={15} color="#1455D9" />
+                    <span className="db-gauge-pct">78%</span>
+                  </div>
                 </div>
-                <span className="db-iot-status">🟢 Online</span>
+                <span className="db-ring-label">Sales Growth</span>
+                <span className="db-ring-trend">↑ 12%</span>
               </div>
 
-              <div className="db-iot-item">
-                <div className="db-iot-name">
-                  <Radio size={14} color="#059669" />
-                  <span>Barcode Readers (GS1 EAN-13)</span>
+              {/* Ring 2: Stock Health (Green, 92%) */}
+              <div className="db-ring-card">
+                <div className="db-gauge-wrap">
+                  <svg className="db-gauge-svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" className="db-gauge-track" />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      className="db-gauge-fill green"
+                      strokeDasharray="251"
+                      strokeDashoffset="20" // 92% fill
+                    />
+                  </svg>
+                  <div className="db-gauge-center">
+                    <Boxes size={15} color="#10B981" />
+                    <span className="db-gauge-pct">92%</span>
+                  </div>
                 </div>
-                <span className="db-iot-status">🟢 Synced</span>
+                <span className="db-ring-label">Stock Health</span>
+                <span className="db-ring-trend">↑ 8%</span>
               </div>
 
-              <div className="db-iot-item">
-                <div className="db-iot-name">
-                  <Radio size={14} color="#059669" />
-                  <span>Customer App Web Mirror</span>
+              {/* Ring 3: Customer Growth (Purple, 85%) */}
+              <div className="db-ring-card">
+                <div className="db-gauge-wrap">
+                  <svg className="db-gauge-svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" className="db-gauge-track" />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      className="db-gauge-fill purple"
+                      strokeDasharray="251"
+                      strokeDashoffset="38" // 85% fill
+                    />
+                  </svg>
+                  <div className="db-gauge-center">
+                    <Users size={15} color="#9333EA" />
+                    <span className="db-gauge-pct">84%</span>
+                  </div>
                 </div>
-                <span className="db-iot-status">🟢 Port 5173</span>
+                <span className="db-ring-label">Customer Ret.</span>
+                <span className="db-ring-trend">↑ 10%</span>
               </div>
             </div>
           </div>
@@ -866,51 +776,41 @@ export default function AdminDashboard() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 4. ORDER VIEW DETAILS MODAL                                              */}
+      {/* 4. ORDER DETAILS RECEIPT MODAL                                            */}
       {/* ========================================================================= */}
-      {viewOrder && (
-        <div className="pm-modal-backdrop" onClick={() => setViewOrder(null)}>
+      {selectedOrder && (
+        <div
+          className="db-modal-backdrop"
+          onClick={() => setSelectedOrder(null)}
+        >
           <div
-            className="pm-modal-card"
-            style={{ maxWidth: "560px" }}
+            className="db-modal-card"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="pm-modal-header">
+            <div className="db-modal-header">
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div
-                  style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "10px",
-                    background: "#EFF6FF",
-                    color: "#1D4ED8",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
+                <div className="db-card-icon-pill blue">
                   <ShoppingCart size={19} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "#0F172A" }}>
-                    Order Details #{((viewOrder.orderId || viewOrder._id || "").toString().slice(-6)).toUpperCase()}
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#14213D" }}>
+                    Order Details #{selectedOrder.orderId}
                   </h3>
                   <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#64748B" }}>
-                    Verified Supermarket Self-Checkout Invoice
+                    Verified Supermarket Self-Checkout Receipt
                   </p>
                 </div>
               </div>
-
               <button
                 type="button"
-                className="pm-modal-close"
-                onClick={() => setViewOrder(null)}
+                className="db-modal-close-btn"
+                onClick={() => setSelectedOrder(null)}
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div style={{ padding: "20px 24px" }}>
+            <div className="db-modal-body">
               <div
                 style={{
                   display: "grid",
@@ -921,93 +821,91 @@ export default function AdminDashboard() {
                   borderRadius: "12px",
                   marginBottom: "16px",
                   fontSize: "12.5px",
+                  border: "1px solid #E2E8F0",
                 }}
               >
                 <div>
                   <span style={{ color: "#64748B", display: "block", fontSize: "11px", fontWeight: "700" }}>
                     CUSTOMER
                   </span>
-                  <span style={{ fontWeight: "700", color: "#0F172A" }}>
-                    {viewOrder.customerName || "Customer"}
-                  </span>
-                </div>
-                <div>
-                  <span style={{ color: "#64748B", display: "block", fontSize: "11px", fontWeight: "700" }}>
-                    PAYMENT METHOD
-                  </span>
-                  <span style={{ fontWeight: "700", color: "#1D4ED8" }}>
-                    {viewOrder.paymentMethod || "Cash"}
+                  <span style={{ fontWeight: "700", color: "#14213D" }}>
+                    {selectedOrder.customerName}
                   </span>
                 </div>
                 <div>
                   <span style={{ color: "#64748B", display: "block", fontSize: "11px", fontWeight: "700" }}>
                     STATUS
                   </span>
-                  <span style={{ fontWeight: "700", color: "#059669" }}>
-                    {viewOrder.paymentStatus || "Completed"}
+                  <span style={{ fontWeight: "700", color: selectedOrder.status === "Completed" ? "#10B981" : "#F59E0B" }}>
+                    {selectedOrder.status}
                   </span>
                 </div>
                 <div>
                   <span style={{ color: "#64748B", display: "block", fontSize: "11px", fontWeight: "700" }}>
-                    DATE & TIME
+                    DATE
                   </span>
-                  <span style={{ fontWeight: "600", color: "#475569" }}>
-                    {viewOrder.createdAt
-                      ? new Date(viewOrder.createdAt).toLocaleString("en-IN")
-                      : "Today"}
+                  <span style={{ fontWeight: "600", color: "#334155" }}>
+                    {selectedOrder.date}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: "#64748B", display: "block", fontSize: "11px", fontWeight: "700" }}>
+                    PAYMENT METHOD
+                  </span>
+                  <span style={{ fontWeight: "700", color: "#1455D9" }}>
+                    {selectedOrder.payment === "COD" ? "Cash on Delivery" : "UPI / Online"}
                   </span>
                 </div>
               </div>
 
-              <div style={{ marginBottom: "16px" }}>
-                <h4 style={{ margin: "0 0 10px 0", fontSize: "13px", fontWeight: "800", color: "#0F172A" }}>
-                  Items Purchased
-                </h4>
-                <div
-                  style={{
-                    border: "1px solid #E2E8F0",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                  }}
-                >
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px" }}>
-                    <thead>
-                      <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                        <th style={{ padding: "8px 12px", textAlign: "left", color: "#475569" }}>Product</th>
-                        <th style={{ padding: "8px 12px", textAlign: "center", color: "#475569" }}>Qty</th>
-                        <th style={{ padding: "8px 12px", textAlign: "right", color: "#475569" }}>Price</th>
-                        <th style={{ padding: "8px 12px", textAlign: "right", color: "#475569" }}>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Array.isArray(viewOrder.items) && viewOrder.items.length > 0 ? (
-                        viewOrder.items.map((item, idx) => (
-                          <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                            <td style={{ padding: "8px 12px", fontWeight: "600", color: "#0F172A" }}>
-                              {item.name}
-                            </td>
-                            <td style={{ padding: "8px 12px", textAlign: "center", color: "#475569" }}>
-                              {item.quantity || 1}
-                            </td>
-                            <td style={{ padding: "8px 12px", textAlign: "right", color: "#475569" }}>
-                              ₹{Number(item.price || 10).toFixed(2)}
-                            </td>
-                            <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: "700", color: "#0F172A" }}>
-                              ₹{(Number(item.price || 10) * Number(item.quantity || 1)).toFixed(2)}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td style={{ padding: "8px 12px", fontWeight: "600", color: "#0F172A" }}>Lays</td>
-                          <td style={{ padding: "8px 12px", textAlign: "center", color: "#475569" }}>1</td>
-                          <td style={{ padding: "8px 12px", textAlign: "right", color: "#475569" }}>₹10.00</td>
-                          <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: "700", color: "#0F172A" }}>₹10.00</td>
+              <h4 style={{ margin: "0 0 10px 0", fontSize: "13px", fontWeight: "800", color: "#14213D" }}>
+                Items Purchased
+              </h4>
+              <div
+                style={{
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  marginBottom: "16px",
+                }}
+              >
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px" }}>
+                  <thead>
+                    <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
+                      <th style={{ padding: "8px 12px", textAlign: "left", color: "#64748B" }}>Product</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center", color: "#64748B" }}>Qty</th>
+                      <th style={{ padding: "8px 12px", textAlign: "right", color: "#64748B" }}>Price</th>
+                      <th style={{ padding: "8px 12px", textAlign: "right", color: "#64748B" }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                      selectedOrder.items.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                          <td style={{ padding: "8px 12px", fontWeight: "600", color: "#14213D" }}>
+                            {item.name}
+                          </td>
+                          <td style={{ padding: "8px 12px", textAlign: "center", color: "#64748B" }}>
+                            {item.quantity || 1}
+                          </td>
+                          <td style={{ padding: "8px 12px", textAlign: "right", color: "#64748B" }}>
+                            ₹{Number(item.price || 10).toFixed(2)}
+                          </td>
+                          <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: "700", color: "#14213D" }}>
+                            ₹{(Number(item.price || 10) * Number(item.quantity || 1)).toFixed(2)}
+                          </td>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      ))
+                    ) : (
+                      <tr>
+                        <td style={{ padding: "8px 12px" }}>Item</td>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>1</td>
+                        <td style={{ padding: "8px 12px", textAlign: "right" }}>₹{selectedOrder.amount.toFixed(2)}</td>
+                        <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: "700" }}>₹{selectedOrder.amount.toFixed(2)}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
 
               <div
@@ -1021,32 +919,28 @@ export default function AdminDashboard() {
                   border: "1px solid #BFDBFE",
                 }}
               >
-                <span style={{ fontSize: "14px", fontWeight: "700", color: "#1E3A8A" }}>
+                <span style={{ fontSize: "13.5px", fontWeight: "700", color: "#1E3A8A" }}>
                   Grand Total Paid:
                 </span>
-                <span style={{ fontSize: "19px", fontWeight: "900", color: "#1D4ED8" }}>
-                  ₹{Number(viewOrder.totalAmount || 10).toFixed(2)}
+                <span style={{ fontSize: "19px", fontWeight: "900", color: "#1455D9" }}>
+                  ₹{Number(selectedOrder.amount).toFixed(2)}
                 </span>
               </div>
             </div>
 
-            <div
-              className="pm-modal-footer"
-              style={{ display: "flex", justifyContent: "space-between", padding: "14px 24px" }}
-            >
+            <div className="db-modal-footer">
               <button
                 type="button"
-                className="pm-cancel-btn"
-                onClick={() => setViewOrder(null)}
+                className="db-card-link"
+                onClick={() => setSelectedOrder(null)}
               >
                 Close
               </button>
-
               <button
                 type="button"
-                className="pm-save-btn"
+                className="db-hero-insights-btn"
                 onClick={() => window.print()}
-                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                style={{ borderRadius: "8px", padding: "8px 16px" }}
               >
                 <Printer size={15} />
                 <span>Print Invoice</span>

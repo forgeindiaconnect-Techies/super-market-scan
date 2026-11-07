@@ -43,13 +43,9 @@ export default function CheckoutScreen() {
   const [selectedMethod, setSelectedMethod] = useState("UPI");
   const [submittingCash, setSubmittingCash] = useState(false);
 
-  // Compute realistic store savings matching Screen 5
-  const displayDiscount =
-    totalSavings > 0
-      ? totalSavings
-      : Math.round(grossAmount * 0.15); // Authentic supermarket 15% discount
-  const displayTotal =
-    totalSavings > 0 ? totalAmount : Math.max(0, grossAmount - displayDiscount);
+  // Exact real-time price & savings from database (NEVER fake 15% discount)
+  const displayDiscount = totalSavings;
+  const displayTotal = totalAmount;
 
   const handleProceed = async () => {
     if (cart.length === 0) {
@@ -185,10 +181,12 @@ export default function CheckoutScreen() {
               <Text style={styles.breakdownValue}>₹{grossAmount}</Text>
             </View>
 
-            <View style={styles.breakdownRow}>
-              <Text style={styles.discountLabel}>Discount</Text>
-              <Text style={styles.discountValue}>−₹{displayDiscount}</Text>
-            </View>
+            {displayDiscount > 0 && (
+              <View style={styles.breakdownRow}>
+                <Text style={styles.discountLabel}>Discount</Text>
+                <Text style={styles.discountValue}>−₹{displayDiscount}</Text>
+              </View>
+            )}
 
             <View style={styles.breakdownRowTotal}>
               <Text style={styles.totalLabel}>Total Amount</Text>

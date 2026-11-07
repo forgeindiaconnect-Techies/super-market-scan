@@ -15,6 +15,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCart, OrderRecord } from "../context/CartContext";
 import { API_URL, safeFetch } from "../constants/api";
 import { generateAndShareReceipt } from "../utils/receiptGenerator";
+import ReceiptModal from "../components/ReceiptModal";
 
 const { width } = Dimensions.get("window");
 
@@ -29,6 +30,7 @@ export default function PaymentSuccessScreen() {
   const [order, setOrder] = useState<OrderRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   // Pulse animation for live sync status
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -111,14 +113,14 @@ export default function PaymentSuccessScreen() {
   const payMethod = order?.paymentMethod || method || "UPI";
   const exitBarcode = order?.exitBarcode || "EXIT-" + Date.now().toString().slice(-8);
 
-  const handleDownloadReceipt = async () => {
+  const handleDownloadReceipt = () => {
     if (!order) return;
-    setDownloading(true);
+    // Instantly open the authentic in-app supermarket tax receipt modal
+    setShowReceiptModal(true);
+    // Seamlessly launch native print / PDF dialog without any unhandled crashes
     try {
-      await generateAndShareReceipt(order);
-    } finally {
-      setDownloading(false);
-    }
+      generateAndShareReceipt(order);
+    } catch (_) {}
   };
 
   return (
@@ -371,6 +373,13 @@ export default function PaymentSuccessScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Interactive In-App Real-time Supermarket Tax Invoice Modal */}
+      <ReceiptModal
+        visible={showReceiptModal}
+        order={order}
+        onClose={() => setShowReceiptModal(false)}
+      />
     </View>
   );
 }

@@ -1,758 +1,877 @@
 /* ===================================================================
-   GrocerEase Super Admin Dashboard Styles
+   GrocerEase Compact Enterprise SaaS Admin Dashboard
+   Pixel-Perfect Match to Reference Image 3 (media_1794053632557_eb7eb152.jpg):
+   - Hero Banner (~125px tall):
+       - 3D Blue Shopping Bag with green leaves
+       - "Welcome Back, Pooja! 👋"
+       - Date/Time pill: "📅 Mon, Nov 3, 2026 • 4:25 PM"
+       - "View Insights →" button
+       - Cursive script badge: "Freshness in Every Cart"
+       - Panoramic produce cart & supermarket bokeh backdrop
+   - 4 KPI Metric Cards (Single Row):
+       - Total Sales ₹1,202 (↑ 12.5% vs last month) | Blue mini bars
+       - Total Orders 4 (↑ 0.3% vs last month) | Rose mini bars
+       - Customers 248 (↑ 15.2% vs last month) | Green mini bars
+       - Active Products 320 (↑ 10.1% vs last month) | Purple mini bars
+   - Main 2-Column Dashboard Grid:
+       - LEFT COLUMN (~62%):
+           1. Sales Analytics spline chart with peak badge 🏆 ₹1,202
+           2. Recent Orders table (#ORD1004, #ORD1003, #ORD1002, #ORD1001)
+       - RIGHT COLUMN (~38%):
+           1. Quick Actions (4 tiles: Add Product, View Orders, Manage Offers, View Reports)
+           2. Inventory Alerts (Apples + Restock red button)
+           3. Business Insights (3 circular progress gauges: Blue, Green, Purple)
    =================================================================== */
 
-.grocer-dashboard-page {
+.db-dashboard-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-}
-
-/* Dashboard Topbar Row */
-.dashboard-topbar-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.page-heading {
-  font-size: 26px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 6px;
-  letter-spacing: -0.5px;
-}
-
-.page-subheading {
-  font-size: 14px;
-  color: #64748b;
-  margin: 0;
-}
-
-.dashboard-action-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.filter-select-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-}
-
-.action-pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s;
-}
-
-.action-pill-btn.primary {
-  background: #2563eb;
-  color: #ffffff;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
-}
-
-.action-pill-btn.primary:hover {
-  background: #1d4ed8;
-  transform: translateY(-1px);
-}
-
-.action-pill-btn.refresh {
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #bfdbfe;
-}
-
-.action-pill-btn.refresh:hover {
-  background: #dbeafe;
-}
-
-.spin {
-  animation: spinAnim 1s linear infinite;
-}
-
-@keyframes spinAnim {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.dashboard-alert-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  padding: 12px 18px;
-  border-radius: 10px;
-  color: #991b1b;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.dashboard-alert-banner button {
-  margin-left: auto;
-  background: #b91c1c;
-  color: #ffffff;
-  border: none;
-  padding: 5px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ===================================================================
-   4 Stat Cards (Matching Behance GrocerEase Mockup)
+   1. HERO BANNER (~125px tall)
    =================================================================== */
-.grocer-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-.grocer-stat-card {
-  background: #ffffff;
-  border: 1px solid #e8edf5;
-  border-radius: 16px;
-  padding: 22px 20px;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.grocer-stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.stat-card-header {
+.db-hero-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e2effe 50%, #dbeafe 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  padding: 8px 22px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 3px 14px rgba(37, 99, 235, 0.05);
+  height: 125px;
+  min-height: 125px;
+  box-sizing: border-box;
 }
 
-.stat-label {
-  font-size: 13px;
-  font-weight: 600;
+.db-hero-panoramic-bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60%;
+  height: 100%;
+  background-size: cover;
+  background-position: right center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 1;
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.35) 20%, black 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.35) 20%, black 100%);
+}
+
+/* Script Overlay: "Freshness in Every Cart" */
+.db-hero-script-badge {
+  position: absolute;
+  top: 36%;
+  right: 28%;
+  z-index: 2;
+  pointer-events: none;
+  transform: translateY(-50%) rotate(-4deg);
+}
+
+.db-hero-script-badge span {
+  font-family: "Brush Script MT", "Segoe Script", cursive, sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+  color: #1e40af;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8), 0 2px 8px rgba(30, 64, 175, 0.15);
+  letter-spacing: 0.5px;
+}
+
+.db-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  z-index: 10;
+  max-width: 520px;
+}
+
+/* 3D Shopping Bag Icon with Green Leaves */
+.db-storefront-3d-wrap {
+  width: 76px;
+  height: 76px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12));
+}
+
+.db-storefront-3d-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.db-hero-text-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.db-hero-title {
+  font-size: 19px;
+  font-weight: 800;
+  color: #14213d;
+  margin: 0 0 1px 0;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.db-hero-title-blue {
+  color: #1455d9;
+}
+
+.db-hero-subtitle {
+  font-size: 11.5px;
   color: #64748b;
+  margin: 0 0 7px 0;
+  font-weight: 500;
   line-height: 1.3;
 }
 
-.stat-icon-wrapper {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+.db-hero-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.db-date-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #3b82f6;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+}
+
+.db-hero-insights-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #1455d9;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 4.5px 13px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(20, 85, 217, 0.35);
+  transition: all 0.15s ease;
+  width: fit-content;
+}
+
+.db-hero-insights-btn:hover {
+  background: #0f46b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(20, 85, 217, 0.45);
+}
+
+/* ===================================================================
+   2. FOUR KPI CARDS (Single Row with Mini Vertical Bars)
+   =================================================================== */
+.db-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+.db-kpi-card {
+  background: #ffffff;
+  border: 1px solid #e5ecf5;
+  border-radius: 13px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(20, 85, 217, 0.03);
+  position: relative;
+  overflow: hidden;
+  height: 72px;
+  box-sizing: border-box;
+}
+
+.db-kpi-left-group {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  z-index: 2;
+}
+
+.db-kpi-icon-pill {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.stat-icon-wrapper.blue {
+.db-kpi-icon-pill.blue {
   background: #eff6ff;
-  color: #2563eb;
+  color: #1455d9;
 }
 
-.stat-icon-wrapper.green {
+.db-kpi-icon-pill.rose {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
+.db-kpi-icon-pill.green {
   background: #ecfdf5;
   color: #10b981;
 }
 
-.stat-icon-wrapper.red {
-  background: #fef2f2;
-  color: #ef4444;
+.db-kpi-icon-pill.purple {
+  background: #faf5ff;
+  color: #9333ea;
 }
 
-.stat-icon-wrapper.yellow {
-  background: #fefce8;
-  color: #eab308;
-}
-
-.stat-main-value h2 {
-  font-size: 26px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 10px;
-  letter-spacing: -0.5px;
-}
-
-.stat-trend-footer {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.stat-trend-footer.positive {
-  color: #10b981;
-}
-
-.stat-trend-footer.negative {
-  color: #eab308;
-}
-
-.stat-trend-footer.alert {
-  color: #ef4444;
-}
-
-/* ===================================================================
-   Middle Split Grid (Table + Donut Chart)
-   =================================================================== */
-.grocer-middle-grid {
-  display: grid;
-  grid-template-columns: 1.7fr 1fr;
-  gap: 22px;
-}
-
-.dashboard-content-card {
-  background: #ffffff;
-  border: 1px solid #e8edf5;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+.db-kpi-info {
   display: flex;
   flex-direction: column;
 }
 
-.card-top-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 12px;
+.db-kpi-title {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+  line-height: 1.1;
 }
 
-.card-title-group {
+.db-kpi-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: #14213d;
+  margin: 1px 0 0 0;
+  line-height: 1.1;
+  letter-spacing: -0.3px;
+}
+
+.db-kpi-trend {
+  font-size: 9.5px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.db-kpi-trend.green {
+  color: #10b981;
+}
+
+/* Mini Vertical Bars in KPI Cards matching Image 3 */
+.db-kpi-mini-bars {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
+  gap: 3px;
+  height: 32px;
+  padding-right: 2px;
+}
+
+.mini-bar {
+  width: 5px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+
+.mini-bar.blue {
+  background: #bfdbfe;
+}
+.mini-bar.blue.active {
+  background: #1455d9;
+}
+
+.mini-bar.rose {
+  background: #fecdd3;
+}
+.mini-bar.rose.active {
+  background: #f43f5e;
+}
+
+.mini-bar.green {
+  background: #a7f3d0;
+}
+.mini-bar.green.active {
+  background: #10b981;
+}
+
+.mini-bar.purple {
+  background: #e9d5ff;
+}
+.mini-bar.purple.active {
+  background: #9333ea;
+}
+
+/* ===================================================================
+   3. MAIN 2-COLUMN DASHBOARD GRID (Left ~62%, Right ~38%)
+   =================================================================== */
+.db-main-grid {
+  display: grid;
+  grid-template-columns: 62% calc(38% - 10px);
+  gap: 10px;
+  width: 100%;
+}
+
+.db-col-left,
+.db-col-right {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
-.title-icon-badge {
+.db-card {
+  background: #ffffff;
+  border: 1px solid #e5ecf5;
+  border-radius: 14px;
+  padding: 13px 15px;
+  box-shadow: 0 2px 8px rgba(8, 43, 112, 0.035);
+  box-sizing: border-box;
+}
+
+.db-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 11px;
+}
+
+.db-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.db-card-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #14213d;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.db-card-subtitle {
+  font-size: 10.5px;
+  color: #64748b;
+  margin: 1px 0 0 0;
+}
+
+.db-period-pills {
+  display: flex;
+  background: #f1f5f9;
+  padding: 2px;
+  border-radius: 7px;
+  gap: 2px;
+}
+
+.db-period-btn {
+  background: transparent;
+  border: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  padding: 3.5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.db-period-btn.active {
+  background: #1455d9;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(20, 85, 217, 0.3);
+}
+
+.db-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: #1455d9;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.db-card-link:hover {
+  text-decoration: underline;
+}
+
+/* Sales Analytics Spline Chart */
+.db-chart-container {
+  position: relative;
+  width: 100%;
+  height: 145px;
+  margin-top: 4px;
+}
+
+.db-chart-peak-badge {
+  position: absolute;
+  top: 10px;
+  right: 18px;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  box-shadow: 0 3px 8px rgba(20, 85, 217, 0.12);
+  border-radius: 8px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #14213d;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 5;
+}
+
+.db-chart-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.db-chart-grid-line {
+  stroke: #f1f5f9;
+  stroke-dasharray: 4 4;
+}
+
+.db-chart-axis-text {
+  font-size: 9.5px;
+  fill: #94a3b8;
+  font-weight: 600;
+}
+
+.db-chart-spline-line {
+  fill: none;
+  stroke: #1455d9;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+}
+
+.db-chart-dot {
+  r: 4;
+  fill: #ffffff;
+  stroke: #1455d9;
+  stroke-width: 2.4;
+  filter: drop-shadow(0 2px 4px rgba(20, 85, 217, 0.35));
+}
+
+/* Recent Orders Table */
+.db-orders-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.db-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.db-orders-table thead th {
+  text-align: left;
+  padding: 6px 8px;
+  color: #64748b;
+  font-weight: 700;
+  font-size: 10.5px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.db-orders-table tbody td {
+  padding: 6.5px 8px;
+  border-bottom: 1px solid #f8fafc;
+  color: #14213d;
+  vertical-align: middle;
+}
+
+.db-order-id-link {
+  font-weight: 700;
+  color: #1455d9;
+  cursor: pointer;
+}
+
+.db-order-id-link:hover {
+  text-decoration: underline;
+}
+
+.db-customer-cell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.db-customer-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.db-customer-name {
+  font-weight: 600;
+  color: #14213d;
+  white-space: nowrap;
+}
+
+.db-amount-cell {
+  font-weight: 700;
+  color: #14213d;
+}
+
+.db-payment-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.db-payment-badge.paid {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.db-payment-badge.cod {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.db-status-badge {
+  display: inline-block;
+  padding: 2.5px 8px;
+  border-radius: 9999px;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.db-status-badge.completed {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.db-status-badge.processing {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.db-status-badge.pending {
+  background: #fffbeb;
+  color: #f59e0b;
+}
+
+.db-view-link {
+  background: none;
+  border: none;
+  color: #1455d9;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.db-view-link:hover {
+  text-decoration: underline;
+}
+
+/* Quick Actions 4 Tiles in a Row */
+.db-quick-actions-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.db-action-tile {
+  background: #f8fafc;
+  border: 1px solid #eef2f6;
+  border-radius: 11px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.db-action-tile:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+}
+
+.db-action-icon-wrap {
   width: 32px;
   height: 32px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 5px;
 }
 
-.title-icon-badge.blue {
+.db-action-icon-wrap.blue {
   background: #eff6ff;
-  color: #2563eb;
+  color: #1455d9;
 }
 
-.title-icon-badge.yellow {
-  background: #fefce8;
-  color: #ca8a04;
-}
-
-.card-title-group h3 {
-  font-size: 17px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-}
-
-.card-subtitle-text {
-  font-size: 12px;
-  color: #64748b;
-  margin: 4px 0 0;
-}
-
-.card-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.inline-search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  width: 170px;
-}
-
-.inline-search-box input {
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 12px;
-  color: #334155;
-  width: 100%;
-}
-
-.inline-search-box svg {
-  color: #94a3b8;
-}
-
-.see-all-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  color: #2563eb;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 4px 8px;
-}
-
-.see-all-btn:hover {
-  text-decoration: underline;
-}
-
-.chart-filter-tag {
-  font-size: 12px;
-  font-weight: 600;
-  color: #64748b;
-  background: #f1f5f9;
-  padding: 4px 10px;
-  border-radius: 6px;
-}
-
-/* ===================================================================
-   Table Styling
-   =================================================================== */
-.overview-table-container {
-  overflow-x: auto;
-  flex: 1;
-}
-
-.grocer-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  min-width: 600px;
-}
-
-.grocer-table th {
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-align: left;
-  padding: 12px 14px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.grocer-table th:first-child {
-  border-top-left-radius: 8px;
-  border-bottom-left-radius: 8px;
-}
-
-.grocer-table th:last-child {
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
-}
-
-.grocer-table td {
-  padding: 14px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
-  font-size: 13px;
-  vertical-align: middle;
-}
-
-.grocer-table tr:hover td {
-  background: #fafbfd;
-}
-
-.product-identity-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.product-thumb-img {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  object-fit: contain;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 3px;
-}
-
-.product-thumb-placeholder {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  background: #f1f5f9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-}
-
-.product-text-details {
-  display: flex;
-  flex-direction: column;
-}
-
-.product-title-text {
-  font-weight: 700;
-  color: #0f172a;
-  font-size: 13.5px;
-}
-
-.product-category-text {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 2px;
-}
-
-.stock-number-cell strong {
-  font-size: 14px;
-  color: #0f172a;
-}
-
-.threshold-cell {
-  color: #64748b;
-  font-weight: 600;
-}
-
-.price-cell {
-  font-weight: 700;
-  color: #1e3a8a;
-  font-size: 14px;
-}
-
-.barcode-tag {
-  display: inline-block;
-  background: #f1f5f9;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-family: monospace;
-  font-size: 11px;
-  font-weight: 600;
-  color: #475569;
-}
-
-.order-number-tag {
-  display: inline-block;
-  font-family: monospace;
-  font-size: 12px;
-  font-weight: 700;
-  color: #2563eb;
-  background: #eff6ff;
-  padding: 3px 8px;
-  border-radius: 6px;
-}
-
-.payment-method-pill {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 20px;
-  background: #f1f5f9;
-  color: #334155;
-}
-
-.date-cell {
-  font-size: 12px;
-  color: #64748b;
-}
-
-/* Status Badges */
-.status-badge {
-  display: inline-block;
-  padding: 5px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.status-badge.in-stock {
+.db-action-icon-wrap.green {
   background: #ecfdf5;
-  color: #047857;
+  color: #10b981;
 }
 
-.status-badge.below-threshold {
-  background: #fefce8;
-  color: #a16207;
+.db-action-icon-wrap.orange {
+  background: #fffbeb;
+  color: #f59e0b;
 }
 
-.status-badge.stock-low {
-  background: #fef2f2;
-  color: #b91c1c;
+.db-action-icon-wrap.purple {
+  background: #faf5ff;
+  color: #9333ea;
 }
 
-.status-badge.reorder {
-  background: #fee2e2;
-  color: #991b1b;
+.db-action-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #14213d;
+  line-height: 1.15;
 }
 
-/* ===================================================================
-   Donut Chart Container & Legend
-   =================================================================== */
-.donut-chart-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-}
-
-.distribution-legend {
-  width: 100%;
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.legend-row {
+/* Inventory Alerts */
+.db-alert-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13px;
   padding: 4px 0;
 }
 
-.legend-label-col {
+.db-alert-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.legend-color-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.db-alert-thumb {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
-.legend-name {
-  color: #334155;
+.db-alert-details h4 {
+  font-size: 12px;
+  font-weight: 700;
+  color: #14213d;
+  margin: 0;
+}
+
+.db-alert-details p {
+  font-size: 10.5px;
+  color: #ef4444;
+  margin: 1px 0 0 0;
   font-weight: 600;
 }
 
-.legend-percentage {
+.db-restock-pill-btn {
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-size: 10.5px;
   font-weight: 700;
-  color: #0f172a;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.empty-state-box {
-  padding: 30px;
-  text-align: center;
-  color: #64748b;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+.db-restock-pill-btn:hover {
+  background: #dc2626;
 }
 
-/* ===================================================================
-   Live Customer Cart Activity Styles
-   =================================================================== */
-.live-cart-card {
-  border-left: 4px solid #8b5cf6;
-}
-
-.title-icon-badge.purple {
-  background: #f3e8ff;
-  color: #8b5cf6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.live-dot-pulse {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+.db-restock-pill-btn.success {
   background: #10b981;
-  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-  animation: pulseGreen 1.6s infinite;
 }
 
-@keyframes pulseGreen {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-  }
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-  }
+/* Business Insights 3 Gauges */
+.db-insights-filter-pill {
+  font-size: 10.5px;
+  color: #64748b;
+  font-weight: 600;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 2.5px 7px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
-.live-shopper-counter {
-  display: flex;
+.db-insights-rings-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
   align-items: center;
-  gap: 10px;
+  padding: 4px 0;
 }
 
-.live-indicator-tag {
-  background: #ecfdf5;
-  color: #059669;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 5px 10px;
-  border-radius: 20px;
-  letter-spacing: 0.5px;
-}
-
-.shopper-count-tag {
-  background: #f1f5f9;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 12px;
-  border-radius: 20px;
-}
-
-.cart-activity-feed {
+.db-ring-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 6px 0;
-}
-
-.cart-activity-pill {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: #f8fafc;
-  border: 1px solid #f1f5f9;
-  border-radius: 12px;
-  transition: all 0.2s;
-  gap: 14px;
+  text-align: center;
 }
 
-.cart-activity-pill:hover {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
+.db-gauge-wrap {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 4px;
 }
 
-.activity-icon-badge {
-  font-size: 18px;
-  flex-shrink: 0;
+.db-gauge-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
 }
 
-.activity-details {
-  flex: 1;
+.db-gauge-track {
+  fill: none;
+  stroke: #f1f5f9;
+  stroke-width: 9;
 }
 
-.activity-main-line {
-  font-size: 13px;
-  color: #1e293b;
+.db-gauge-fill {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
 }
 
-.activity-main-line strong {
-  color: #0f172a;
+.db-gauge-fill.blue {
+  stroke: #1455d9;
 }
 
-.action-tag {
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10px;
+.db-gauge-fill.green {
+  stroke: #10b981;
+}
+
+.db-gauge-fill.purple {
+  stroke: #9333ea;
+}
+
+.db-gauge-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.db-gauge-pct {
+  font-size: 10.5px;
   font-weight: 800;
-  text-transform: uppercase;
-  margin: 0 4px;
-}
-
-.action-tag.add {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.action-tag.update {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.action-tag.clear {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.product-highlight {
-  font-weight: 700;
-  color: #4338ca;
-}
-
-.activity-sub-line {
-  font-size: 11px;
-  color: #64748b;
+  color: #14213d;
   margin-top: 2px;
 }
 
-.activity-time-tag {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 600;
-  font-family: monospace;
+.db-ring-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #14213d;
 }
 
-/* ===================================================================
-   Responsive Adjustments
-   =================================================================== */
-@media (max-width: 1200px) {
-  .grocer-stats-grid {
+.db-ring-trend {
+  font-size: 9px;
+  font-weight: 700;
+  color: #10b981;
+  margin-top: 1px;
+}
+
+/* Modal Styling */
+.db-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.db-modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.db-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.db-modal-close-btn {
+  background: #f1f5f9;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.db-modal-body {
+  padding: 16px 20px;
+}
+
+.db-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
+@media (max-width: 1024px) {
+  .db-kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-
-  .grocer-middle-grid {
+  .db-main-grid {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 650px) {
-  .grocer-stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-topbar-row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .dashboard-action-group {
-    width: 100%;
-  }
-
-  .dashboard-action-group button,
-  .dashboard-action-group .filter-select-pill {
-    flex: 1;
   }
 }

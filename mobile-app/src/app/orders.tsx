@@ -18,6 +18,7 @@ import { Theme } from "../constants/colors";
 import CustomerBottomNav from "../components/CustomerBottomNav";
 import { API_URL, safeFetch } from "../constants/api";
 import { generateAndShareReceipt } from "../utils/receiptGenerator";
+import ReceiptModal from "../components/ReceiptModal";
 
 // Sample mock orders matching Screen 8 reference image if DB has no historical orders
 const MOCK_ORDERS_REFERENCE: OrderRecord[] = [
@@ -92,6 +93,7 @@ export default function MyOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
+  const [receiptOrder, setReceiptOrder] = useState<OrderRecord | null>(null);
 
   const fetchOrders = async () => {
     try {
@@ -369,12 +371,15 @@ export default function MyOrdersScreen() {
               style={styles.modalReceiptBtn}
               onPress={() => {
                 if (selectedOrder) {
-                  generateAndShareReceipt(selectedOrder);
+                  setReceiptOrder(selectedOrder);
+                  try {
+                    generateAndShareReceipt(selectedOrder);
+                  } catch (_) {}
                 }
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalReceiptBtnText}>⤓ Download PDF Receipt</Text>
+              <Text style={styles.modalReceiptBtnText}>⤓ Open & Download PDF Receipt</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -387,6 +392,13 @@ export default function MyOrdersScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Interactive In-App Real-time Supermarket Tax Invoice Modal */}
+      <ReceiptModal
+        visible={!!receiptOrder}
+        order={receiptOrder}
+        onClose={() => setReceiptOrder(null)}
+      />
     </View>
   );
 }

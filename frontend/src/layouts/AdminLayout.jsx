@@ -62,14 +62,14 @@ class ErrorBoundary extends React.Component {
               window.location.reload();
             }}
             style={{
-              background: "#2563EB",
+              background: "#1455D9",
               color: "#FFFFFF",
               border: "none",
               padding: "10px 24px",
               borderRadius: "12px",
               fontWeight: "700",
               cursor: "pointer",
-              boxShadow: "0 4px 14px rgba(37,99,235,0.3)",
+              boxShadow: "0 4px 14px rgba(20,85,217,0.3)",
             }}
           >
             Reload Section
@@ -86,23 +86,20 @@ export default function AdminLayout() {
 
   return (
     <div className="admin-app-container">
-      {/* Top Full-Width Header Bar matching Image 2 */}
-      <Header onMenuClick={() => setSidebarOpen((prev) => !prev)} />
+      {/* Mobile Backdrop */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      {/* Main Row: Floating Curved Sidebar on the Left + Main Content on the Right */}
-      <div className="admin-body-row">
-        {/* Mobile Backdrop */}
-        {sidebarOpen && (
-          <div
-            className="sidebar-backdrop"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+      {/* Deep Navy Left Sidebar matching reference */}
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        {/* Floating Curved Left Sidebar matching Image 2 */}
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-        {/* Main Content Canvas with Error Boundary (Guarantees No White Screen) */}
+      {/* Right Main Column: Top Header + Content Canvas */}
+      <div className="admin-main-wrapper">
+        <Header onMenuClick={() => setSidebarOpen((prev) => !prev)} />
         <main className="admin-main-canvas">
           <ErrorBoundary>
             <Outlet />

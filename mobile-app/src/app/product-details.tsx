@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCart } from "../context/CartContext";
 import { Theme } from "../constants/colors";
@@ -34,9 +34,12 @@ export default function ProductDetailsScreen() {
   const [isWishlist, setIsWishlist] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
 
-  useEffect(() => {
-    fetchProduct();
-  }, [productId, barcode]);
+  // Refresh product details on mount and every time screen receives focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchProduct();
+    }, [productId, barcode])
+  );
 
   const fetchProduct = async () => {
     try {
@@ -47,9 +50,9 @@ export default function ProductDetailsScreen() {
 
       let endpoint = "";
       if (productId) {
-        endpoint = `${API_URL}/products/${productId}`;
+        endpoint = `${API_URL}/products/${productId}?_t=${Date.now()}`;
       } else if (barcode) {
-        endpoint = `${API_URL}/products/barcode/${encodeURIComponent(barcode)}`;
+        endpoint = `${API_URL}/products/barcode/${encodeURIComponent(barcode)}?_t=${Date.now()}`;
       } else {
         throw new Error("No product ID or barcode provided.");
       }
@@ -74,16 +77,14 @@ export default function ProductDetailsScreen() {
   const rawPrice = Number(product?.price || 0);
   const dbDiscount = Number(product?.discount || 0);
 
-  // Compute realistic original MRP & discount percent matching Screen 3
-  const finalPrice = dbDiscount > 0 ? Math.max(0, rawPrice - dbDiscount) : rawPrice;
-  const originalMrp =
-    dbDiscount > 0
-      ? rawPrice
-      : Math.round(rawPrice * 1.25); // Standard 20% supermarket discount display
+  // Use ONLY exact real-time data entered in Admin Dashboard
+  const hasDiscount = dbDiscount > 0;
+  const finalPrice = hasDiscount ? Math.max(0, rawPrice - dbDiscount) : rawPrice;
+  const originalMrp = rawPrice;
   const discountPercent =
-    originalMrp > finalPrice
-      ? Math.round(((originalMrp - finalPrice) / originalMrp) * 100)
-      : 20;
+    hasDiscount && originalMrp > 0
+      ? Math.round((dbDiscount / originalMrp) * 100)
+      : 0;
 
   const inStock = (product?.stock || 0) > 0;
 
@@ -200,13 +201,17 @@ export default function ProductDetailsScreen() {
               </Text>
             </View>
 
-            {/* Price, Strikethrough & Green Discount Tag matching Screen 3 */}
+            {/* Exact Price matching Super Admin (strikethrough & discount shown ONLY if real discount exists) */}
             <View style={styles.priceRow}>
               <Text style={styles.finalPrice}>₹{finalPrice}</Text>
-              <Text style={styles.originalPrice}>₹{originalMrp}</Text>
-              <View style={styles.discountBadge}>
-                <Text style={styles.discountBadgeText}>{discountPercent}% OFF</Text>
-              </View>
+              {hasDiscount && (
+                <>
+                  <Text style={styles.originalPrice}>₹{originalMrp}</Text>
+                  <View style={styles.discountBadge}>
+                    <Text style={styles.discountBadgeText}>{discountPercent}% OFF</Text>
+                  </View>
+                </>
+              )}
             </View>
 
             {/* Product Description */}

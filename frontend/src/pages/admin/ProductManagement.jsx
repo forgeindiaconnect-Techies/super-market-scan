@@ -186,6 +186,7 @@ export default function ProductManagement() {
       barcode: product.barcode || "",
       price: product.price,
       costPrice: product.costPrice || 0,
+      discount: product.discount || 0,
       stock: product.stock,
       lowStockThreshold: product.lowStockThreshold || 5,
       imageUrl: product.imageUrl || "",
@@ -283,32 +284,32 @@ export default function ProductManagement() {
 
           {/* Sweeping dynamic blue & gold wave ribbon matching Image 1 */}
           <div className="pm-hero-ribbon-wrap">
-            <svg className="pm-hero-ribbon-svg" viewBox="0 0 640 150" fill="none" preserveAspectRatio="none">
+            <svg className="pm-hero-ribbon-svg" viewBox="0 0 640 160" fill="none" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="goldRibbonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stopColor="#F59E0B" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#FDE047" />
-                  <stop offset="50%" stopColor="#FBBF24" />
-                  <stop offset="80%" stopColor="#F59E0B" />
+                  <stop offset="18%" stopColor="#FDE047" />
+                  <stop offset="55%" stopColor="#FBBF24" />
+                  <stop offset="85%" stopColor="#F59E0B" />
                   <stop offset="100%" stopColor="#FBBF24" />
                 </linearGradient>
                 <linearGradient id="blueRibbonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stopColor="#1E3A8A" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#1D4ED8" />
-                  <stop offset="50%" stopColor="#2563EB" />
-                  <stop offset="80%" stopColor="#1E40AF" />
+                  <stop offset="20%" stopColor="#1D4ED8" />
+                  <stop offset="55%" stopColor="#2563EB" />
+                  <stop offset="85%" stopColor="#1E40AF" />
                   <stop offset="100%" stopColor="#1E3A8A" />
                 </linearGradient>
               </defs>
               {/* Flowing Royal Blue Ribbon Body */}
               <path
-                d="M 0 132 C 110 98, 190 54, 310 44 C 430 34, 520 48, 640 28 L 640 62 C 520 82, 430 68, 310 78 C 190 88, 110 128, 0 152 Z"
+                d="M 0 115 C 130 125, 260 102, 380 78 C 470 60, 560 48, 640 42 L 640 68 C 560 74, 470 86, 380 104 C 260 128, 130 150, 0 138 Z"
                 fill="url(#blueRibbonGrad)"
                 opacity="0.96"
               />
               {/* Brilliant Gold Accent Ribbon Edge */}
               <path
-                d="M 0 125 C 110 91, 190 47, 310 37 C 430 27, 520 41, 640 21 L 640 31 C 520 51, 430 37, 310 47 C 190 57, 110 97, 0 135 Z"
+                d="M 0 108 C 130 118, 260 95, 380 71 C 470 53, 560 41, 640 35 L 640 43 C 560 49, 470 61, 380 79 C 260 103, 130 126, 0 116 Z"
                 fill="url(#goldRibbonGrad)"
               />
             </svg>
@@ -880,6 +881,19 @@ export default function ProductManagement() {
                     value={editForm.costPrice}
                     onChange={(e) =>
                       setEditForm({ ...editForm, costPrice: e.target.value })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Discount Amount (₹)
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editForm.discount || 0}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, discount: e.target.value })
                     }
                   />
                 </label>

@@ -468,14 +468,9 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
  * and allows the user to view it and tap "Save as PDF" with zero FileProvider/ExpoSharing crashes.
  */
 export async function generateAndShareReceipt(order: OrderRecord): Promise<boolean> {
+  if (!order) return false;
   try {
-    if (!order) {
-      Alert.alert("Receipt Error", "No order information available to generate receipt.");
-      return false;
-    }
-
     const htmlContent = buildSupermarketReceiptHtml(order);
-
     // Primary action: Open the receipt directly on screen using the native Print & PDF Spooler.
     // On Android, this opens the system Print/PDF viewer directly with a 1-tap "Save as PDF" button.
     // On iOS, it opens the AirPrint & PDF viewer with options to save or share.
@@ -484,31 +479,6 @@ export async function generateAndShareReceipt(order: OrderRecord): Promise<boole
     return true;
   } catch (error: any) {
     console.warn("Print.printAsync notice:", error);
-
-    // Safe fallback: Try printToFileAsync with safe try/catch
-    try {
-      const htmlContent = buildSupermarketReceiptHtml(order);
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        base64: false,
-      });
-
-      if (await Sharing.isAvailableAsync()) {
-        try {
-          await Sharing.shareAsync(uri, {
-            UTI: ".pdf",
-            mimeType: "application/pdf",
-            dialogTitle: `GrocerEase Receipt - ${order.orderNumber || "Invoice"}`,
-          });
-          return true;
-        } catch (shareErr) {
-          console.warn("Sharing fallback notice:", shareErr);
-        }
-      }
-    } catch (fallbackErr) {
-      console.warn("File fallback notice:", fallbackErr);
-    }
-
-    return true;
+    return false;
   }
 }

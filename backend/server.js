@@ -6,16 +6,35 @@ const path = require("path");
 const fs = require("fs");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
-// Ensure high-resolution supermarket hero banner image is copied to frontend assets
+// Ensure high-resolution supermarket hero banner & sidebar images are copied to frontend assets & public
 try {
-  const bannerSrc = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\854d9c17-1fe6-4371-834d-7baab097676a\\supermarket_saas_banner_1793941573073.jpg";
-  const bannerDest = path.join(__dirname, "../frontend/src/assets/hero-banner-art.jpg");
-  if (fs.existsSync(bannerSrc)) {
-    fs.copyFileSync(bannerSrc, bannerDest);
-    console.log("✓ Successfully synced hero banner art to frontend/src/assets/hero-banner-art.jpg");
+  const brainDir = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\fb582fb9-2b2b-411c-ac43-40149f4c94a9";
+  const assetsDir = path.join(__dirname, "../frontend/src/assets");
+  const publicDir = path.join(__dirname, "../frontend/public");
+  if (!fs.existsSync(assetsDir)) fs.mkdirSync(assetsDir, { recursive: true });
+  if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+
+  const syncList = [
+    { src: path.join(brainDir, "sidebar_abstract_blue_waves_1794046512095.jpg"), names: ["sidebar-waves-bg.jpg", "sidebar_abstract_blue_waves.jpg"] },
+    { src: path.join(brainDir, "grocery_basket_3d_1794046555765.jpg"), names: ["grocery-basket-3d.jpg", "grocery_basket_3d.jpg"] },
+    { src: path.join(brainDir, "storefront_3d_supermarket_1794046532029.jpg"), names: ["storefront-3d.jpg", "storefront_3d.jpg"] },
+    { src: path.join(brainDir, "dashboard_hero_banner_art_1794046675903.jpg"), names: ["hero-banner-art.jpg", "dashboard_hero_banner_art.jpg"] },
+    { src: path.join(brainDir, "dashboard_hero_fresh_cart_aisle_1794053392050.jpg"), names: ["dashboard-hero-fresh-cart.jpg", "hero-aisle-cart.jpg"] },
+    { src: path.join(brainDir, "blue_shopping_bag_3d_1794053871902.jpg"), names: ["blue-shopping-bag-3d.jpg"] },
+    { src: path.join(brainDir, "gift_box_3d_icon_1794053425724.jpg"), names: ["gift-box-3d.jpg"] },
+  ];
+
+  for (const item of syncList) {
+    if (fs.existsSync(item.src)) {
+      for (const name of item.names) {
+        fs.copyFileSync(item.src, path.join(assetsDir, name));
+        fs.copyFileSync(item.src, path.join(publicDir, name));
+      }
+      console.log(`✓ Synced asset: ${item.names[0]}`);
+    }
   }
 } catch (e) {
-  console.warn("Banner sync:", e.message);
+  console.warn("Asset sync:", e.message);
 }
 
 const productRoutes = require("./routes/productRoutes");
