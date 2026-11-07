@@ -111,7 +111,7 @@ export default function AdminDashboard() {
         lowStockCount: 2,
       });
     } catch (err) {
-      console.warn("Dashboard sync error:", err.message);
+      console.warn("Dashboard sync notice:", err.message);
     }
   };
 
@@ -133,18 +133,18 @@ export default function AdminDashboard() {
       peakValue: "₹1,202",
       labels: ["Oct 04", "Oct 11", "Oct 18", "Oct 25", "Nov 03"],
       points: [
-        { x: 30, y: 172 },
-        { x: 135, y: 145 },
-        { x: 235, y: 149 },
-        { x: 340, y: 138 },
-        { x: 445, y: 95 }, // Peak
+        { x: 35, y: 145 },
+        { x: 135, y: 125 },
+        { x: 235, y: 128 },
+        { x: 335, y: 118 },
+        { x: 435, y: 78 }, // Peak
       ],
-      pathD: "M 30 172 C 85 172, 95 145, 135 145 C 185 145, 195 149, 235 149 C 285 149, 295 138, 340 138 C 390 138, 410 95, 445 95",
-      areaD: "M 30 172 C 85 172, 95 145, 135 145 C 185 145, 195 149, 235 149 C 285 149, 295 138, 340 138 C 390 138, 410 95, 445 95 L 445 185 L 30 185 Z",
+      pathD: "M 35 145 C 85 145, 95 125, 135 125 C 185 125, 195 128, 235 128 C 285 128, 295 118, 335 118 C 385 118, 405 78, 435 78",
+      areaD: "M 35 145 C 85 145, 95 125, 135 125 C 185 125, 195 128, 235 128 C 285 128, 295 118, 335 118 C 385 118, 405 78, 435 78 L 435 155 L 35 155 Z",
     };
   }, []);
 
-  // Display orders matching Reference Image 3
+  // Display orders matching Target Mockup
   const displayOrders = useMemo(() => {
     return [
       {
@@ -211,13 +211,13 @@ export default function AdminDashboard() {
       {/* 1. HERO BANNER - Exact Recreation with 3D Blue Bag, Date Pill & Produce Cart */}
       {/* ========================================================================= */}
       <section className="db-hero-banner">
-        {/* Photorealistic Panoramic Supermarket Bokeh & Fresh Produce Cart on Right */}
+        {/* Panoramic Supermarket Bokeh & Fresh Produce Cart on Right */}
         <div
           className="db-hero-panoramic-bg"
           style={{ backgroundImage: `url(${heroBannerImg})` }}
         />
 
-        {/* Script Overlay: "Freshness in Every Cart" matching Reference Image 3 */}
+        {/* Script Overlay: "Freshness in Every Cart" in royal blue #1E40AF */}
         <div className="db-hero-script-badge">
           <span>Freshness in Every Cart</span>
         </div>
@@ -249,7 +249,7 @@ export default function AdminDashboard() {
             {/* Date/Time Pill & View Insights Button */}
             <div className="db-hero-meta-row">
               <div className="db-date-pill">
-                <Calendar size={13} color="#2563EB" />
+                <Calendar size={12} color="#2563EB" />
                 <span>Mon, Nov 3, 2026 • 4:25 PM</span>
               </div>
 
@@ -262,7 +262,7 @@ export default function AdminDashboard() {
                 }}
               >
                 <span>View Insights</span>
-                <ArrowRight size={14} />
+                <ArrowRight size={13} />
               </button>
             </div>
           </div>
@@ -270,14 +270,14 @@ export default function AdminDashboard() {
       </section>
 
       {/* ========================================================================= */}
-      {/* 2. FOUR KPI CARDS (Single Row with Mini Vertical Bars matching Image 3)   */}
+      {/* 2. FOUR KPI CARDS (Single Row with Pastel Tinted Gradients)               */}
       {/* ========================================================================= */}
       <section className="db-kpi-grid">
-        {/* Card 1: Total Sales */}
+        {/* Card 1: Total Sales (Blue Pastel) */}
         <div className="db-kpi-card blue-theme">
           <div className="db-kpi-left-group">
             <div className="db-kpi-icon-pill blue">
-              <TrendingUp size={20} strokeWidth={2.4} />
+              <TrendingUp size={19} strokeWidth={2.4} />
             </div>
             <div className="db-kpi-info">
               <span className="db-kpi-title">Total Sales</span>
@@ -295,11 +295,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Card 2: Total Orders */}
+        {/* Card 2: Total Orders (Rose Pastel) */}
         <div className="db-kpi-card rose-theme">
           <div className="db-kpi-left-group">
             <div className="db-kpi-icon-pill rose">
-              <ShoppingCart size={20} strokeWidth={2.4} />
+              <ShoppingCart size={19} strokeWidth={2.4} />
             </div>
             <div className="db-kpi-info">
               <span className="db-kpi-title">Total Orders</span>
@@ -317,11 +317,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Card 3: Customers */}
+        {/* Card 3: Customers (Green Pastel) */}
         <div className="db-kpi-card green-theme">
           <div className="db-kpi-left-group">
             <div className="db-kpi-icon-pill green">
-              <Users size={20} strokeWidth={2.4} />
+              <Users size={19} strokeWidth={2.4} />
             </div>
             <div className="db-kpi-info">
               <span className="db-kpi-title">Customers</span>
@@ -339,11 +339,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Card 4: Active Products */}
+        {/* Card 4: Active Products (Purple Pastel) */}
         <div className="db-kpi-card purple-theme">
           <div className="db-kpi-left-group">
             <div className="db-kpi-icon-pill purple">
-              <Package size={20} strokeWidth={2.4} />
+              <Package size={19} strokeWidth={2.4} />
             </div>
             <div className="db-kpi-info">
               <span className="db-kpi-title">Active Products</span>
@@ -363,7 +363,7 @@ export default function AdminDashboard() {
       </section>
 
       {/* ========================================================================= */}
-      {/* 3. MAIN 2-COLUMN GRID (Left ~62%, Right ~38% matching Image 3)            */}
+      {/* 3. MAIN 2-COLUMN GRID (Left ~62%, Right ~38%)                             */}
       {/* ========================================================================= */}
       <div className="db-main-grid">
         {/* ----------------------------------------------------------------------- */}
@@ -375,7 +375,7 @@ export default function AdminDashboard() {
             <div className="db-card-header">
               <div className="db-card-title-group">
                 <div className="db-card-icon-pill blue">
-                  <TrendingUp size={20} strokeWidth={2.4} />
+                  <TrendingUp size={19} strokeWidth={2.4} />
                 </div>
                 <div>
                   <h3 className="db-card-title">Sales Analytics</h3>
@@ -406,31 +406,31 @@ export default function AdminDashboard() {
               </div>
 
               <svg
-                viewBox="0 0 480 200"
+                viewBox="0 0 480 170"
                 className="db-chart-svg"
                 preserveAspectRatio="none"
               >
                 <defs>
                   <linearGradient id="salesSplineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#1455D9" stopOpacity="0.25" />
-                    <stop offset="60%" stopColor="#2563EB" stopOpacity="0.08" />
+                    <stop offset="0%" stopColor="#1455D9" stopOpacity="0.22" />
+                    <stop offset="60%" stopColor="#2563EB" stopOpacity="0.06" />
                     <stop offset="100%" stopColor="#1455D9" stopOpacity="0.00" />
                   </linearGradient>
                 </defs>
 
                 {/* Horizontal Dashed Guidelines */}
-                <line x1="30" y1="40" x2="450" y2="40" className="db-chart-grid-line" />
-                <line x1="30" y1="75" x2="450" y2="75" className="db-chart-grid-line" />
-                <line x1="30" y1="110" x2="450" y2="110" className="db-chart-grid-line" />
-                <line x1="30" y1="145" x2="450" y2="145" className="db-chart-grid-line" />
-                <line x1="30" y1="180" x2="450" y2="180" stroke="#E2E8F0" strokeWidth="1" />
+                <line x1="35" y1="35" x2="455" y2="35" className="db-chart-grid-line" />
+                <line x1="35" y1="65" x2="455" y2="65" className="db-chart-grid-line" />
+                <line x1="35" y1="95" x2="455" y2="95" className="db-chart-grid-line" />
+                <line x1="35" y1="125" x2="455" y2="125" className="db-chart-grid-line" />
+                <line x1="35" y1="155" x2="455" y2="155" stroke="#E2E8F0" strokeWidth="1" />
 
-                {/* Y-Axis Numerical Labels: 1K, 750, 500, 250, 0 */}
-                <text x="24" y="44" textAnchor="end" className="db-chart-axis-text">1K</text>
-                <text x="24" y="79" textAnchor="end" className="db-chart-axis-text">750</text>
-                <text x="24" y="114" textAnchor="end" className="db-chart-axis-text">500</text>
-                <text x="24" y="149" textAnchor="end" className="db-chart-axis-text">250</text>
-                <text x="24" y="184" textAnchor="end" className="db-chart-axis-text">0</text>
+                {/* Y-Axis Numerical Labels with INLINE SVG ATTRIBUTES preventing text blowup */}
+                <text x="28" y="38" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">1K</text>
+                <text x="28" y="68" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">750</text>
+                <text x="28" y="98" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">500</text>
+                <text x="28" y="128" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">250</text>
+                <text x="28" y="158" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">0</text>
 
                 {/* Gradient Fill under spline curve */}
                 <path d={splineChartData.areaD} fill="url(#salesSplineGrad)" />
@@ -448,16 +448,19 @@ export default function AdminDashboard() {
                   />
                 ))}
 
-                {/* X-Axis Date Labels: Oct 04, Oct 11, Oct 18, Oct 25, Nov 03 */}
+                {/* X-Axis Date Labels with INLINE SVG ATTRIBUTES */}
                 {splineChartData.labels.map((lbl, idx) => {
-                  const xPos = splineChartData.points[idx]?.x || 30 + idx * 100;
+                  const xPos = splineChartData.points[idx]?.x || 35 + idx * 100;
                   return (
                     <text
                       key={idx}
                       x={xPos}
-                      y="196"
+                      y="167"
                       textAnchor="middle"
-                      className="db-chart-axis-text"
+                      fontSize="9.5"
+                      fill="#94A3B8"
+                      fontWeight="600"
+                      fontFamily="sans-serif"
                     >
                       {lbl}
                     </text>
@@ -472,7 +475,7 @@ export default function AdminDashboard() {
             <div className="db-card-header">
               <div className="db-card-title-group">
                 <div className="db-card-icon-pill blue">
-                  <ShoppingCart size={19} strokeWidth={2.4} />
+                  <ShoppingCart size={18} strokeWidth={2.4} />
                 </div>
                 <div>
                   <h3 className="db-card-title">Recent Orders</h3>
@@ -486,7 +489,7 @@ export default function AdminDashboard() {
                 onClick={() => navigate("/admin/orders")}
               >
                 <span>View All Orders</span>
-                <ChevronRight size={15} />
+                <ChevronRight size={14} />
               </button>
             </div>
 
@@ -545,7 +548,7 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td>
-                          <span style={{ fontSize: "12px", color: "#64748B" }}>{ord.date}</span>
+                          <span style={{ fontSize: "11px", color: "#64748B" }}>{ord.date}</span>
                         </td>
                         <td>
                           <button
@@ -569,12 +572,12 @@ export default function AdminDashboard() {
         {/* RIGHT COLUMN: QUICK ACTIONS, INVENTORY ALERTS & BUSINESS INSIGHTS       */}
         {/* ----------------------------------------------------------------------- */}
         <div className="db-col-right">
-          {/* Card 1: Quick Actions (Single Row of 4 Coloured Tiles matching Image 3) */}
+          {/* Card 1: Quick Actions (Pastel Tinted Backgrounds matching Spec) */}
           <div className="db-card">
-            <div className="db-card-header" style={{ marginBottom: "14px" }}>
+            <div className="db-card-header" style={{ marginBottom: "12px" }}>
               <div className="db-card-title-group">
                 <div className="db-card-icon-pill amber">
-                  <Zap size={19} color="#FFFFFF" strokeWidth={2.4} />
+                  <Zap size={18} color="#FFFFFF" strokeWidth={2.4} />
                 </div>
                 <div>
                   <h3 className="db-card-title">Quick Actions</h3>
@@ -587,63 +590,63 @@ export default function AdminDashboard() {
                 onClick={() => navigate("/admin/products")}
               >
                 <span>View All</span>
-                <ChevronRight size={14} />
+                <ChevronRight size={13} />
               </button>
             </div>
 
             <div className="db-quick-actions-row">
-              {/* Tile 1: Add Product (Blue) */}
+              {/* Tile 1: Add Product (Pastel Blue) */}
               <div
-                className="db-action-tile"
+                className="db-action-tile pastel-blue"
                 onClick={() => navigate("/admin/add-product")}
               >
                 <div className="db-action-icon-wrap blue">
-                  <Package size={19} strokeWidth={2.4} />
+                  <Package size={18} strokeWidth={2.4} />
                 </div>
                 <span className="db-action-label">Add Product</span>
               </div>
 
-              {/* Tile 2: View Orders (Green) */}
+              {/* Tile 2: View Orders (Pastel Green) */}
               <div
-                className="db-action-tile"
+                className="db-action-tile pastel-green"
                 onClick={() => navigate("/admin/orders")}
               >
                 <div className="db-action-icon-wrap green">
-                  <ShoppingCart size={19} strokeWidth={2.4} />
+                  <ShoppingCart size={18} strokeWidth={2.4} />
                 </div>
                 <span className="db-action-label">View Orders</span>
               </div>
 
-              {/* Tile 3: Manage Offers (Orange) */}
+              {/* Tile 3: Manage Offers (Pastel Orange) */}
               <div
-                className="db-action-tile"
+                className="db-action-tile pastel-orange"
                 onClick={() => navigate("/admin/barcodes")}
               >
                 <div className="db-action-icon-wrap orange">
-                  <Tag size={19} strokeWidth={2.4} />
+                  <Tag size={18} strokeWidth={2.4} />
                 </div>
                 <span className="db-action-label">Manage Offers</span>
               </div>
 
-              {/* Tile 4: View Reports (Purple) */}
+              {/* Tile 4: View Reports (Pastel Purple) */}
               <div
-                className="db-action-tile"
+                className="db-action-tile pastel-purple"
                 onClick={() => navigate("/admin/reports")}
               >
                 <div className="db-action-icon-wrap purple">
-                  <BarChart2 size={19} strokeWidth={2.4} />
+                  <BarChart2 size={18} strokeWidth={2.4} />
                 </div>
                 <span className="db-action-label">View Reports</span>
               </div>
             </div>
           </div>
 
-          {/* Card 2: Inventory Alerts (Apples + Red Restock Button matching Image 3) */}
+          {/* Card 2: Inventory Alerts (Apples + Low Stock red pill) */}
           <div className="db-card">
-            <div className="db-card-header" style={{ marginBottom: "14px" }}>
+            <div className="db-card-header" style={{ marginBottom: "12px" }}>
               <div className="db-card-title-group">
                 <div className="db-card-icon-pill amber">
-                  <AlertTriangle size={19} color="#FFFFFF" strokeWidth={2.4} />
+                  <AlertTriangle size={18} color="#FFFFFF" strokeWidth={2.4} />
                 </div>
                 <div>
                   <h3 className="db-card-title">Inventory Alerts</h3>
@@ -656,7 +659,7 @@ export default function AdminDashboard() {
                 onClick={() => navigate("/admin/inventory")}
               >
                 <span>View All</span>
-                <ChevronRight size={14} />
+                <ChevronRight size={13} />
               </button>
             </div>
 
@@ -678,17 +681,17 @@ export default function AdminDashboard() {
                 className={`db-restock-pill-btn ${restockedApple ? "success" : ""}`}
                 onClick={handleRestockApples}
               >
-                {restockedApple ? "✓ Restocked" : "Restock"}
+                {restockedApple ? "✓ Restocked" : "Low Stock"}
               </button>
             </div>
           </div>
 
-          {/* Card 3: Business Insights with 3 Circular Progress Indicators (Blue, Green, Purple) */}
+          {/* Card 3: Business Insights with 3 Circular Gauges */}
           <div className="db-card">
             <div className="db-card-header">
               <div className="db-card-title-group">
                 <div className="db-card-icon-pill blue">
-                  <BarChart2 size={19} color="#FFFFFF" strokeWidth={2.4} />
+                  <BarChart2 size={18} color="#FFFFFF" strokeWidth={2.4} />
                 </div>
                 <div>
                   <h3 className="db-card-title">Business Insights</h3>
@@ -717,7 +720,7 @@ export default function AdminDashboard() {
                     />
                   </svg>
                   <div className="db-gauge-center">
-                    <ShoppingCart size={15} color="#1455D9" />
+                    <ShoppingCart size={14} color="#1455D9" />
                     <span className="db-gauge-pct">78%</span>
                   </div>
                 </div>
@@ -725,7 +728,7 @@ export default function AdminDashboard() {
                 <span className="db-ring-trend">↑ 12%</span>
               </div>
 
-              {/* Ring 2: Stock Health (Green, 92%) */}
+              {/* Ring 2: Store Health (Green, 92%) */}
               <div className="db-ring-card">
                 <div className="db-gauge-wrap">
                   <svg className="db-gauge-svg" viewBox="0 0 100 100">
@@ -740,15 +743,15 @@ export default function AdminDashboard() {
                     />
                   </svg>
                   <div className="db-gauge-center">
-                    <Boxes size={15} color="#10B981" />
+                    <Boxes size={14} color="#10B981" />
                     <span className="db-gauge-pct">92%</span>
                   </div>
                 </div>
-                <span className="db-ring-label">Stock Health</span>
-                <span className="db-ring-trend">↑ 8%</span>
+                <span className="db-ring-label">Store Health</span>
+                <span className="db-ring-trend">↑ 5%</span>
               </div>
 
-              {/* Ring 3: Customer Growth (Purple, 85%) */}
+              {/* Ring 3: Customer Ret. (Purple, 84%) */}
               <div className="db-ring-card">
                 <div className="db-gauge-wrap">
                   <svg className="db-gauge-svg" viewBox="0 0 100 100">
@@ -759,16 +762,16 @@ export default function AdminDashboard() {
                       r="40"
                       className="db-gauge-fill purple"
                       strokeDasharray="251"
-                      strokeDashoffset="38" // 85% fill
+                      strokeDashoffset="40" // 84% fill
                     />
                   </svg>
                   <div className="db-gauge-center">
-                    <Users size={15} color="#9333EA" />
+                    <Users size={14} color="#9333EA" />
                     <span className="db-gauge-pct">84%</span>
                   </div>
                 </div>
                 <span className="db-ring-label">Customer Ret.</span>
-                <span className="db-ring-trend">↑ 10%</span>
+                <span className="db-ring-trend">↑ 8%</span>
               </div>
             </div>
           </div>
@@ -793,10 +796,10 @@ export default function AdminDashboard() {
                   <ShoppingCart size={19} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#14213D" }}>
+                  <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "800", color: "#14213D" }}>
                     Order Details #{selectedOrder.orderId}
                   </h3>
-                  <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#64748B" }}>
+                  <p style={{ margin: "2px 0 0 0", fontSize: "11.5px", color: "#64748B" }}>
                     Verified Supermarket Self-Checkout Receipt
                   </p>
                 </div>
@@ -806,7 +809,7 @@ export default function AdminDashboard() {
                 className="db-modal-close-btn"
                 onClick={() => setSelectedOrder(null)}
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
 
@@ -815,17 +818,17 @@ export default function AdminDashboard() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
-                  gap: "12px",
+                  gap: "10px",
                   background: "#F8FAFC",
-                  padding: "14px",
-                  borderRadius: "12px",
-                  marginBottom: "16px",
-                  fontSize: "12.5px",
+                  padding: "12px",
+                  borderRadius: "10px",
+                  marginBottom: "14px",
+                  fontSize: "12px",
                   border: "1px solid #E2E8F0",
                 }}
               >
                 <div>
-                  <span style={{ color: "#64748B", display: "block", fontSize: "11px", fontWeight: "700" }}>
+                  <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", fontWeight: "700" }}>
                     CUSTOMER
                   </span>
                   <span style={{ fontWeight: "700", color: "#14213D" }}>
@@ -833,7 +836,7 @@ export default function AdminDashboard() {
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: "#64748B", display: "block", fontSize: "11px", fontWeight: "700" }}>
+                  <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", fontWeight: "700" }}>
                     STATUS
                   </span>
                   <span style={{ fontWeight: "700", color: selectedOrder.status === "Completed" ? "#10B981" : "#F59E0B" }}>
@@ -841,7 +844,7 @@ export default function AdminDashboard() {
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: "#64748B", display: "block", fontSize: "11px", fontWeight: "700" }}>
+                  <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", fontWeight: "700" }}>
                     DATE
                   </span>
                   <span style={{ fontWeight: "600", color: "#334155" }}>
@@ -849,7 +852,7 @@ export default function AdminDashboard() {
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: "#64748B", display: "block", fontSize: "11px", fontWeight: "700" }}>
+                  <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", fontWeight: "700" }}>
                     PAYMENT METHOD
                   </span>
                   <span style={{ fontWeight: "700", color: "#1455D9" }}>
@@ -858,50 +861,50 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <h4 style={{ margin: "0 0 10px 0", fontSize: "13px", fontWeight: "800", color: "#14213D" }}>
+              <h4 style={{ margin: "0 0 8px 0", fontSize: "12.5px", fontWeight: "800", color: "#14213D" }}>
                 Items Purchased
               </h4>
               <div
                 style={{
                   border: "1px solid #E2E8F0",
-                  borderRadius: "12px",
+                  borderRadius: "10px",
                   overflow: "hidden",
-                  marginBottom: "16px",
+                  marginBottom: "14px",
                 }}
               >
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                   <thead>
                     <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                      <th style={{ padding: "8px 12px", textAlign: "left", color: "#64748B" }}>Product</th>
-                      <th style={{ padding: "8px 12px", textAlign: "center", color: "#64748B" }}>Qty</th>
-                      <th style={{ padding: "8px 12px", textAlign: "right", color: "#64748B" }}>Price</th>
-                      <th style={{ padding: "8px 12px", textAlign: "right", color: "#64748B" }}>Total</th>
+                      <th style={{ padding: "7px 10px", textAlign: "left", color: "#64748B" }}>Product</th>
+                      <th style={{ padding: "7px 10px", textAlign: "center", color: "#64748B" }}>Qty</th>
+                      <th style={{ padding: "7px 10px", textAlign: "right", color: "#64748B" }}>Price</th>
+                      <th style={{ padding: "7px 10px", textAlign: "right", color: "#64748B" }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedOrder.items && selectedOrder.items.length > 0 ? (
                       selectedOrder.items.map((item, idx) => (
                         <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                          <td style={{ padding: "8px 12px", fontWeight: "600", color: "#14213D" }}>
+                          <td style={{ padding: "7px 10px", fontWeight: "600", color: "#14213D" }}>
                             {item.name}
                           </td>
-                          <td style={{ padding: "8px 12px", textAlign: "center", color: "#64748B" }}>
+                          <td style={{ padding: "7px 10px", textAlign: "center", color: "#64748B" }}>
                             {item.quantity || 1}
                           </td>
-                          <td style={{ padding: "8px 12px", textAlign: "right", color: "#64748B" }}>
+                          <td style={{ padding: "7px 10px", textAlign: "right", color: "#64748B" }}>
                             ₹{Number(item.price || 10).toFixed(2)}
                           </td>
-                          <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: "700", color: "#14213D" }}>
+                          <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: "700", color: "#14213D" }}>
                             ₹{(Number(item.price || 10) * Number(item.quantity || 1)).toFixed(2)}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td style={{ padding: "8px 12px" }}>Item</td>
-                        <td style={{ padding: "8px 12px", textAlign: "center" }}>1</td>
-                        <td style={{ padding: "8px 12px", textAlign: "right" }}>₹{selectedOrder.amount.toFixed(2)}</td>
-                        <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: "700" }}>₹{selectedOrder.amount.toFixed(2)}</td>
+                        <td style={{ padding: "7px 10px" }}>Item</td>
+                        <td style={{ padding: "7px 10px", textAlign: "center" }}>1</td>
+                        <td style={{ padding: "7px 10px", textAlign: "right" }}>₹{selectedOrder.amount.toFixed(2)}</td>
+                        <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: "700" }}>₹{selectedOrder.amount.toFixed(2)}</td>
                       </tr>
                     )}
                   </tbody>
@@ -913,16 +916,16 @@ export default function AdminDashboard() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  padding: "12px 16px",
+                  padding: "10px 14px",
                   background: "#EFF6FF",
-                  borderRadius: "12px",
+                  borderRadius: "10px",
                   border: "1px solid #BFDBFE",
                 }}
               >
-                <span style={{ fontSize: "13.5px", fontWeight: "700", color: "#1E3A8A" }}>
+                <span style={{ fontSize: "13px", fontWeight: "700", color: "#1E3A8A" }}>
                   Grand Total Paid:
                 </span>
-                <span style={{ fontSize: "19px", fontWeight: "900", color: "#1455D9" }}>
+                <span style={{ fontSize: "17px", fontWeight: "900", color: "#1455D9" }}>
                   ₹{Number(selectedOrder.amount).toFixed(2)}
                 </span>
               </div>
@@ -940,9 +943,9 @@ export default function AdminDashboard() {
                 type="button"
                 className="db-hero-insights-btn"
                 onClick={() => window.print()}
-                style={{ borderRadius: "8px", padding: "8px 16px" }}
+                style={{ borderRadius: "8px", padding: "6px 14px" }}
               >
-                <Printer size={15} />
+                <Printer size={14} />
                 <span>Print Invoice</span>
               </button>
             </div>

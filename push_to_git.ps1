@@ -19,7 +19,7 @@ $assetMap = @{
     "grocery_basket_3d_1794046555765.jpg" = "grocery-basket-3d.jpg"
     "storefront_3d_supermarket_1794046532029.jpg" = "storefront-3d.jpg"
     "dashboard_hero_banner_art_1794046675903.jpg" = "hero-banner-art.jpg"
-    "dashboard_hero_fresh_cart_aisle_1794053392050.jpg" = "dashboard-hero-fresh-cart.jpg"
+    "dashboard_hero_fresh_cart_aisle_1794053392050.jpg" = "hero-aisle-cart.jpg"
     "blue_shopping_bag_3d_1794053871902.jpg" = "blue-shopping-bag-3d.jpg"
     "gift_box_3d_icon_1794053425724.jpg" = "gift-box-3d.jpg"
 }
@@ -30,6 +30,10 @@ foreach ($key in $assetMap.Keys) {
     if (Test-Path $src) {
         Copy-Item -Path $src -Destination (Join-Path $frontAssets $destName) -Force
         Copy-Item -Path $src -Destination (Join-Path $frontPublic $destName) -Force
+        if ($destName -eq "hero-aisle-cart.jpg") {
+            Copy-Item -Path $src -Destination (Join-Path $frontAssets "dashboard-hero-fresh-cart.jpg") -Force
+            Copy-Item -Path $src -Destination (Join-Path $frontPublic "dashboard-hero-fresh-cart.jpg") -Force
+        }
     }
 }
 
@@ -37,7 +41,7 @@ Write-Host "1. Staging updated files..." -ForegroundColor Yellow
 git add -A
 
 Write-Host "2. Committing changes..." -ForegroundColor Yellow
-git commit -m "feat: exact UI/UX design matching reference image with 3D sidebar waves, 3D storefront, and panoramic supermarket hero banner, fixed receipt download modal"
+git commit -m "feat: align Super Admin dashboard to reference UI, fix real-time customer price & discounts sync"
 
 Write-Host "3. Ensuring branch is main..." -ForegroundColor Yellow
 git branch -M main

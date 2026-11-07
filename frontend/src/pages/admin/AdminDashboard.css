@@ -1,26 +1,26 @@
 /* ===================================================================
    GrocerEase Compact Enterprise SaaS Admin Dashboard
-   Pixel-Perfect Match to Reference Image 3 (media_1794053632557_eb7eb152.jpg):
+   Pixel-Perfect Match to Target Mockup (media_1794055031511_187f150c.jpg):
    - Hero Banner (~125px tall):
        - 3D Blue Shopping Bag with green leaves
        - "Welcome Back, Pooja! 👋"
        - Date/Time pill: "📅 Mon, Nov 3, 2026 • 4:25 PM"
-       - "View Insights →" button
-       - Cursive script badge: "Freshness in Every Cart"
+       - "View Insights →" button in royal blue #1455D9
+       - Cursive script badge: "Freshness in Every Cart" in royal blue #1E40AF
        - Panoramic produce cart & supermarket bokeh backdrop
-   - 4 KPI Metric Cards (Single Row):
-       - Total Sales ₹1,202 (↑ 12.5% vs last month) | Blue mini bars
-       - Total Orders 4 (↑ 0.3% vs last month) | Rose mini bars
-       - Customers 248 (↑ 15.2% vs last month) | Green mini bars
-       - Active Products 320 (↑ 10.1% vs last month) | Purple mini bars
+   - 4 KPI Metric Cards with Rich Luminous Pastel Gradients:
+       - Total Sales ₹1,202 (#F0F6FF / #BFDBFE) + Blue mini bars
+       - Total Orders 4 (#FFF1F2 / #FECDD3) + Rose mini bars
+       - Customers 248 (#ECFDF5 / #A7F3D0) + Green mini bars
+       - Active Products 320 (#FAF5FF / #E9D5FF) + Purple mini bars
    - Main 2-Column Dashboard Grid:
        - LEFT COLUMN (~62%):
-           1. Sales Analytics spline chart with peak badge 🏆 ₹1,202
+           1. Sales Analytics spline chart with peak badge 🏆 ₹1,202 (Fixed SVG text height & sizing)
            2. Recent Orders table (#ORD1004, #ORD1003, #ORD1002, #ORD1001)
        - RIGHT COLUMN (~38%):
-           1. Quick Actions (4 tiles: Add Product, View Orders, Manage Offers, View Reports)
-           2. Inventory Alerts (Apples + Restock red button)
-           3. Business Insights (3 circular progress gauges: Blue, Green, Purple)
+           1. Quick Actions (4 pastel tiles: Add Product, View Orders, Manage Offers, View Reports)
+           2. Inventory Alerts (Apples + Low Stock red pill #FEE2E2)
+           3. Business Insights (3 circular progress gauges: Blue 78%, Green 92%, Purple 84%)
    =================================================================== */
 
 .db-dashboard-container {
@@ -28,6 +28,7 @@
   flex-direction: column;
   gap: 10px;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -47,6 +48,7 @@
   box-shadow: 0 3px 14px rgba(37, 99, 235, 0.05);
   height: 125px;
   min-height: 125px;
+  max-height: 125px;
   box-sizing: border-box;
 }
 
@@ -54,7 +56,7 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 60%;
+  width: 58%;
   height: 100%;
   background-size: cover;
   background-position: right center;
@@ -125,6 +127,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  line-height: 1.15;
 }
 
 .db-hero-title-blue {
@@ -155,7 +158,7 @@
   border-radius: 9999px;
   font-size: 10.5px;
   font-weight: 600;
-  color: #3b82f6;
+  color: #2563eb;
   box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
 }
 
@@ -183,28 +186,49 @@
 }
 
 /* ===================================================================
-   2. FOUR KPI CARDS (Single Row with Mini Vertical Bars)
+   2. FOUR KPI CARDS (Rich Luminous Pastel Gradients)
    =================================================================== */
 .db-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .db-kpi-card {
-  background: #ffffff;
-  border: 1px solid #e5ecf5;
   border-radius: 13px;
   padding: 9px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(20, 85, 217, 0.03);
+  box-shadow: 0 2px 8px rgba(20, 85, 217, 0.035);
   position: relative;
   overflow: hidden;
   height: 72px;
+  max-height: 72px;
   box-sizing: border-box;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.db-kpi-card.blue-theme {
+  background: linear-gradient(135deg, #f0f6ff 0%, #ffffff 100%);
+  border: 1px solid #bfdbfe;
+}
+
+.db-kpi-card.rose-theme {
+  background: linear-gradient(135deg, #fff1f2 0%, #ffffff 100%);
+  border: 1px solid #fecdd3;
+}
+
+.db-kpi-card.green-theme {
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+  border: 1px solid #a7f3d0;
+}
+
+.db-kpi-card.purple-theme {
+  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);
+  border: 1px solid #e9d5ff;
 }
 
 .db-kpi-left-group {
@@ -225,7 +249,7 @@
 }
 
 .db-kpi-icon-pill.blue {
-  background: #eff6ff;
+  background: #dbeafe;
   color: #1455d9;
 }
 
@@ -235,12 +259,12 @@
 }
 
 .db-kpi-icon-pill.green {
-  background: #ecfdf5;
-  color: #10b981;
+  background: #d1fae5;
+  color: #059669;
 }
 
 .db-kpi-icon-pill.purple {
-  background: #faf5ff;
+  background: #f3e8ff;
   color: #9333ea;
 }
 
@@ -275,7 +299,7 @@
   color: #10b981;
 }
 
-/* Mini Vertical Bars in KPI Cards matching Image 3 */
+/* Mini Vertical Bars in KPI Cards matching Target Mockup */
 .db-kpi-mini-bars {
   display: flex;
   align-items: flex-end;
@@ -326,6 +350,7 @@
   grid-template-columns: 62% calc(38% - 10px);
   gap: 10px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .db-col-left,
@@ -418,13 +443,14 @@
 .db-chart-container {
   position: relative;
   width: 100%;
-  height: 145px;
+  height: 160px;
+  max-height: 160px;
   margin-top: 4px;
 }
 
 .db-chart-peak-badge {
   position: absolute;
-  top: 10px;
+  top: 8px;
   right: 18px;
   background: #ffffff;
   border: 1px solid #dbeafe;
@@ -442,18 +468,14 @@
 
 .db-chart-svg {
   width: 100%;
-  height: 100%;
+  height: 160px;
+  max-height: 160px;
+  overflow: visible;
 }
 
 .db-chart-grid-line {
   stroke: #f1f5f9;
   stroke-dasharray: 4 4;
-}
-
-.db-chart-axis-text {
-  font-size: 9.5px;
-  fill: #94a3b8;
-  font-weight: 600;
 }
 
 .db-chart-spline-line {
@@ -589,7 +611,7 @@
   text-decoration: underline;
 }
 
-/* Quick Actions 4 Tiles in a Row */
+/* Quick Actions 4 Pastel Tiles */
 .db-quick-actions-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -597,10 +619,8 @@
 }
 
 .db-action-tile {
-  background: #f8fafc;
-  border: 1px solid #eef2f6;
   border-radius: 11px;
-  padding: 10px 6px;
+  padding: 9px 5px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -611,10 +631,28 @@
 }
 
 .db-action-tile:hover {
-  background: #ffffff;
-  border-color: #cbd5e1;
   transform: translateY(-1px);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+}
+
+.db-action-tile.pastel-blue {
+  background: #f0f7ff;
+  border: 1px solid #dbeafe;
+}
+
+.db-action-tile.pastel-green {
+  background: #f0fdf4;
+  border: 1px solid #dcfce7;
+}
+
+.db-action-tile.pastel-orange {
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+}
+
+.db-action-tile.pastel-purple {
+  background: #faf5ff;
+  border: 1px solid #f3e8ff;
 }
 
 .db-action-icon-wrap {
@@ -628,22 +666,22 @@
 }
 
 .db-action-icon-wrap.blue {
-  background: #eff6ff;
+  background: #dbeafe;
   color: #1455d9;
 }
 
 .db-action-icon-wrap.green {
-  background: #ecfdf5;
+  background: #d1fae5;
   color: #10b981;
 }
 
 .db-action-icon-wrap.orange {
-  background: #fffbeb;
+  background: #fef3c7;
   color: #f59e0b;
 }
 
 .db-action-icon-wrap.purple {
-  background: #faf5ff;
+  background: #f3e8ff;
   color: #9333ea;
 }
 
@@ -689,10 +727,11 @@
   font-weight: 600;
 }
 
+/* Red Low Stock pill button */
 .db-restock-pill-btn {
-  background: #ef4444;
-  color: #ffffff;
-  border: none;
+  background: #fee2e2;
+  color: #ef4444;
+  border: 1px solid #fecdd3;
   border-radius: 9999px;
   padding: 4px 12px;
   font-size: 10.5px;
@@ -702,14 +741,16 @@
 }
 
 .db-restock-pill-btn:hover {
-  background: #dc2626;
+  background: #fecdd3;
 }
 
 .db-restock-pill-btn.success {
-  background: #10b981;
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #bbf7d0;
 }
 
-/* Business Insights 3 Gauges */
+/* Business Insights 3 Circular Gauges */
 .db-insights-filter-pill {
   font-size: 10.5px;
   color: #64748b;

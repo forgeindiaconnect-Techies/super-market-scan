@@ -103,7 +103,7 @@ export default function Sidebar({ isOpen, onClose }) {
         </button>
       </nav>
 
-      {/* 3. Bottom Supermarket Basket Promo Card & Version Footer - Compact */}
+      {/* 3. Bottom Supermarket Promo Card & Version Footer */}
       <div className="sidebar-promo-wrap">
         <div className="sidebar-store-card">
           <div className="store-basket-art">
