@@ -1,42 +1,60 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Sparkles,
   Barcode,
-  Printer,
+  Tag,
+  Package,
+  ShoppingCart,
+  Sparkles,
   Camera,
   CheckCircle,
   AlertCircle,
-  ArrowLeft,
-  Package,
+  Boxes,
+  AlertTriangle,
+  Link as LinkIcon,
+  FileText,
+  X,
+  Save,
+  ArrowRight,
+  Info,
+  RefreshCw,
 } from "lucide-react";
+import {
+  Html5Qrcode,
+  Html5QrcodeSupportedFormats,
+} from "html5-qrcode";
 import API from "../../services/api";
 import BarcodeSVG from "../../components/BarcodeSVG";
+import ErpPageBanner from "../../components/ErpPageBanner";
 import { addPersistentProduct } from "../../utils/realtimeStorage";
+import redBasketImg from "../../assets/red-basket-preview.jpg";
 import "./AddProduct.css";
 
-const CATEGORIES = [
-  "Groceries",
-  "Fruits & Vegetables",
-  "Dairy",
-  "Beverages",
-  "Snacks",
-  "Personal Care",
-  "Household",
-  "Other",
+const CATEGORY_CHIPS = [
+  { label: "Groceries", icon: "🛒" },
+  { label: "Fruits & Vegetables", icon: "🍏" },
+  { label: "Dairy", icon: "🥛" },
+  { label: "Beverages", icon: "☕" },
+  { label: "Snacks", icon: "🍿" },
+  { label: "Personal Care", icon: "👤" },
+  { label: "Household", icon: "🏠" },
+  { label: "Other", icon: "•••" },
 ];
 
 export default function AddProduct() {
   const navigate = useNavigate();
 
   const [barcodeMode, setBarcodeMode] = useState("auto"); // "auto" or "manual"
+  const [scannerActive, setScannerActive] = useState(false);
+  const scannerRef = useRef(null);
+
   const [product, setProduct] = useState({
     name: "",
     category: "Groceries",
     brand: "",
     price: "",
-    discount: "0",
     costPrice: "",
+    discount: "0",
     stock: "20",
     lowStockThreshold: "5",
     barcode: "",
@@ -46,20 +64,18 @@ export default function AddProduct() {
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
-  const [savedProduct, setSavedProduct] = useState(null);
 
-  // Auto-generate barcode on mount if in auto mode
+  // Generate unique 13-digit EAN-13 barcode
   const fetchNewBarcode = async () => {
     try {
       const res = await API.get("/products/generate-barcode");
-      if (res.data?.success) {
+      if (res.data?.success && res.data.barcode) {
         setProduct((prev) => ({ ...prev, barcode: res.data.barcode }));
+        return;
       }
-    } catch (err) {
-      // Fallback unique 13 digit EAN
-      const fallback = "200" + Math.floor(100000000 + Math.random() * 900000000).toString() + "5";
-      setProduct((prev) => ({ ...prev, barcode: fallback }));
-    }
+    } catch (_) {}
+    const fallback = "200" + Math.floor(100000000 + Math.random() * 900000000).toString() + "5";
+    setProduct((prev) => ({ ...prev, barcode: fallback }));
   };
 
   useEffect(() => {
@@ -68,17 +84,115 @@ export default function AddProduct() {
     }
   }, [barcodeMode]);
 
+  // Clean up scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        try {
+          scannerRef.current.stop();
+          scannerRef.current.clear();
+        } catch (_) {}
+      }
+    };
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setProduct((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleBarcodeModeChange = (mode) => {
-    setBarcodeMode(mode);
-    if (mode === "auto") {
-      fetchNewBarcode();
+  const handleChipSelect = (categoryName) => {
+    setProduct((prev) => ({ ...prev, category: categoryName }));
+  };
+
+  // Camera Barcode Scanner Toggle
+  const toggleCameraScanner = async () => {
+    if (scannerActive) {
+      if (scannerRef.current) {
+        try {
+          await scannerRef.current.stop();
+          scannerRef.current.clear();
+        } catch (_) {}
+        scannerRef.current = null;
+      }
+      setScannerActive(false);
     } else {
-      setProduct((prev) => ({ ...prev, barcode: "" }));
+      setScannerActive(true);
+      setTimeout(async () => {
+        try {
+          const html5Qr = new Html5Qrcode("ap-camera-viewport", {
+  formatsToSupport: [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.ITF,
+  ],
+  verbose: false,
+});
+          scannerRef.current = html5Qr;
+          await html5Qr.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 120 } },
+            async (decodedText) => {
+              const scannedBarcode = decodedText.trim();
+
+              try {
+                setMessage({ type: "", text: "Barcode scanned. Looking up product..." });
+
+                const response = await API.get(
+                  `/products/barcode/${encodeURIComponent(scannedBarcode)}`
+                );
+
+                if (response.data?.success && response.data.product) {
+                  const found = response.data.product;
+
+                  setProduct((prev) => ({
+                    ...prev,
+                    barcode: scannedBarcode,
+                    name: found.name || prev.name,
+                    category: found.category || prev.category,
+                    brand: found.brand || prev.brand,
+                    price: found.price ?? prev.price,
+                    costPrice: found.costPrice ?? prev.costPrice,
+                    discount: found.discount ?? prev.discount,
+                    stock: found.stock ?? prev.stock,
+                    lowStockThreshold: found.lowStockThreshold ?? prev.lowStockThreshold,
+                    imageUrl: found.imageUrl || prev.imageUrl,
+                    description: found.description || prev.description,
+                  }));
+
+                  setMessage({ type: "success", text: "Product details fetched successfully!" });
+                } else {
+                  setProduct((prev) => ({ ...prev, barcode: scannedBarcode }));
+                  setMessage({ type: "error", text: "Barcode scanned, but product was not found in your database. Enter the product details manually." });
+                }
+              } catch (error) {
+                setProduct((prev) => ({ ...prev, barcode: scannedBarcode }));
+                setMessage({
+                  type: "error",
+                  text: error.response?.status === 404
+                    ? "Product not found in your database. Enter the product details manually."
+                    : "Barcode read, but product lookup failed. Please check your backend connection.",
+                });
+              } finally {
+                try {
+                  await html5Qr.stop();
+                  html5Qr.clear();
+                } catch (_) {}
+                scannerRef.current = null;
+                setScannerActive(false);
+              }
+            },
+            () => {}
+          );
+        } catch (err) {
+          console.warn("Camera start warning:", err);
+          setScannerActive(false);
+        }
+      }, 250);
     }
   };
 
@@ -87,7 +201,7 @@ export default function AddProduct() {
     setMessage({ type: "", text: "" });
 
     if (!product.name.trim() || !product.category || product.price === "" || product.stock === "") {
-      setMessage({ type: "error", text: "Please complete all required fields." });
+      setMessage({ type: "error", text: "Please complete all required fields (*)." });
       return;
     }
 
@@ -95,445 +209,388 @@ export default function AddProduct() {
     const stock = Number(product.stock);
 
     if (price <= 0 || stock < 0) {
-      setMessage({ type: "error", text: "Please enter valid price (>0) and stock (>=0)." });
+      setMessage({ type: "error", text: "Enter a valid positive price and non-negative stock." });
       return;
     }
 
     setSaving(true);
+    const finalBarcode = product.barcode.trim() || "200" + Math.floor(100000000 + Math.random() * 900000000).toString() + "5";
+
+    const payload = {
+      ...product,
+      name: product.name.trim(),
+      barcode: finalBarcode,
+      price,
+      costPrice: product.costPrice ? Number(product.costPrice) : Math.round(price * 0.75),
+      discount: product.discount ? Number(product.discount) : 0,
+      stock,
+      lowStockThreshold: product.lowStockThreshold ? Number(product.lowStockThreshold) : 5,
+      imageUrl: product.imageUrl.trim() || "/red-basket-preview.jpg",
+    };
 
     try {
-      const payload = {
-        name: product.name.trim(),
-        category: product.category,
-        brand: product.brand.trim(),
-        price,
-        discount: Number(product.discount || 0),
-        costPrice: Number(product.costPrice || 0),
-        stock,
-        lowStockThreshold: Number(product.lowStockThreshold || 5),
-        barcode: product.barcode?.trim() || null,
-        autoGenerateBarcode: barcodeMode === "auto",
-        imageUrl: product.imageUrl.trim(),
-        description: product.description.trim(),
-      };
-
-      let saved = null;
-      try {
-        const res = await API.post("/products", payload);
-        if (res.data?.success && res.data.product) {
-          saved = res.data.product;
-        }
-      } catch (apiErr) {
-        console.warn("Backend API save warning, persisting locally:", apiErr.message);
-      }
-
-      if (!saved) {
-        saved = {
-          _id: "prod-cust-" + Date.now(),
-          ...payload,
-        };
-      }
-
-      // Persist permanently across refreshes and broadcast to all pages
+      const res = await API.post("/products", payload);
+      const saved = res.data?.product || payload;
       addPersistentProduct(saved);
-      setSavedProduct(saved);
-      setMessage({
-        type: "success",
-        text: "Product saved successfully with registered barcode!",
-      });
+      setMessage({ type: "success", text: `"${saved.name}" has been registered successfully!` });
+      setTimeout(() => navigate("/admin/products"), 1200);
     } catch (err) {
-      console.error("Save product error:", err);
-      setMessage({
-        type: "error",
-        text: err.response?.data?.message || "Failed to save product in inventory.",
-      });
+      addPersistentProduct({ ...payload, _id: "local_" + Date.now() });
+      setMessage({ type: "success", text: `"${payload.name}" saved locally in your inventory.` });
+      setTimeout(() => navigate("/admin/products"), 1200);
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePrintLabel = (prod) => {
-    const item = prod || savedProduct || product;
-    const printWindow = window.open("", "_blank", "width=500,height=450");
-    if (!printWindow) {
-      alert("Please allow pop-ups to print barcode label.");
-      return;
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Product Label - ${item.name}</title>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 25px; color: #0f172a; }
-            .label-box { border: 2px dashed #94a3b8; border-radius: 12px; padding: 20px; display: inline-block; width: 300px; }
-            .store-name { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #2563eb; }
-            h2 { margin: 8px 0 12px; font-size: 16px; }
-            .barcode-val { font-family: monospace; font-size: 13px; font-weight: bold; letter-spacing: 3px; margin-top: 6px; }
-            .price-val { font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 10px; }
-            @media print { body { padding: 0; } .label-box { border: none; } }
-          </style>
-        </head>
-        <body>
-          <div class="label-box">
-            <div class="store-name">SMART SUPERMARKET</div>
-            <h2>${item.name}</h2>
-            <div class="price-val">₹${Number(item.price).toFixed(2)}</div>
-            <div class="barcode-val">${item.barcode}</div>
-            <p style="font-size:11px;color:#64748b;margin-top:8px;">Ready for Mobile Checkout</p>
-          </div>
-          <script>window.onload = function() { window.print(); };</script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
-
-  const resetForm = () => {
-    setSavedProduct(null);
-    setMessage({ type: "", text: "" });
-    setProduct({
-      name: "",
-      category: "Groceries",
-      brand: "",
-      price: "",
-      costPrice: "",
-      stock: "20",
-      lowStockThreshold: "5",
-      barcode: "",
-      imageUrl: "",
-      description: "",
-    });
-    fetchNewBarcode();
-  };
-
   return (
-    <div className="add-product-container">
-      {/* Header */}
-      <div className="add-product-header">
-        <div>
-          <button
-            type="button"
-            className="back-link-btn"
-            onClick={() => navigate("/admin/products")}
-          >
-            <ArrowLeft size={16} /> Back to Products
-          </button>
-          <h1 className="page-heading">Add New Product</h1>
-          <p className="page-subheading">
-            Register a supermarket product with automatic or manufacturer barcode.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          className="action-pill-btn refresh"
-          onClick={() => navigate("/admin/products")}
-        >
-          View Full Catalog
-        </button>
-      </div>
-
+    <div className="ap-wrapper">
+      <ErpPageBanner
+        title="Register New Product"
+        subtitle="Create and register fresh supermarket items with barcodes & automated stock thresholds"
+        badges={["Instant Barcode Sync", "EAN-13 Collision-Free", "Real-time Inventory Ledger"]}
+      />
       {message.text && (
-        <div className={`status-alert-box ${message.type}`}>
-          {message.type === "success" ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+        <div className={`ap-banner-notice ${message.type}`}>
+          {message.type === "success" ? <CheckCircle size={17} /> : <AlertCircle size={17} />}
           <span>{message.text}</span>
+          <button type="button" onClick={() => setMessage({ type: "", text: "" })}>
+            <X size={15} />
+          </button>
         </div>
       )}
 
-      {savedProduct ? (
-        /* Success & Barcode Label Ready Card */
-        <div className="product-success-card">
-          <div className="success-icon-badge">
-            <CheckCircle size={32} />
-          </div>
-          <h2>Product Added Successfully!</h2>
-          <p>
-            <strong>{savedProduct.name}</strong> is now registered in your live supermarket database.
-          </p>
-
-          <div className="barcode-sticker-preview">
-            <span className="sticker-store">SMART SUPERMARKET</span>
-            <span className="sticker-title">{savedProduct.name}</span>
-            <div className="sticker-barcode-box">
-              <BarcodeSVG value={savedProduct.barcode} width={2.2} height={55} />
+      <form onSubmit={handleSubmit} className="ap-grid-form">
+        {/* Left Column: Product Information */}
+        <div className="ap-card ap-left-card">
+          <div className="ap-card-title">
+            <div className="ap-title-icon-box">
+              <Package size={17} color="#1455D9" />
             </div>
-            <span className="sticker-price">
-              Price: ₹{Number(savedProduct.price).toFixed(2)}
-            </span>
+            <h3>Product Information</h3>
           </div>
 
-          <div className="success-card-actions">
-            <button
-              type="button"
-              className="action-pill-btn primary"
-              onClick={() => handlePrintLabel(savedProduct)}
-            >
-              <Printer size={16} /> Print Barcode Label
-            </button>
-
-            <button
-              type="button"
-              className="action-pill-btn refresh"
-              onClick={resetForm}
-            >
-              + Add Another Product
-            </button>
-
-            <button
-              type="button"
-              className="action-pill-btn"
-              onClick={() => navigate("/admin/products")}
-            >
-              Go to Inventory
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Form Section */
-        <form onSubmit={handleSubmit} className="modern-product-form">
-          <div className="form-main-columns">
-            {/* Left 60%: Product Details */}
-            <div className="form-column-card">
-              <h3 className="section-title">
-                <Package size={18} /> Product Information
-              </h3>
-
-              <div className="form-input-grid">
-                <label className="span-full">
-                  Product Name *
+          <div className="ap-form-rows">
+            {/* Row 1: Product Name & Category Select */}
+            <div className="ap-row-2col">
+              <div className="ap-input-group">
+                <label>Product Name <span className="req">*</span></label>
+                <div className="ap-input-box">
+                  <Tag size={15} className="ap-prefix-icon" />
                   <input
                     name="name"
                     value={product.name}
                     onChange={handleChange}
-                    placeholder="e.g. Dove Hair Fall Rescue Shampoo 180ml"
+                    placeholder="Enter product name"
                     required
                   />
-                </label>
+                </div>
+              </div>
 
-                <label>
-                  Category *
+              <div className="ap-input-group">
+                <label>Category <span className="req">*</span></label>
+                <div className="ap-input-box">
+                  <ShoppingCart size={15} className="ap-prefix-icon" />
                   <select
                     name="category"
                     value={product.category}
                     onChange={handleChange}
                     required
                   >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
+                    {CATEGORY_CHIPS.map((c) => (
+                      <option key={c.label} value={c.label}>
+                        {c.label}
                       </option>
                     ))}
                   </select>
-                </label>
-
-                <label>
-                  Brand Name
-                  <input
-                    name="brand"
-                    value={product.brand}
-                    onChange={handleChange}
-                    placeholder="e.g. Dove, Nestle, Amul"
-                  />
-                </label>
-
-                <label>
-                  Selling Price (₹) *
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    name="price"
-                    value={product.price}
-                    onChange={handleChange}
-                    placeholder="e.g. 250.00"
-                    required
-                  />
-                </label>
-
-                <label>
-                  Purchase / Cost Price (₹)
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    name="costPrice"
-                    value={product.costPrice}
-                    onChange={handleChange}
-                    placeholder="e.g. 190.00"
-                  />
-                </label>
-
-                <label>
-                  Discount Amount (₹)
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    name="discount"
-                    value={product.discount}
-                    onChange={handleChange}
-                    placeholder="e.g. 20.00"
-                  />
-                </label>
-
-                <label>
-                  Opening Stock Quantity *
-                  <input
-                    type="number"
-                    step="1"
-                    min="0"
-                    name="stock"
-                    value={product.stock}
-                    onChange={handleChange}
-                    placeholder="e.g. 50"
-                    required
-                  />
-                </label>
-
-                <label>
-                  Minimum Stock Alert Threshold
-                  <input
-                    type="number"
-                    step="1"
-                    min="1"
-                    name="lowStockThreshold"
-                    value={product.lowStockThreshold}
-                    onChange={handleChange}
-                    placeholder="e.g. 5"
-                  />
-                  <small className="help-text">
-                    Triggers low stock warnings when inventory drops below this number.
-                  </small>
-                </label>
-
-                <label className="span-full">
-                  Product Image URL
-                  <input
-                    type="url"
-                    name="imageUrl"
-                    value={product.imageUrl}
-                    onChange={handleChange}
-                    placeholder="https://images.example.com/item.png"
-                  />
-                </label>
-
-                <label className="span-full">
-                  Product Description
-                  <textarea
-                    name="description"
-                    rows="3"
-                    value={product.description}
-                    onChange={handleChange}
-                    placeholder="Brief description of product features..."
-                  />
-                </label>
+                </div>
               </div>
             </div>
 
-            {/* Right 40%: Barcode & Preview */}
-            <div className="form-column-card">
-              <h3 className="section-title">
-                <Barcode size={18} /> Barcode Configuration
-              </h3>
+            {/* Row 2: Category Quick Chips */}
+            <div className="ap-chips-row">
+              {CATEGORY_CHIPS.map((chip) => {
+                const isSelected = product.category === chip.label;
+                return (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    className={`ap-chip-btn ${isSelected ? "active" : ""}`}
+                    onClick={() => handleChipSelect(chip.label)}
+                  >
+                    <span>{chip.icon}</span>
+                    <span>{chip.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-              {/* Barcode Mode Selector Tabs */}
-              <div className="barcode-mode-tabs">
-                <button
-                  type="button"
-                  className={`mode-tab ${barcodeMode === "auto" ? "active" : ""}`}
-                  onClick={() => handleBarcodeModeChange("auto")}
-                >
-                  <Sparkles size={15} /> Auto-Generate
-                </button>
-                <button
-                  type="button"
-                  className={`mode-tab ${barcodeMode === "manual" ? "active" : ""}`}
-                  onClick={() => handleBarcodeModeChange("manual")}
-                >
-                  <Camera size={15} /> Scan / Enter
-                </button>
+            {/* Row 3: 3 Pricing Columns */}
+            <div className="ap-row-3col">
+              <div className="ap-input-group">
+                <label>Selling Price (₹) <span className="req">*</span></label>
+                <div className="ap-input-box">
+                  <span className="ap-curr">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="price"
+                    value={product.price}
+                    onChange={handleChange}
+                    placeholder="Enter selling price"
+                    required
+                  />
+                </div>
               </div>
 
-              {barcodeMode === "auto" ? (
-                <div className="barcode-auto-panel">
-                  <p className="barcode-panel-desc">
-                    Generates an official, standard 1D EAN-13 collision-free barcode for store items without manufacturer codes.
-                  </p>
-
-                  <div className="generated-barcode-preview-box">
-                    <BarcodeSVG value={product.barcode} width={2} height={55} />
-                    <button
-                      type="button"
-                      className="regen-btn"
-                      onClick={fetchNewBarcode}
-                    >
-                      <Sparkles size={13} /> Regenerate New Barcode
-                    </button>
-                  </div>
+              <div className="ap-input-group">
+                <label>Purchase / Cost Price (₹) <span className="req">*</span></label>
+                <div className="ap-input-box">
+                  <span className="ap-curr">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="costPrice"
+                    value={product.costPrice}
+                    onChange={handleChange}
+                    placeholder="Enter purchase price"
+                  />
                 </div>
-              ) : (
-                <div className="barcode-manual-panel">
-                  <label>
-                    Manufacturer Package Barcode
+              </div>
+
+              <div className="ap-input-group">
+                <label>Discount Amount (₹)</label>
+                <div className="ap-input-box">
+                  <span className="ap-curr">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="discount"
+                    value={product.discount}
+                    onChange={handleChange}
+                    placeholder="Enter discount amount"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Row 4: 2 Stock Columns */}
+            <div className="ap-row-2col">
+              <div className="ap-input-group">
+                <label>Opening Stock Quantity <span className="req">*</span></label>
+                <div className="ap-input-box">
+                  <Boxes size={15} className="ap-prefix-icon" />
+                  <input
+                    type="number"
+                    name="stock"
+                    value={product.stock}
+                    onChange={handleChange}
+                    placeholder="Enter quantity"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="ap-input-group">
+                <label>Minimum Stock Alert Threshold <span className="req">*</span></label>
+                <div className="ap-input-box">
+                  <AlertTriangle size={15} className="ap-prefix-icon amber" />
+                  <input
+                    type="number"
+                    name="lowStockThreshold"
+                    value={product.lowStockThreshold}
+                    onChange={handleChange}
+                    placeholder="Enter threshold"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Info Notice Banner */}
+            <div className="ap-info-pill">
+              <Info size={14} color="#2563EB" />
+              <span>Triggers low stock warnings when inventory drops below this number.</span>
+            </div>
+
+            {/* Row 5: URL & Description */}
+            <div className="ap-row-2col">
+              <div className="ap-input-group">
+                <label>Product Image URL</label>
+                <div className="ap-input-box">
+                  <LinkIcon size={15} className="ap-prefix-icon" />
+                  <input
+                    name="imageUrl"
+                    value={product.imageUrl}
+                    onChange={handleChange}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+              </div>
+
+              <div className="ap-input-group">
+                <label>Product Description</label>
+                <div className="ap-input-box">
+                  <FileText size={15} className="ap-prefix-icon" />
+                  <input
+                    name="description"
+                    value={product.description}
+                    onChange={handleChange}
+                    placeholder="Enter product description..."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Barcode Configuration & Preview */}
+        <div className="ap-card ap-right-card">
+          <div className="ap-card-title">
+            <div className="ap-title-icon-box">
+              <Barcode size={17} color="#1455D9" />
+            </div>
+            <h3>Barcode Configuration</h3>
+          </div>
+
+          {/* Barcode Mode Toggle Tabs */}
+          <div className="ap-barcode-tabs">
+            <button
+              type="button"
+              className={`ap-tab-btn ${barcodeMode === "auto" ? "active" : ""}`}
+              onClick={() => {
+                setBarcodeMode("auto");
+                if (scannerActive && scannerRef.current) {
+                  scannerRef.current.stop().catch(() => {});
+                  setScannerActive(false);
+                }
+                if (!product.barcode) fetchNewBarcode();
+              }}
+            >
+              <Sparkles size={14} /> Auto-Generate
+            </button>
+            <button
+              type="button"
+              className={`ap-tab-btn ${barcodeMode === "manual" ? "active" : ""}`}
+              onClick={() => setBarcodeMode("manual")}
+            >
+              <Camera size={14} /> Scan / Enter
+            </button>
+          </div>
+
+          {/* Conditional Content based on selected tab */}
+          {barcodeMode === "auto" ? (
+            /* Auto-Generate Mode */
+            <>
+              <div className="ap-success-notice">
+                <CheckCircle size={15} color="#16A34A" />
+                <span>Generates an official, standard 1D EAN-13 collision-free barcode for store items without manufacturer codes.</span>
+              </div>
+
+              <div className="ap-barcode-box">
+                <BarcodeSVG value={product.barcode || "2007599403531"} width={2.2} height={50} />
+                <button
+                  type="button"
+                  className="ap-regen-btn"
+                  onClick={fetchNewBarcode}
+                >
+                  <RefreshCw size={13} /> Regenerate New Barcode
+                </button>
+              </div>
+            </>
+          ) : (
+            /* Scan / Enter Mode */
+            <>
+              <div className="ap-manual-notice">
+                <Camera size={15} color="#2563EB" />
+                <span>Connect a USB hardware scanner, scan with device camera, or type the manufacturer barcode number below.</span>
+              </div>
+
+              <div className="ap-manual-scan-box">
+                <div className="ap-input-group">
+                  <label>Manufacturer Barcode (EAN / UPC / Code-128)</label>
+                  <div className="ap-input-box" style={{ paddingRight: "4px" }}>
+                    <Barcode size={15} className="ap-prefix-icon" />
                     <input
                       name="barcode"
                       value={product.barcode}
                       onChange={handleChange}
-                      placeholder="Scan with handheld scanner or enter barcode"
-                      required
+                      placeholder="Scan with barcode gun or type number..."
+                      autoFocus
                     />
-                  </label>
-                  <small className="help-text">
-                    Scan the barcode printed on the physical packaging.
-                  </small>
-
-                  {product.barcode && (
-                    <div className="generated-barcode-preview-box" style={{ marginTop: 14 }}>
-                      <BarcodeSVG value={product.barcode} width={2} height={50} />
-                    </div>
-                  )}
+                    <button
+                      type="button"
+                      className={`ap-camera-toggle-btn ${scannerActive ? "active" : ""}`}
+                      onClick={toggleCameraScanner}
+                    >
+                      <Camera size={13} />
+                      <span>{scannerActive ? "Close" : "Camera"}</span>
+                    </button>
+                  </div>
                 </div>
-              )}
 
-              {/* Image Preview Box */}
-              {product.imageUrl && (
-                <div className="image-preview-card">
-                  <span className="preview-label">Live Image Preview</span>
-                  <img
-                    src={product.imageUrl}
-                    alt="Product preview"
-                    className="image-preview-render"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                </div>
-              )}
+                {/* Optional Live Camera Scanner */}
+                {scannerActive && (
+                  <div className="ap-scanner-viewport-wrap">
+                    <div id="ap-camera-viewport" style={{ width: "100%", borderRadius: "10px" }} />
+                  </div>
+                )}
 
-              {/* Action Buttons */}
-              <div className="form-submit-box">
-                <button
-                  type="button"
-                  className="cancel-btn"
-                  onClick={() => navigate("/admin/products")}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="action-pill-btn primary full-width"
-                  disabled={saving}
-                >
-                  {saving ? "Saving Product..." : "Save Product & Register"}
-                </button>
+                {/* Live Preview of Typed/Scanned Barcode */}
+                {product.barcode ? (
+                  <div className="ap-barcode-box" style={{ marginTop: "6px" }}>
+                    <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 700 }}>LIVE BARCODE PREVIEW</div>
+                    <BarcodeSVG value={product.barcode} width={2.0} height={46} />
+                  </div>
+                ) : (
+                  <div className="ap-waiting-box">
+                    <span>⚡ Ready for barcode scan or input...</span>
+                  </div>
+                )}
               </div>
+            </>
+          )}
+
+          {/* Product Image Preview Card */}
+          <div className="ap-preview-card">
+            <div className="ap-preview-header">
+              <span>🖼️ Product Image Preview</span>
+            </div>
+            <div className="ap-preview-img-wrap">
+              <img
+                src={product.imageUrl || redBasketImg}
+                alt="Product preview"
+                className="ap-preview-img"
+                onError={(e) => {
+                  e.currentTarget.src = "/red-basket-preview.jpg";
+                }}
+              />
             </div>
           </div>
-        </form>
-      )}
+        </div>
+
+        {/* Bottom Actions Row */}
+        <div className="ap-actions-footer">
+          <button
+            type="button"
+            className="ap-btn-cancel"
+            onClick={() => navigate("/admin/products")}
+          >
+            <X size={15} /> Cancel
+          </button>
+
+          <button
+            type="submit"
+            className="ap-btn-submit"
+            disabled={saving}
+          >
+            <Save size={15} /> {saving ? "Saving..." : "Save Product & Register"} <ArrowRight size={15} />
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
+
+
+
+

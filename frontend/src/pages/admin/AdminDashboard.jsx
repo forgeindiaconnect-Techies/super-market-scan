@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
   ShoppingCart,
+  ShoppingBag,
   Boxes,
   Users,
   Package,
@@ -45,11 +46,11 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState(getPersistentProducts);
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({
-    totalSales: 1202,
-    totalOrders: 4,
-    activeCustomers: 248,
-    catalogProducts: 320,
-    lowStockCount: 2,
+    totalSales: 0,
+    totalOrders: 0,
+    activeCustomers: 0,
+    catalogProducts: 0,
+    lowStockCount: 0,
   });
 
   // Selected period for Sales Analytics spline chart (7D, 1M, 3M, 6M, 1Y)
@@ -104,11 +105,11 @@ export default function AdminDashboard() {
       );
 
       setStats({
-        totalSales: computedSales > 0 ? computedSales : 1202,
-        totalOrders: completed.length > 0 ? completed.length : 4,
-        activeCustomers: Math.max(loadedOrders.length, 248),
-        catalogProducts: Math.max(loadedProducts.length, 320),
-        lowStockCount: 2,
+        totalSales: computedSales,
+        totalOrders: loadedOrders.length,
+        activeCustomers: loadedOrders.length > 0 ? new Set(loadedOrders.map(o => o.user?._id || o.user?.email || o.shippingAddress?.fullName || o.customerName || o.user)).size : 0,
+        catalogProducts: loadedProducts.length,
+        lowStockCount: loadedProducts.filter(p => Number(p.stock || p.quantity || 0) < 10).length,
       });
     } catch (err) {
       console.warn("Dashboard sync notice:", err.message);
@@ -121,6 +122,17 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // Real-time Low Stock items from live database products
+  const lowStockItems = useMemo(() => {
+    if (!Array.isArray(products) || products.length === 0) return [];
+    return products
+      .filter((p) => {
+        const qty = Number(p.stock !== undefined ? p.stock : (p.quantity !== undefined ? p.quantity : 0));
+        return qty <= 10;
+      })
+      .slice(0, 3);
+  }, [products]);
+
   const handleRestockApples = async () => {
     setRestockedApple(true);
     updatePersistentStock("Apples", 50);
@@ -130,7 +142,7 @@ export default function AdminDashboard() {
   // Spline chart dataset for Sales Analytics
   const splineChartData = useMemo(() => {
     return {
-      peakValue: "₹1,202",
+      peakValue: stats.totalSales > 0 ? '₹' + Number(stats.totalSales).toLocaleString('en-IN') : '₹0',
       labels: ["Oct 04", "Oct 11", "Oct 18", "Oct 25", "Nov 03"],
       points: [
         { x: 35, y: 145 },
@@ -144,66 +156,31 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // Display orders matching Target Mockup
+  // 100% Real-Time Orders from Database
   const displayOrders = useMemo(() => {
-    return [
-      {
-        orderId: "ORD1004",
-        customerName: "Ravi Kumar",
-        customerAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-        itemsCount: "3 items",
-        amount: 849.0,
-        payment: "Paid",
-        status: "Completed",
-        date: "Nov 6, 2026 • 4:15 PM",
-        items: [
-          { name: "Cadbury Dairy Milk", quantity: 2, price: 160 },
-          { name: "Amul Butter 500g", quantity: 1, price: 275 },
-          { name: "Fresh Apples 1kg", quantity: 1, price: 414 },
-        ],
-      },
-      {
-        orderId: "ORD1003",
-        customerName: "Priya Sharma",
-        customerAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80",
-        itemsCount: "2 items",
-        amount: 499.0,
-        payment: "Paid",
-        status: "Processing",
-        date: "Nov 6, 2026 • 3:50 PM",
-        items: [
-          { name: "Dove Shampoo 180ml", quantity: 1, price: 250 },
-          { name: "Almond Milk", quantity: 1, price: 249 },
-        ],
-      },
-      {
-        orderId: "ORD1002",
-        customerName: "Arun Kumar",
-        customerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80",
-        itemsCount: "1 item",
-        amount: 299.0,
-        payment: "COD",
-        status: "Pending",
-        date: "Nov 6, 2026 • 2:30 PM",
-        items: [{ name: "Zero Sugar Chocolate", quantity: 1, price: 299 }],
-      },
-      {
-        orderId: "ORD1001",
-        customerName: "Sneha Devi",
-        customerAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&auto=format&fit=crop&q=80",
-        itemsCount: "4 items",
-        amount: 999.0,
-        payment: "Paid",
-        status: "Completed",
-        date: "Nov 6, 2026 • 2:05 PM",
-        items: [
-          { name: "Extra Virgin Olive Oil", quantity: 1, price: 549 },
-          { name: "Whole Wheat Bread", quantity: 2, price: 100 },
-          { name: "Fresh Strawberries", quantity: 1, price: 250 },
-        ],
-      },
-    ];
-  }, []);
+    if (Array.isArray(orders) && orders.length > 0) {
+      return orders.slice(0, 8).map((ord, idx) => {
+        const orderNum = ord.orderNumber || (ord._id ? String(ord._id).slice(-4).toUpperCase() : String(1001 + idx));
+        const items = ord.orderItems || ord.items || [];
+        const count = items.reduce((sum, it) => sum + (it.quantity || 1), 0);
+        const name = ord.user?.name || ord.shippingAddress?.fullName || ord.customerName || "Customer";
+        const dateStr = ord.createdAt
+          ? new Date(ord.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " • " + new Date(ord.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+          : "Recent";
+        return {
+          orderId: String(orderNum).replace(/^#/, ""),
+          customerName: name,
+          itemsCount: `${count} item${count !== 1 ? "s" : ""}`,
+          amount: Number(ord.totalAmount || ord.totalPrice || 0),
+          payment: ord.paymentMethod === "COD" ? "COD" : "Paid",
+          status: ord.orderStatus || ord.status || "Completed",
+          date: dateStr,
+          items: items,
+        };
+      });
+    }
+    return [];
+  }, [orders]);
 
   return (
     <div className="db-dashboard-container">
@@ -211,48 +188,31 @@ export default function AdminDashboard() {
       {/* 1. HERO BANNER - Exact Recreation with 3D Blue Bag, Date Pill & Produce Cart */}
       {/* ========================================================================= */}
       <section className="db-hero-banner">
-        {/* Panoramic Supermarket Bokeh & Fresh Produce Cart on Right */}
-        <div
-          className="db-hero-panoramic-bg"
-          style={{ backgroundImage: `url(${heroBannerImg})` }}
-        />
+        {/* 1. Panoramic Background Produce Cart on the Right */}
+        <div className="db-hero-panoramic-bg" style={{ backgroundImage: "url('/dashboard-hero-fresh-cart.jpg')" }} />
 
-        {/* Script Overlay: "Freshness in Every Cart" in royal blue #1E40AF */}
-        <div className="db-hero-script-badge">
-          <span>Freshness in Every Cart</span>
-        </div>
-
-        {/* Left Section: 3D Blue Shopping Bag + Welcome Text + Date Pill + View Insights */}
+        {/* 2. Left Group: 3D Shopping Bag + Welcome Back Card */}
         <div className="db-hero-left">
-          {/* 3D Blue Shopping Bag Icon with Green Leaves */}
           <div className="db-storefront-3d-wrap">
             <img
-              src={blueShoppingBagImg}
-              alt="GrocerEase Shopping Bag"
+              src="/storefront-3d.jpg"
+              alt="GrocerEase 3D Storefront"
               className="db-storefront-3d-img"
-              onError={(e) => {
-                e.currentTarget.src = "/storefront-3d.jpg";
-              }}
+              onError={(e) => { e.currentTarget.src = "/storefront-3d.png"; }}
             />
           </div>
-
           <div className="db-hero-text-block">
             <h1 className="db-hero-title">
               <span>Welcome Back,</span>
-              <span className="db-hero-title-blue">Pooja!</span>
-              <span role="img" aria-label="wave">👋</span>
+              <span className="db-hero-title-blue"> Pooja!</span>
+              <span role="img" aria-label="wave"> 👋</span>
             </h1>
-            <p className="db-hero-subtitle">
-              Manage your supermarket efficiently and grow your business.
-            </p>
-
-            {/* Date/Time Pill & View Insights Button */}
+            <p className="db-hero-subtitle">Manage your supermarket efficiently and grow your business.</p>
             <div className="db-hero-meta-row">
               <div className="db-date-pill">
                 <Calendar size={12} color="#2563EB" />
                 <span>Mon, Nov 3, 2026 • 4:25 PM</span>
               </div>
-
               <button
                 type="button"
                 className="db-hero-insights-btn"
@@ -267,17 +227,23 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+        {/* 3. Center Supermarket Thought / Slogan */}
+        <div className="db-hero-thought-center">
+          <span className="db-thought-script">Freshness in Every Cart</span>
+          <span className="db-thought-sub">Everyday Low Prices • Always Fresh</span>
+          <div className="db-thought-swoosh" />
+        </div>
       </section>
 
-      {/* ========================================================================= */}
-      {/* 2. FOUR KPI CARDS (Single Row with Pastel Tinted Gradients)               */}
-      {/* ========================================================================= */}
       <section className="db-kpi-grid">
-        {/* Card 1: Total Sales (Blue Pastel) */}
+        {/* Card 1: Total Sales (Blue) */}
         <div className="db-kpi-card blue-theme">
           <div className="db-kpi-left-group">
-            <div className="db-kpi-icon-pill blue">
-              <TrendingUp size={19} strokeWidth={2.4} />
+            <div className="db-kpi-halo blue">
+              <div className="db-kpi-icon-pill blue">
+                <ShoppingCart size={18} color="#FFFFFF" strokeWidth={2.4} />
+              </div>
             </div>
             <div className="db-kpi-info">
               <span className="db-kpi-title">Total Sales</span>
@@ -285,21 +251,22 @@ export default function AdminDashboard() {
               <span className="db-kpi-trend green">↑ 12.5% vs last month</span>
             </div>
           </div>
-          {/* Mini Vertical Bars (Light Blue) */}
-          <div className="db-kpi-mini-bars">
-            <div className="mini-bar blue" style={{ height: "45%" }} />
-            <div className="mini-bar blue" style={{ height: "65%" }} />
-            <div className="mini-bar blue" style={{ height: "50%" }} />
-            <div className="mini-bar blue" style={{ height: "85%" }} />
-            <div className="mini-bar blue active" style={{ height: "100%" }} />
+          <div className="db-kpi-stepped-bars">
+            <div className="db-bar blue" style={{ height: "35%" }} />
+            <div className="db-bar blue" style={{ height: "50%" }} />
+            <div className="db-bar blue" style={{ height: "68%" }} />
+            <div className="db-bar blue" style={{ height: "84%" }} />
+            <div className="db-bar blue active" style={{ height: "100%" }} />
           </div>
         </div>
 
-        {/* Card 2: Total Orders (Rose Pastel) */}
+        {/* Card 2: Total Orders (Rose) */}
         <div className="db-kpi-card rose-theme">
           <div className="db-kpi-left-group">
-            <div className="db-kpi-icon-pill rose">
-              <ShoppingCart size={19} strokeWidth={2.4} />
+            <div className="db-kpi-halo rose">
+              <div className="db-kpi-icon-pill rose">
+                <ShoppingBag size={18} color="#FFFFFF" strokeWidth={2.4} />
+              </div>
             </div>
             <div className="db-kpi-info">
               <span className="db-kpi-title">Total Orders</span>
@@ -307,21 +274,22 @@ export default function AdminDashboard() {
               <span className="db-kpi-trend green">↑ 0.3% vs last month</span>
             </div>
           </div>
-          {/* Mini Vertical Bars (Rose / Pink) */}
-          <div className="db-kpi-mini-bars">
-            <div className="mini-bar rose" style={{ height: "40%" }} />
-            <div className="mini-bar rose" style={{ height: "55%" }} />
-            <div className="mini-bar rose" style={{ height: "70%" }} />
-            <div className="mini-bar rose" style={{ height: "60%" }} />
-            <div className="mini-bar rose active" style={{ height: "95%" }} />
+          <div className="db-kpi-stepped-bars">
+            <div className="db-bar rose" style={{ height: "35%" }} />
+            <div className="db-bar rose" style={{ height: "50%" }} />
+            <div className="db-bar rose" style={{ height: "68%" }} />
+            <div className="db-bar rose" style={{ height: "84%" }} />
+            <div className="db-bar rose active" style={{ height: "100%" }} />
           </div>
         </div>
 
-        {/* Card 3: Customers (Green Pastel) */}
+        {/* Card 3: Customers (Green) */}
         <div className="db-kpi-card green-theme">
           <div className="db-kpi-left-group">
-            <div className="db-kpi-icon-pill green">
-              <Users size={19} strokeWidth={2.4} />
+            <div className="db-kpi-halo green">
+              <div className="db-kpi-icon-pill green">
+                <Users size={18} color="#FFFFFF" strokeWidth={2.4} />
+              </div>
             </div>
             <div className="db-kpi-info">
               <span className="db-kpi-title">Customers</span>
@@ -329,21 +297,22 @@ export default function AdminDashboard() {
               <span className="db-kpi-trend green">↑ 15.2% vs last month</span>
             </div>
           </div>
-          {/* Mini Vertical Bars (Green) */}
-          <div className="db-kpi-mini-bars">
-            <div className="mini-bar green" style={{ height: "45%" }} />
-            <div className="mini-bar green" style={{ height: "60%" }} />
-            <div className="mini-bar green" style={{ height: "75%" }} />
-            <div className="mini-bar green" style={{ height: "65%" }} />
-            <div className="mini-bar green active" style={{ height: "100%" }} />
+          <div className="db-kpi-stepped-bars">
+            <div className="db-bar green" style={{ height: "35%" }} />
+            <div className="db-bar green" style={{ height: "50%" }} />
+            <div className="db-bar green" style={{ height: "68%" }} />
+            <div className="db-bar green" style={{ height: "84%" }} />
+            <div className="db-bar green active" style={{ height: "100%" }} />
           </div>
         </div>
 
-        {/* Card 4: Active Products (Purple Pastel) */}
+        {/* Card 4: Active Products (Purple) */}
         <div className="db-kpi-card purple-theme">
           <div className="db-kpi-left-group">
-            <div className="db-kpi-icon-pill purple">
-              <Package size={19} strokeWidth={2.4} />
+            <div className="db-kpi-halo purple">
+              <div className="db-kpi-icon-pill purple">
+                <Package size={18} color="#FFFFFF" strokeWidth={2.4} />
+              </div>
             </div>
             <div className="db-kpi-info">
               <span className="db-kpi-title">Active Products</span>
@@ -351,126 +320,18 @@ export default function AdminDashboard() {
               <span className="db-kpi-trend green">↑ 10.1% vs last month</span>
             </div>
           </div>
-          {/* Mini Vertical Bars (Purple) */}
-          <div className="db-kpi-mini-bars">
-            <div className="mini-bar purple" style={{ height: "40%" }} />
-            <div className="mini-bar purple" style={{ height: "55%" }} />
-            <div className="mini-bar purple" style={{ height: "70%" }} />
-            <div className="mini-bar purple" style={{ height: "85%" }} />
-            <div className="mini-bar purple active" style={{ height: "100%" }} />
+          <div className="db-kpi-stepped-bars">
+            <div className="db-bar purple" style={{ height: "35%" }} />
+            <div className="db-bar purple" style={{ height: "50%" }} />
+            <div className="db-bar purple" style={{ height: "68%" }} />
+            <div className="db-bar purple" style={{ height: "84%" }} />
+            <div className="db-bar purple active" style={{ height: "100%" }} />
           </div>
         </div>
       </section>
 
-      {/* ========================================================================= */}
-      {/* 3. MAIN 2-COLUMN GRID (Left ~62%, Right ~38%)                             */}
-      {/* ========================================================================= */}
-      <div className="db-main-grid">
-        {/* ----------------------------------------------------------------------- */}
-        {/* LEFT COLUMN: SALES ANALYTICS SPLINE CHART & RECENT ORDERS TABLE         */}
-        {/* ----------------------------------------------------------------------- */}
-        <div className="db-col-left">
-          {/* Card 1: Sales Analytics */}
-          <div className="db-card" id="sales-analytics-section">
-            <div className="db-card-header">
-              <div className="db-card-title-group">
-                <div className="db-card-icon-pill blue">
-                  <TrendingUp size={19} strokeWidth={2.4} />
-                </div>
-                <div>
-                  <h3 className="db-card-title">Sales Analytics</h3>
-                  <p className="db-card-subtitle">Your business performance at a glance</p>
-                </div>
-              </div>
+      <div className="db-main-grid"><div className="db-col-left"><div className="db-card" id="sales-analytics-section"><div className="db-card-header"><div className="db-card-title-group"><div className="db-card-icon-pill blue"><TrendingUp size={19} strokeWidth={2.4} /></div><div><h3 className="db-card-title">Sales Analytics</h3><p className="db-card-subtitle">Your business performance at a glance</p></div></div><div className="db-period-pills">{["7D", "1M", "3M", "6M", "1Y"].map((period) => (<button key={period} type="button" className="db-period-btn" onClick={() => setChartPeriod(period)}>{period}</button>))}</div></div><div className="db-chart-container"><div className="db-chart-peak-badge"><span role="img" aria-label="trophy">🏆</span><span>{splineChartData.peakValue}</span></div><svg viewBox="0 0 480 170" className="db-chart-svg" preserveAspectRatio="none"><defs><linearGradient id="salesSplineGrad" x1="0" y1="0" x2="0" y2="100%"><stop offset="0%" stopColor="#1455D9" stopOpacity="0.22" /><stop offset="60%" stopColor="#2563EB" stopOpacity="0.06" /><stop offset="100%" stopColor="#1455D9" stopOpacity="0.00" /></linearGradient></defs><line x1="35" y1="35" x2="455" y2="35" className="db-chart-grid-line" /><line x1="35" y1="65" x2="455" y2="65" className="db-chart-grid-line" /><line x1="35" y1="95" x2="455" y2="95" className="db-chart-grid-line" /><line x1="35" y1="125" x2="455" y2="125" className="db-chart-grid-line" /><line x1="35" y1="155" x2="455" y2="155" stroke="#E2E8F0" strokeWidth="1" /><text x="28" y="38" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">1K</text><text x="28" y="68" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">750</text><text x="28" y="98" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">500</text><text x="28" y="128" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">250</text><text x="28" y="158" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">0</text><path d={splineChartData.areaD} fill="url(#salesSplineGrad)" /><path d={splineChartData.pathD} className="db-chart-spline-line" />{splineChartData.points.map((pt, idx) => (<circle key={idx} cx={pt.x} cy={pt.y} className="db-chart-dot" />))}{splineChartData.labels.map((lbl, idx) => { const xPos = splineChartData.points[idx]?.x || 35 + idx * 100; return (<text key={idx} x={xPos} y="167" textAnchor="middle" fontSize="9.5" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">{lbl}</text>); })}</svg></div></div>
 
-              {/* Time Filters: 7D, 1M (active), 3M, 6M, 1Y */}
-              <div className="db-period-pills">
-                {["7D", "1M", "3M", "6M", "1Y"].map((period) => (
-                  <button
-                    key={period}
-                    type="button"
-                    className={`db-period-btn ${chartPeriod === period ? "active" : ""}`}
-                    onClick={() => setChartPeriod(period)}
-                  >
-                    {period}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Spline Chart SVG with Peak Tooltip Badge (🏆 ₹1,202) */}
-            <div className="db-chart-container">
-              <div className="db-chart-peak-badge">
-                <span role="img" aria-label="trophy">🏆</span>
-                <span>{splineChartData.peakValue}</span>
-              </div>
-
-              <svg
-                viewBox="0 0 480 170"
-                className="db-chart-svg"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  <linearGradient id="salesSplineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#1455D9" stopOpacity="0.22" />
-                    <stop offset="60%" stopColor="#2563EB" stopOpacity="0.06" />
-                    <stop offset="100%" stopColor="#1455D9" stopOpacity="0.00" />
-                  </linearGradient>
-                </defs>
-
-                {/* Horizontal Dashed Guidelines */}
-                <line x1="35" y1="35" x2="455" y2="35" className="db-chart-grid-line" />
-                <line x1="35" y1="65" x2="455" y2="65" className="db-chart-grid-line" />
-                <line x1="35" y1="95" x2="455" y2="95" className="db-chart-grid-line" />
-                <line x1="35" y1="125" x2="455" y2="125" className="db-chart-grid-line" />
-                <line x1="35" y1="155" x2="455" y2="155" stroke="#E2E8F0" strokeWidth="1" />
-
-                {/* Y-Axis Numerical Labels with INLINE SVG ATTRIBUTES preventing text blowup */}
-                <text x="28" y="38" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">1K</text>
-                <text x="28" y="68" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">750</text>
-                <text x="28" y="98" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">500</text>
-                <text x="28" y="128" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">250</text>
-                <text x="28" y="158" textAnchor="end" fontSize="10" fill="#94A3B8" fontWeight="600" fontFamily="sans-serif">0</text>
-
-                {/* Gradient Fill under spline curve */}
-                <path d={splineChartData.areaD} fill="url(#salesSplineGrad)" />
-
-                {/* Main Blue Spline Path */}
-                <path d={splineChartData.pathD} className="db-chart-spline-line" />
-
-                {/* Circular Data Points */}
-                {splineChartData.points.map((pt, idx) => (
-                  <circle
-                    key={idx}
-                    cx={pt.x}
-                    cy={pt.y}
-                    className="db-chart-dot"
-                  />
-                ))}
-
-                {/* X-Axis Date Labels with INLINE SVG ATTRIBUTES */}
-                {splineChartData.labels.map((lbl, idx) => {
-                  const xPos = splineChartData.points[idx]?.x || 35 + idx * 100;
-                  return (
-                    <text
-                      key={idx}
-                      x={xPos}
-                      y="167"
-                      textAnchor="middle"
-                      fontSize="9.5"
-                      fill="#94A3B8"
-                      fontWeight="600"
-                      fontFamily="sans-serif"
-                    >
-                      {lbl}
-                    </text>
-                  );
-                })}
-              </svg>
-            </div>
-          </div>
-
-          {/* Card 2: Recent Orders Table */}
           <div className="db-card">
             <div className="db-card-header">
               <div className="db-card-title-group">
@@ -508,7 +369,13 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayOrders.map((ord, idx) => {
+                  {displayOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" style={{ textAlign: "center", padding: "26px", color: "#64748B", fontWeight: 600 }}>
+                        No orders recorded yet. Real-time orders will display here automatically.
+                      </td>
+                    </tr>
+                  ) : displayOrders.map((ord, idx) => {
                     const statusClass = (ord.status || "").toLowerCase();
                     const paymentClass = (ord.payment || "").toLowerCase();
                     return (
@@ -522,14 +389,7 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td>
-                          <div className="db-customer-cell">
-                            <img
-                              src={ord.customerAvatar}
-                              alt={ord.customerName}
-                              className="db-customer-avatar"
-                            />
-                            <span className="db-customer-name">{ord.customerName}</span>
-                          </div>
+                          <span className="db-customer-name" style={{ fontWeight: 600, color: "#14213D" }}>{ord.customerName}</span>
                         </td>
                         <td>
                           <span>{ord.itemsCount}</span>
@@ -663,27 +523,77 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <div className="db-alert-row">
-              <div className="db-alert-left">
-                <img
-                  src="https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=120&auto=format&fit=crop&q=80"
-                  alt="Apples"
-                  className="db-alert-thumb"
-                />
-                <div className="db-alert-details">
-                  <h4>Apples</h4>
-                  <p>Only 5 left in stock!</p>
-                </div>
+            {lowStockItems.length === 0 ? (
+              <div style={{ padding: "12px 14px", background: "#ECFDF5", borderRadius: "10px", border: "1px solid #A7F3D0", display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "14px", color: "#10B981" }}>✓</span>
+                <span style={{ fontSize: "12px", color: "#065F46", fontWeight: 600 }}>All inventory levels are healthy! No low stock alerts.</span>
               </div>
+            ) : (
+              lowStockItems.map((item, idx) => {
+                const stockQty = Number(item.stock !== undefined ? item.stock : (item.quantity !== undefined ? item.quantity : 0));
+                return (
+                  <div key={item._id || item.id || idx} className="db-alert-row" style={{ marginBottom: idx < lowStockItems.length - 1 ? "10px" : 0 }}>
+                    <div className="db-alert-left">
+                      {(item.imageUrl || item.image) ? (
+                        <img
+                          src={item.imageUrl || item.image}
+                          alt={item.name}
+                          className="db-alert-thumb"
+                          style={{
+                            width: "42px",
+                            height: "42px",
+                            borderRadius: "10px",
+                            objectFit: "cover",
+                            flexShrink: 0,
+                            border: "1.5px solid #E2E8F0",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.06)"
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            if (e.currentTarget.nextSibling) {
+                              e.currentTarget.nextSibling.style.display = "flex";
+                            }
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        style={{
+                          width: "42px",
+                          height: "42px",
+                          borderRadius: "10px",
+                          background: stockQty === 0 ? "#FEF2F2" : "#FFFBEB",
+                          display: (item.imageUrl || item.image) ? "none" : "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: stockQty === 0 ? "#DC2626" : "#D97706",
+                          flexShrink: 0,
+                          fontWeight: 800,
+                          fontSize: "15px",
+                          border: `1.5px solid ${stockQty === 0 ? "#FECACA" : "#FDE68A"}`
+                        }}
+                      >
+                        {item.name ? item.name.charAt(0).toUpperCase() : "P"}
+                      </div>
+                      <div className="db-alert-details">
+                        <h4 style={{ margin: 0, fontSize: "12.5px", fontWeight: 700, color: "#1E293B" }}>{item.name}</h4>
+                        <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: stockQty === 0 ? "#DC2626" : "#D97706", fontWeight: 700 }}>
+                          {stockQty === 0 ? "Out of stock!" : `Only ${stockQty} left in stock!`}
+                        </p>
+                      </div>
+                    </div>
 
-              <button
-                type="button"
-                className={`db-restock-pill-btn ${restockedApple ? "success" : ""}`}
-                onClick={handleRestockApples}
-              >
-                {restockedApple ? "✓ Restocked" : "Low Stock"}
-              </button>
-            </div>
+                    <button
+                      type="button"
+                      className="db-restock-pill-btn"
+                      style={{ background: stockQty === 0 ? "#FEE2E2" : "#FEF3C7", color: stockQty === 0 ? "#DC2626" : "#B45309", border: `1px solid ${stockQty === 0 ? "#FCA5A5" : "#FCD34D"}` }}
+                      onClick={() => navigate("/admin/inventory")}
+                    >
+                      {stockQty === 0 ? "Out of Stock" : "Low Stock"}
+                    </button>
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* Card 3: Business Insights with 3 Circular Gauges */}
@@ -779,173 +689,322 @@ export default function AdminDashboard() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 4. ORDER DETAILS RECEIPT MODAL                                            */}
+      {/* 4. PROFESSIONAL SUPERMARKET TAX INVOICE & RECEIPT MODAL                   */}
       {/* ========================================================================= */}
       {selectedOrder && (
         <div
           className="db-modal-backdrop"
           onClick={() => setSelectedOrder(null)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
         >
           <div
             className="db-modal-card"
             onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#FFFFFF",
+              borderRadius: "18px",
+              width: "92%",
+              maxWidth: "560px",
+              maxHeight: "92vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.25)",
+              border: "1.5px solid #E2E8F0",
+              display: "flex",
+              flexDirection: "column",
+            }}
           >
-            <div className="db-modal-header">
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div className="db-card-icon-pill blue">
-                  <ShoppingCart size={19} />
+            {/* Header with GrocerEase Supermarket Branding */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "16px 22px",
+                borderBottom: "1.5px solid #F1F5F9",
+                background: "linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div
+                  style={{
+                    width: "38px",
+                    height: "38px",
+                    borderRadius: "10px",
+                    background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#FFFFFF",
+                    boxShadow: "0 3px 8px rgba(37, 99, 235, 0.35)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <ShoppingCart size={19} color="#FFFFFF" strokeWidth={2.4} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "800", color: "#14213D" }}>
-                    Order Details #{selectedOrder.orderId}
-                  </h3>
-                  <p style={{ margin: "2px 0 0 0", fontSize: "11.5px", color: "#64748B" }}>
-                    Verified Supermarket Self-Checkout Receipt
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "800", color: "#0F172A" }}>
+                      GrocerEase Supermarket
+                    </h3>
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: "800",
+                        background: "#DBEAFE",
+                        color: "#1D4ED8",
+                        padding: "2px 8px",
+                        borderRadius: "9999px",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      TAX INVOICE
+                    </span>
+                  </div>
+                  <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: "#64748B" }}>
+                    Verified Digital Self-Checkout Receipt • Lane 02
                   </p>
                 </div>
               </div>
+
               <button
                 type="button"
-                className="db-modal-close-btn"
                 onClick={() => setSelectedOrder(null)}
+                style={{
+                  background: "#F1F5F9",
+                  border: "none",
+                  width: "30px",
+                  height: "30px",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#64748B",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
               >
                 <X size={15} />
               </button>
             </div>
 
-            <div className="db-modal-body">
+            {/* Modal Body */}
+            <div style={{ padding: "18px 22px" }}>
+              {/* Receipt Info Card */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gap: "12px",
                   background: "#F8FAFC",
-                  padding: "12px",
-                  borderRadius: "10px",
-                  marginBottom: "14px",
-                  fontSize: "12px",
+                  padding: "14px 16px",
+                  borderRadius: "12px",
+                  marginBottom: "16px",
                   border: "1px solid #E2E8F0",
                 }}
               >
                 <div>
-                  <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", fontWeight: "700" }}>
+                  <span style={{ fontSize: "10px", fontWeight: "700", color: "#64748B", textTransform: "uppercase" }}>
+                    INVOICE NO
+                  </span>
+                  <span style={{ fontSize: "12.5px", fontWeight: "800", color: "#0F172A", display: "block", marginTop: "2px" }}>
+                    #{selectedOrder.orderId}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: "10px", fontWeight: "700", color: "#64748B", textTransform: "uppercase" }}>
+                    ORDER STATUS
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      color: selectedOrder.status === "Completed" ? "#15803D" : "#D97706",
+                      background: selectedOrder.status === "Completed" ? "#DCFCE7" : "#FEF3C7",
+                      padding: "2px 8px",
+                      borderRadius: "6px",
+                      display: "inline-block",
+                      marginTop: "2px",
+                    }}
+                  >
+                    ✓ {selectedOrder.status || "Completed"}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: "10px", fontWeight: "700", color: "#64748B", textTransform: "uppercase" }}>
                     CUSTOMER
                   </span>
-                  <span style={{ fontWeight: "700", color: "#14213D" }}>
+                  <span style={{ fontSize: "12px", fontWeight: "700", color: "#1E293B", display: "block", marginTop: "2px" }}>
                     {selectedOrder.customerName}
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", fontWeight: "700" }}>
-                    STATUS
-                  </span>
-                  <span style={{ fontWeight: "700", color: selectedOrder.status === "Completed" ? "#10B981" : "#F59E0B" }}>
-                    {selectedOrder.status}
-                  </span>
-                </div>
-                <div>
-                  <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", fontWeight: "700" }}>
-                    DATE
-                  </span>
-                  <span style={{ fontWeight: "600", color: "#334155" }}>
-                    {selectedOrder.date}
-                  </span>
-                </div>
-                <div>
-                  <span style={{ color: "#64748B", display: "block", fontSize: "10.5px", fontWeight: "700" }}>
+                  <span style={{ fontSize: "10px", fontWeight: "700", color: "#64748B", textTransform: "uppercase" }}>
                     PAYMENT METHOD
                   </span>
-                  <span style={{ fontWeight: "700", color: "#1455D9" }}>
-                    {selectedOrder.payment === "COD" ? "Cash on Delivery" : "UPI / Online"}
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      color: "#1D4ED8",
+                      background: "#DBEAFE",
+                      padding: "2px 8px",
+                      borderRadius: "6px",
+                      display: "inline-block",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {selectedOrder.payment === "COD" ? "Cash on Delivery" : "UPI / Online Paid"}
                   </span>
                 </div>
               </div>
 
-              <h4 style={{ margin: "0 0 8px 0", fontSize: "12.5px", fontWeight: "800", color: "#14213D" }}>
-                Items Purchased
-              </h4>
-              <div
-                style={{
-                  border: "1px solid #E2E8F0",
-                  borderRadius: "10px",
-                  overflow: "hidden",
-                  marginBottom: "14px",
-                }}
-              >
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-                  <thead>
-                    <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                      <th style={{ padding: "7px 10px", textAlign: "left", color: "#64748B" }}>Product</th>
-                      <th style={{ padding: "7px 10px", textAlign: "center", color: "#64748B" }}>Qty</th>
-                      <th style={{ padding: "7px 10px", textAlign: "right", color: "#64748B" }}>Price</th>
-                      <th style={{ padding: "7px 10px", textAlign: "right", color: "#64748B" }}>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                      selectedOrder.items.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                          <td style={{ padding: "7px 10px", fontWeight: "600", color: "#14213D" }}>
-                            {item.name}
-                          </td>
-                          <td style={{ padding: "7px 10px", textAlign: "center", color: "#64748B" }}>
-                            {item.quantity || 1}
-                          </td>
-                          <td style={{ padding: "7px 10px", textAlign: "right", color: "#64748B" }}>
-                            ₹{Number(item.price || 10).toFixed(2)}
-                          </td>
-                          <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: "700", color: "#14213D" }}>
-                            ₹{(Number(item.price || 10) * Number(item.quantity || 1)).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td style={{ padding: "7px 10px" }}>Item</td>
-                        <td style={{ padding: "7px 10px", textAlign: "center" }}>1</td>
-                        <td style={{ padding: "7px 10px", textAlign: "right" }}>₹{selectedOrder.amount.toFixed(2)}</td>
-                        <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: "700" }}>₹{selectedOrder.amount.toFixed(2)}</td>
+              {/* Items Purchased Table */}
+              <div style={{ marginBottom: "16px" }}>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "12.5px", fontWeight: "800", color: "#0F172A" }}>
+                  Items Purchased
+                </h4>
+                <div style={{ border: "1.5px solid #E2E8F0", borderRadius: "10px", overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                    <thead>
+                      <tr style={{ background: "#F1F5F9", borderBottom: "1.5px solid #E2E8F0" }}>
+                        <th style={{ padding: "8px 12px", textAlign: "left", color: "#475569", fontWeight: "700" }}>
+                          Product Name
+                        </th>
+                        <th style={{ padding: "8px 12px", textAlign: "center", color: "#475569", fontWeight: "700", width: "60px" }}>
+                          Qty
+                        </th>
+                        <th style={{ padding: "8px 12px", textAlign: "right", color: "#475569", fontWeight: "700", width: "85px" }}>
+                          Price
+                        </th>
+                        <th style={{ padding: "8px 12px", textAlign: "right", color: "#475569", fontWeight: "700", width: "95px" }}>
+                          Total
+                        </th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                        selectedOrder.items.map((item, idx) => {
+                          const itemPrice = Number(item.price || item.totalPrice || 10);
+                          const itemQty = Number(item.quantity || item.qty || 1);
+                          return (
+                            <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9", background: idx % 2 === 0 ? "#FFFFFF" : "#F8FAFC" }}>
+                              <td style={{ padding: "9px 12px", fontWeight: "600", color: "#0F172A" }}>
+                                {item.name || item.title || "Supermarket Item"}
+                              </td>
+                              <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: "700", color: "#475569" }}>
+                                {itemQty}
+                              </td>
+                              <td style={{ padding: "9px 12px", textAlign: "right", color: "#64748B" }}>
+                                ₹{itemPrice.toFixed(2)}
+                              </td>
+                              <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: "800", color: "#0F172A" }}>
+                                ₹{(itemPrice * itemQty).toFixed(2)}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td style={{ padding: "9px 12px", fontWeight: "600", color: "#0F172A" }}>Grocery Order Items</td>
+                          <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: "700", color: "#475569" }}>1</td>
+                          <td style={{ padding: "9px 12px", textAlign: "right", color: "#64748B" }}>₹{Number(selectedOrder.amount).toFixed(2)}</td>
+                          <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: "800", color: "#0F172A" }}>₹{Number(selectedOrder.amount).toFixed(2)}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
+              {/* Grand Total Highlight Card */}
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  padding: "10px 14px",
-                  background: "#EFF6FF",
-                  borderRadius: "10px",
-                  border: "1px solid #BFDBFE",
+                  padding: "12px 18px",
+                  background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
+                  borderRadius: "12px",
+                  border: "1.5px solid #93C5FD",
                 }}
               >
-                <span style={{ fontSize: "13px", fontWeight: "700", color: "#1E3A8A" }}>
-                  Grand Total Paid:
-                </span>
-                <span style={{ fontSize: "17px", fontWeight: "900", color: "#1455D9" }}>
-                  ₹{Number(selectedOrder.amount).toFixed(2)}
-                </span>
+                <div>
+                  <span style={{ fontSize: "11px", fontWeight: "800", color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Grand Total Paid (Incl. Taxes)
+                  </span>
+                  <span style={{ display: "block", fontSize: "11px", color: "#475569", marginTop: "2px" }}>
+                    GSTIN: 33AAAAA0000A1Z5 • Thank you for shopping!
+                  </span>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontSize: "20px", fontWeight: "900", color: "#1E3A8A" }}>
+                    ₹{Number(selectedOrder.amount).toFixed(2)}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="db-modal-footer">
+            {/* Modal Footer with High-Visibility Action Buttons */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                alignItems: "center",
+                gap: "10px",
+                padding: "14px 22px",
+                borderTop: "1.5px solid #F1F5F9",
+                background: "#F8FAFC",
+                borderBottomLeftRadius: "18px",
+                borderBottomRightRadius: "18px",
+              }}
+            >
               <button
                 type="button"
-                className="db-card-link"
                 onClick={() => setSelectedOrder(null)}
+                style={{
+                  background: "#FFFFFF",
+                  border: "1.5px solid #CBD5E1",
+                  borderRadius: "9px",
+                  padding: "7px 18px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  color: "#475569",
+                  cursor: "pointer",
+                }}
               >
                 Close
               </button>
               <button
                 type="button"
-                className="db-hero-insights-btn"
                 onClick={() => window.print()}
-                style={{ borderRadius: "8px", padding: "6px 14px" }}
+                style={{
+                  background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)",
+                  border: "none",
+                  borderRadius: "9px",
+                  padding: "7px 20px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  color: "#FFFFFF",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  cursor: "pointer",
+                  boxShadow: "0 3px 10px rgba(37, 99, 235, 0.35)",
+                }}
               >
-                <Printer size={14} />
+                <Printer size={15} color="#FFFFFF" />
                 <span>Print Invoice</span>
               </button>
             </div>

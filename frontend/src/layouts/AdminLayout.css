@@ -742,3 +742,820 @@ body {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Exact Pixel-Perfect Match to Target Reference Image
+   ========================================================================== */
+body,
+.admin-app-container,
+.admin-main-canvas {
+  background-color: #F4F7FD !important;
+}
+
+.nav-item.active {
+  background: #1455d9 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.nav-item.active .nav-icon-wrap {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-right: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+.nav-item.active .nav-icon-wrap svg {
+  stroke: #1455d9 !important;
+}
+
+.db-storefront-3d-wrap {
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.db-storefront-3d-img {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.db-hero-script-badge {
+  display: none !important;
+}
+
+.db-kpi-card.blue-theme {
+  background: linear-gradient(135deg, #F0F6FF 0%, #FFFFFF 100%) !important;
+  border: 1px solid #BFDBFE !important;
+}
+
+.db-kpi-card.rose-theme {
+  background: linear-gradient(135deg, #FFF1F2 0%, #FFFFFF 100%) !important;
+  border: 1px solid #FECDD3 !important;
+}
+
+.db-kpi-card.green-theme {
+  background: linear-gradient(135deg, #ECFDF5 0%, #FFFFFF 100%) !important;
+  border: 1px solid #A7F3D0 !important;
+}
+
+.db-kpi-card.purple-theme {
+  background: linear-gradient(135deg, #FAF5FF 0%, #FFFFFF 100%) !important;
+  border: 1px solid #E9D5FF !important;
+}
+
+.db-orders-table th:nth-child(5),
+.db-orders-table td:nth-child(5) {
+  display: none !important;
+}
+
+.db-restock-pill-btn {
+  background: #FEE2E2 !important;
+  color: #EF4444 !important;
+  border: none !important;
+  font-weight: 700 !important;
+  padding: 5px 14px !important;
+  border-radius: 9999px !important;
+  cursor: pointer !important;
+}
+
+/* ==========================================================================
+   Fixed Sidebar Lock & Readable Larger Text
+   ========================================================================== */
+
+/* 1. Viewport lock: prevent outer page jumping */
+html, body {
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+
+.admin-app-container {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+}
+
+/* 2. Fixed Sidebar: Stays completely locked on screen, no internal scroll */
+.admin-sidebar {
+  width: 225px !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  flex-shrink: 0 !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+}
+
+/* 3. Main Content: Only the dashboard content scrolls up and down */
+.admin-main-wrapper {
+  flex: 1 !important;
+  height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* 4. Larger, clear, readable sidebar text */
+.nav-item {
+  font-size: 13.5px !important;
+  padding: 8.5px 12px !important;
+  gap: 12px !important;
+}
+
+.nav-label {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: #e2e8f0 !important;
+  letter-spacing: 0.2px !important;
+}
+
+.nav-item:hover .nav-label {
+  color: #ffffff !important;
+}
+
+.nav-item.active .nav-label {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+.nav-icon-wrap svg {
+  width: 17px !important;
+  height: 17px !important;
+}
+
+/* Fix Sidebar Awkward Gap */
+.sidebar-nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  flex: none !important;
+  margin-top: 8px !important;
+}
+
+.sidebar-promo-wrap {
+  margin-top: auto !important;
+}
+
+.nav-item {
+  padding: 8.5px 12px !important;
+  gap: 12px !important;
+  margin-bottom: 2px !important;
+}
+
+/* Spacing to fit all 10 items cleanly */
+.sidebar-nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  flex: none !important;
+  margin-top: 4px !important;
+}
+
+.nav-item {
+  padding: 7px 12px !important;
+  gap: 10px !important;
+  border-radius: 10px !important;
+}
+
+.nav-label {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.sidebar-promo-wrap {
+  margin-top: auto !important;
+}
+
+/* ==========================================================================
+   Exact Match to Target Mockup (media_1794293202466_f5b3f355.jpg)
+   ========================================================================== */
+body,
+.admin-app-container,
+.admin-main-canvas {
+  background-color: #F4F7FD !important;
+}
+
+/* Sidebar Nav Spacing for 9 items */
+.sidebar-nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+  margin-top: 6px !important;
+  flex: none !important;
+}
+
+.nav-item {
+  padding: 8.5px 12px !important;
+  gap: 10px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.nav-label {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+}
+
+/* Active Dashboard White Circular Badge */
+.nav-item.active {
+  background: #1455d9 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(20, 85, 217, 0.45) !important;
+}
+
+.nav-item.active .nav-icon-wrap {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-right: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+.nav-item.active .nav-icon-wrap svg {
+  stroke: #1455d9 !important;
+}
+
+/* Vertical 3D Showcase Promo Card (Fills Gap) */
+.sidebar-promo-wrap {
+  margin-top: auto !important;
+  padding-bottom: 6px !important;
+}
+
+.sidebar-store-card {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  padding: 12px 10px 10px 10px !important;
+  background: rgba(9, 32, 78, 0.9) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+.store-basket-art {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  margin-bottom: 4px !important;
+}
+
+.store-basket-art-img {
+  width: 95px !important;
+  height: 95px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35)) !important;
+}
+
+.store-card-heading {
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  margin: 4px 0 1px 0 !important;
+}
+
+.store-card-sub {
+  font-size: 11.5px !important;
+  color: #93c5fd !important;
+  margin: 0 0 2px 0 !important;
+  font-weight: 500 !important;
+}
+
+.store-card-script {
+  font-family: "Brush Script MT", "Segoe Script", cursive, sans-serif !important;
+  font-size: 13px !important;
+  color: #fbbf24 !important;
+}
+
+/* Hero Seamless 3D Bag (Removes White Box) */
+.db-storefront-3d-wrap {
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.db-storefront-3d-img {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.db-hero-script-badge {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Uniform Reusable ERP Page Banner matching Reference Image
+   ========================================================================== */
+.erp-page-banner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: linear-gradient(135deg, #072a72 0%, #0d4fd6 50%, #1e40af 100%) !important;
+  border-radius: 16px !important;
+  padding: 12px 24px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 125px !important;
+  margin-bottom: 14px !important;
+  box-shadow: 0 4px 20px rgba(13, 79, 214, 0.22) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.erp-banner-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  z-index: 5 !important;
+  max-width: 60% !important;
+}
+
+.erp-banner-icon-wrap {
+  width: 68px !important;
+  height: 68px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.erp-banner-bag-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35)) !important;
+}
+
+.erp-banner-title-block {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.erp-banner-title {
+  font-size: 23px !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  letter-spacing: -0.3px !important;
+  line-height: 1.15 !important;
+}
+
+.erp-banner-sub {
+  font-size: 13px !important;
+  color: #bfdbfe !important;
+  margin: 0 0 4px 0 !important;
+  font-weight: 500 !important;
+}
+
+.erp-banner-badges-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.erp-banner-pill-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+  padding: 3px 10px !important;
+  border-radius: 9999px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+.erp-banner-pill-badge .erp-check {
+  color: #4ade80 !important;
+  font-weight: 800 !important;
+}
+
+.erp-banner-art-wrap {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 48% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+}
+
+.erp-banner-art-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: right center !important;
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 35%, black 100%) !important;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 35%, black 100%) !important;
+}
+
+/* ==========================================================================
+   Uniform Reusable ERP Page Banner matching Reference Image
+   ========================================================================== */
+.erp-page-banner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: linear-gradient(135deg, #072a72 0%, #0d4fd6 50%, #1e40af 100%) !important;
+  border-radius: 16px !important;
+  padding: 12px 24px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 125px !important;
+  margin-bottom: 14px !important;
+  box-shadow: 0 4px 20px rgba(13, 79, 214, 0.22) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.erp-banner-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  z-index: 5 !important;
+  max-width: 60% !important;
+}
+
+.erp-banner-icon-wrap {
+  width: 68px !important;
+  height: 68px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.erp-banner-bag-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35)) !important;
+}
+
+.erp-banner-title-block {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.erp-banner-title {
+  font-size: 23px !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  letter-spacing: -0.3px !important;
+  line-height: 1.15 !important;
+}
+
+.erp-banner-sub {
+  font-size: 13px !important;
+  color: #bfdbfe !important;
+  margin: 0 0 4px 0 !important;
+  font-weight: 500 !important;
+}
+
+.erp-banner-badges-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.erp-banner-pill-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+  padding: 3px 10px !important;
+  border-radius: 9999px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+.erp-banner-pill-badge .erp-check {
+  color: #4ade80 !important;
+  font-weight: 800 !important;
+}
+
+.erp-banner-art-wrap {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 48% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+}
+
+.erp-banner-art-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: right center !important;
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 35%, black 100%) !important;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 35%, black 100%) !important;
+}
+
+
+/* ==========================================================================
+   Dynamic Page-Wise Vibrant Themes & Matching Sidebar Active Pills
+   ========================================================================== */
+
+/* 1. Dynamic Sidebar Active Nav Colors based on current tab */
+.nav-item[href="/admin"].active, .nav-item[href="/admin/"].active {
+  background: linear-gradient(135deg, #1d68ff 0%, #1455d9 100%) !important;
+  box-shadow: 0 4px 14px rgba(20, 85, 217, 0.55) !important;
+}
+.nav-item[href="/admin/products"].active {
+  background: linear-gradient(135deg, #1d4ed8 0%, #0d4fd6 100%) !important;
+  box-shadow: 0 4px 14px rgba(13, 79, 214, 0.55) !important;
+}
+.nav-item[href="/admin/add-product"].active {
+  background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%) !important;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.55) !important;
+}
+.nav-item[href="/admin/inventory"].active {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.55) !important;
+}
+.nav-item[href="/admin/barcodes"].active {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.55) !important;
+}
+.nav-item[href="/admin/orders"].active {
+  background: linear-gradient(135deg, #ea580c 0%, #f97316 100%) !important;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.55) !important;
+}
+.nav-item[href="/admin/customers"].active {
+  background: linear-gradient(135deg, #9333ea 0%, #c084fc 100%) !important;
+  box-shadow: 0 4px 14px rgba(147, 51, 234, 0.55) !important;
+}
+.nav-item[href="/admin/reports"].active {
+  background: linear-gradient(135deg, #1e40af 0%, #0284c7 100%) !important;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.55) !important;
+}
+.nav-item[href="/admin/settings"].active {
+  background: linear-gradient(135deg, #334155 0%, #64748b 100%) !important;
+  box-shadow: 0 4px 14px rgba(71, 85, 105, 0.55) !important;
+}
+
+/* 2. Seamless Frosted-Glass Bag Icon (no harsh white square box) */
+.erp-banner-icon-wrap,
+.pm-hero-bag-icon {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.28) !important;
+  border-radius: 14px !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18) !important;
+  overflow: hidden !important;
+}
+
+/* 3. Rich Saturated Banner Gradients Matching Image 1 */
+.pm-hero-section,
+.erp-page-banner {
+  background: linear-gradient(135deg, #072a72 0%, #0d4fd6 50%, #1e40af 100%) !important;
+  box-shadow: 0 6px 24px rgba(13, 79, 214, 0.25) !important;
+}
+
+.pm-main-title,
+.erp-banner-title {
+  color: #ffffff !important;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+.pm-main-subtitle,
+.erp-banner-sub {
+  color: #bfdbfe !important;
+}
+
+/* ===================================================================
+   ULTRA-BRIGHT SIDEBAR NAVIGATION TABS & ENHANCED CONTRAST
+   =================================================================== */
+.admin-sidebar {
+  background-color: #031336 !important;
+  border-right: 1.5px solid rgba(59, 130, 246, 0.3) !important;
+}
+
+.sidebar-brand-title {
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+}
+
+.sidebar-brand-sub {
+  color: #60A5FA !important;
+  font-weight: 600 !important;
+}
+
+/* Bright Inactive Nav Tabs */
+.nav-item {
+  color: #E2E8F0 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+  border-radius: 10px !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  text-transform: capitalize !important;
+}
+
+.nav-item:hover {
+  background: rgba(59, 130, 246, 0.25) !important;
+  color: #FFFFFF !important;
+  transform: translateX(3px) !important;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.2) !important;
+}
+
+.nav-item .nav-icon-wrap {
+  color: #93C5FD !important;
+}
+
+.nav-item:hover .nav-icon-wrap {
+  color: #FFFFFF !important;
+}
+
+/* Luminous Glowing Electric Blue Active Nav Tab */
+.nav-item.active {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(147, 197, 253, 0.6) !important;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.7), 0 0 12px rgba(96, 165, 250, 0.4) !important;
+}
+
+.nav-item.active .nav-icon-wrap {
+  color: #FFFFFF !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)) !important;
+}
+
+/* Logout Button styling placed after the 3D storefront image card */
+.sidebar-logout-btn {
+  margin-top: 6px !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1.5px solid rgba(239, 68, 68, 0.4) !important;
+  color: #FCA5A5 !important;
+  font-weight: 700 !important;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.35) !important;
+  color: #FFFFFF !important;
+  border-color: rgba(239, 68, 68, 0.7) !important;
+  transform: translateX(3px) !important;
+}
+
+.sidebar-logout-btn .nav-icon-wrap {
+  color: #F87171 !important;
+}
+.sidebar-logout-btn:hover .nav-icon-wrap {
+  color: #FFFFFF !important;
+}
+
+/* 3D Storefront Card */
+.sidebar-store-card {
+  background: linear-gradient(135deg, rgba(14, 45, 105, 0.95) 0%, rgba(8, 30, 75, 0.95) 100%) !important;
+  border: 1.5px solid rgba(96, 165, 250, 0.4) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.store-card-heading {
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+}
+
+.store-card-sub {
+  color: #93C5FD !important;
+  font-weight: 600 !important;
+}
+
+.store-card-script {
+  color: #FBBF24 !important;
+  font-weight: 700 !important;
+}
+
+/* ===================================================================
+   PERFECT SLEEK LOGOUT BUTTON & BOTTOM PROPORTIONS
+   =================================================================== */
+.sidebar-promo-wrap {
+  margin-top: 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.sidebar-store-card {
+  padding: 8px 10px !important;
+  border-radius: 12px !important;
+  background: rgba(10, 37, 88, 0.85) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+}
+
+.sidebar-logout-btn {
+  margin-top: 4px !important;
+  margin-bottom: 2px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+  border-radius: 10px !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.sidebar-logout-btn .nav-icon-wrap {
+  color: #93C5FD !important;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  color: #FFFFFF !important;
+  transform: translateX(3px) !important;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.25) !important;
+}
+
+.sidebar-logout-btn:hover .nav-icon-wrap {
+  color: #F87171 !important;
+}
+
+.sidebar-version-pill {
+  padding-top: 4px !important;
+  text-align: center !important;
+}
+
+.sidebar-version-pill span {
+  font-size: 9px !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  letter-spacing: 0.3px !important;
+}
+
+/* ===================================================================
+   VIVID RED LOGOUT BUTTON WITH BRIGHT WHITE TEXT
+   =================================================================== */
+.sidebar-logout-btn {
+  margin-top: 6px !important;
+  margin-bottom: 3px !important;
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%) !important;
+  border: 1.5px solid #F87171 !important;
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+  font-size: 13.5px !important;
+  padding: 8px 14px !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  cursor: pointer !important;
+}
+
+.sidebar-logout-btn .nav-icon-wrap {
+  color: #FFFFFF !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)) !important;
+}
+
+.sidebar-logout-btn .nav-label {
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+  font-size: 13.5px !important;
+  letter-spacing: 0.3px !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+.sidebar-logout-btn:hover {
+  background: linear-gradient(135deg, #F87171 0%, #EF4444 100%) !important;
+  border-color: #FCA5A5 !important;
+  color: #FFFFFF !important;
+  transform: translateX(3px) !important;
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.65) !important;
+}

@@ -268,59 +268,24 @@ export default function ProductManagement() {
       {/* 1. HERO TOP BANNER WITH SHOPPING CART BASKET OVERFLOWING WITH PRODUCE      */}
       {/* Matching User Attached Reference Image                                    */}
       {/* ========================================================================= */}
-      <section className="pm-hero-section">
+            <section className="pm-hero-section">
         <div className="pm-hero-left">
-          <h1 className="pm-main-title">Product Management</h1>
-          <p className="pm-main-subtitle">
-            Manage your supermarket product catalog efficiently
-          </p>
-          <div className="pm-title-underline" />
-        </div>
-
-        {/* Dynamic Curved Ribbon & Fresh Groceries Shopping Cart */}
-        <div className="pm-hero-art">
-          {/* Supermarket aisle backdrop */}
-          <div className="pm-hero-store-bg" />
-
-          {/* Sweeping dynamic blue & gold wave ribbon matching Image 1 */}
-          <div className="pm-hero-ribbon-wrap">
-            <svg className="pm-hero-ribbon-svg" viewBox="0 0 640 160" fill="none" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="goldRibbonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#F59E0B" stopOpacity="0" />
-                  <stop offset="18%" stopColor="#FDE047" />
-                  <stop offset="55%" stopColor="#FBBF24" />
-                  <stop offset="85%" stopColor="#F59E0B" />
-                  <stop offset="100%" stopColor="#FBBF24" />
-                </linearGradient>
-                <linearGradient id="blueRibbonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#1E3A8A" stopOpacity="0" />
-                  <stop offset="20%" stopColor="#1D4ED8" />
-                  <stop offset="55%" stopColor="#2563EB" />
-                  <stop offset="85%" stopColor="#1E40AF" />
-                  <stop offset="100%" stopColor="#1E3A8A" />
-                </linearGradient>
-              </defs>
-              {/* Flowing Royal Blue Ribbon Body */}
-              <path
-                d="M 0 115 C 130 125, 260 102, 380 78 C 470 60, 560 48, 640 42 L 640 68 C 560 74, 470 86, 380 104 C 260 128, 130 150, 0 138 Z"
-                fill="url(#blueRibbonGrad)"
-                opacity="0.96"
-              />
-              {/* Brilliant Gold Accent Ribbon Edge */}
-              <path
-                d="M 0 108 C 130 118, 260 95, 380 71 C 470 53, 560 41, 640 35 L 640 43 C 560 49, 470 61, 380 79 C 260 103, 130 126, 0 116 Z"
-                fill="url(#goldRibbonGrad)"
-              />
-            </svg>
+          <div className="pm-hero-bag-icon">
+            <ShoppingCart size={22} color="#FFFFFF" strokeWidth={2.4} />
           </div>
-
-          <img
-            src={bannerCartImg}
-            alt="Supermarket Shopping Cart with Fresh Groceries"
-            className="pm-hero-cart-img"
-          />
+          <div className="pm-hero-text-block">
+            <h1 className="pm-main-title">Product Management</h1>
+            <p className="pm-main-subtitle">
+              Manage your supermarket product catalog efficiently
+            </p>
+            <div className="pm-hero-badges-row">
+              <span className="pm-hero-badge"><span className="check">✓</span> Track Stock</span>
+              <span className="pm-hero-badge"><span className="check">✓</span> Monitor Sales</span>
+              <span className="pm-hero-badge"><span className="check">✓</span> Keep Your Store Always Ready</span>
+            </div>
+          </div>
         </div>
+        <div className="pm-hero-art" />
       </section>
 
       {/* ========================================================================= */}
@@ -963,3 +928,5 @@ export default function ProductManagement() {
     </div>
   );
 }
+
+

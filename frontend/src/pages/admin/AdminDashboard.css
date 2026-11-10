@@ -916,3 +916,804 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* BRIGHT VIBRANT CARDS & HIGH-CONTRAST ICONS */
+.db-card-icon-pill {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+}
+.db-card-icon-pill.amber, .db-card-icon-pill.yellow {
+  background: #f59e0b !important;
+  color: #ffffff !important;
+}
+.db-card-icon-pill.blue {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+.db-card-icon-pill.red, .db-card-icon-pill.rose {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+}
+.db-card-icon-pill.green {
+  background: #10b981 !important;
+  color: #ffffff !important;
+}
+.db-card-icon-pill.purple {
+  background: #8b5cf6 !important;
+  color: #ffffff !important;
+}
+
+/* Richer, Brighter KPI Metric Cards */
+.db-kpi-card {
+  border-radius: 14px !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08) !important;
+}
+.db-kpi-card.blue-theme {
+  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 60%, #ffffff 100%) !important;
+  border: 1.5px solid #60a5fa !important;
+}
+.db-kpi-card.rose-theme {
+  background: linear-gradient(135deg, #ffe4e6 0%, #fff1f2 60%, #ffffff 100%) !important;
+  border: 1.5px solid #fb7185 !important;
+}
+.db-kpi-card.green-theme {
+  background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 60%, #ffffff 100%) !important;
+  border: 1.5px solid #34d399 !important;
+}
+.db-kpi-card.purple-theme {
+  background: linear-gradient(135deg, #f3e8ff 0%, #faf5ff 60%, #ffffff 100%) !important;
+  border: 1.5px solid #c084fc !important;
+}
+
+/* Vivid KPI Icon Badges */
+.db-kpi-icon-pill {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+.db-kpi-icon-pill.blue { background: #2563eb !important; color: #ffffff !important; }
+.db-kpi-icon-pill.rose { background: #f43f5e !important; color: #ffffff !important; }
+.db-kpi-icon-pill.green { background: #10b981 !important; color: #ffffff !important; }
+.db-kpi-icon-pill.purple { background: #8b5cf6 !important; color: #ffffff !important; }
+
+/* Crisp Quick Action Tiles */
+.db-action-tile.pastel-blue { background: #f0f7ff !important; border: 1.5px solid #93c5fd !important; }
+.db-action-tile.pastel-blue .db-action-icon-wrap { background: #dbeafe !important; color: #1d4ed8 !important; }
+.db-action-tile.pastel-green { background: #f0fdf4 !important; border: 1.5px solid #86efac !important; }
+.db-action-tile.pastel-green .db-action-icon-wrap { background: #dcfce7 !important; color: #15803d !important; }
+.db-action-tile.pastel-orange { background: #fffbeb !important; border: 1.5px solid #fcd34d !important; }
+.db-action-tile.pastel-orange .db-action-icon-wrap { background: #fef3c7 !important; color: #b45309 !important; }
+.db-action-tile.pastel-purple { background: #faf5ff !important; border: 1.5px solid #d8b4fe !important; }
+.db-action-tile.pastel-purple .db-action-icon-wrap { background: #f3e8ff !important; color: #7e22ce !important; }
+
+/* ===================================================================
+   BRIGHT & VIBRANT HIGH-CONTRAST DASHBOARD (MATCHING REFERENCE MOCKUP)
+   =================================================================== */
+.db-dashboard-container {
+  background: #EDF3FA !important;
+  padding: 16px !important;
+  border-radius: 20px !important;
+}
+
+.db-card {
+  background: #FFFFFF !important;
+  border: 1.5px solid #D6E4F5 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 18px rgba(20, 85, 217, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* 4 KPI Metric Cards - Rich Glowing Gradients matching Reference Image 1 */
+.db-kpi-card {
+  border-radius: 14px !important;
+  box-shadow: 0 4px 14px rgba(20, 85, 217, 0.08) !important;
+}
+.db-kpi-card.blue-theme {
+  background: linear-gradient(135deg, #E6F0FD 0%, #D8E8FC 100%) !important;
+  border: 1.5px solid #93C5FD !important;
+}
+.db-kpi-card.rose-theme {
+  background: linear-gradient(135deg, #FDECEF 0%, #FBD9DF 100%) !important;
+  border: 1.5px solid #FDA4AF !important;
+}
+.db-kpi-card.green-theme {
+  background: linear-gradient(135deg, #E5F8ED 0%, #D2F2DF 100%) !important;
+  border: 1.5px solid #6EE7B7 !important;
+}
+.db-kpi-card.purple-theme {
+  background: linear-gradient(135deg, #F3EBFC 0%, #E7D8FA 100%) !important;
+  border: 1.5px solid #D8B4FE !important;
+}
+
+/* Solid Saturated KPI Circular Badges */
+.db-kpi-icon-pill {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+.db-kpi-icon-pill.blue {
+  background: #1455D9 !important;
+  color: #FFFFFF !important;
+}
+.db-kpi-icon-pill.rose {
+  background: #E11D48 !important;
+  color: #FFFFFF !important;
+}
+.db-kpi-icon-pill.green {
+  background: #059669 !important;
+  color: #FFFFFF !important;
+}
+.db-kpi-icon-pill.purple {
+  background: #7C3AED !important;
+  color: #FFFFFF !important;
+}
+
+/* Header Icon Pills for Quick Actions, Inventory Alerts, Business Insights */
+.db-card-icon-pill {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+.db-card-icon-pill.amber, .db-card-icon-pill.yellow {
+  background: #F59E0B !important;
+  color: #FFFFFF !important;
+}
+.db-card-icon-pill.blue {
+  background: #1455D9 !important;
+  color: #FFFFFF !important;
+}
+.db-card-icon-pill.red, .db-card-icon-pill.rose {
+  background: #EF4444 !important;
+  color: #FFFFFF !important;
+}
+.db-card-icon-pill.green {
+  background: #10B981 !important;
+  color: #FFFFFF !important;
+}
+.db-card-icon-pill.purple {
+  background: #8B5CF6 !important;
+  color: #FFFFFF !important;
+}
+
+/* Quick Action Tiles - Saturated Pastel Fills matching Reference Mockup */
+.db-action-tile.pastel-blue {
+  background: #EEF6FF !important;
+  border: 1.5px solid #BFDBFE !important;
+}
+.db-action-tile.pastel-blue .db-action-icon-wrap {
+  background: #DBEAFE !important;
+  color: #1455D9 !important;
+}
+.db-action-tile.pastel-green {
+  background: #F0FDF4 !important;
+  border: 1.5px solid #BBF7D0 !important;
+}
+.db-action-tile.pastel-green .db-action-icon-wrap {
+  background: #DCFCE7 !important;
+  color: #059669 !important;
+}
+.db-action-tile.pastel-orange {
+  background: #FFFBEB !important;
+  border: 1.5px solid #FDE68A !important;
+}
+.db-action-tile.pastel-orange .db-action-icon-wrap {
+  background: #FEF3C7 !important;
+  color: #D97706 !important;
+}
+.db-action-tile.pastel-purple {
+  background: #FAF5FF !important;
+  border: 1.5px solid #E9D5FF !important;
+}
+.db-action-tile.pastel-purple .db-action-icon-wrap {
+  background: #F3E8FF !important;
+  color: #7C3AED !important;
+}
+
+/* ===================================================================
+   ULTRA-BRIGHT HIGH-VIBRANCY THEME (ENHANCED CONTRAST)
+   =================================================================== */
+.db-dashboard-container {
+  background: #E8F1FC !important;
+  padding: 16px !important;
+  border-radius: 20px !important;
+  box-shadow: inset 0 0 0 1px #D6E4F8 !important;
+}
+
+.db-card {
+  background: #FFFFFF !important;
+  border: 1.5px solid #CBDFF7 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* 4 KPI Cards - Ultra Bright Luminous Saturated Backgrounds */
+.db-kpi-card.blue-theme {
+  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%) !important;
+  border: 2px solid #3B82F6 !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15) !important;
+}
+.db-kpi-card.rose-theme {
+  background: linear-gradient(135deg, #FFE4E6 0%, #FECDD3 100%) !important;
+  border: 2px solid #F43F5E !important;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.15) !important;
+}
+.db-kpi-card.green-theme {
+  background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%) !important;
+  border: 2px solid #10B981 !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.15) !important;
+}
+.db-kpi-card.purple-theme {
+  background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%) !important;
+  border: 2px solid #A855F7 !important;
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.15) !important;
+}
+
+.db-kpi-title {
+  color: #1E293B !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+}
+
+.db-kpi-value {
+  color: #0F172A !important;
+  font-size: 20px !important;
+  font-weight: 900 !important;
+}
+
+.db-kpi-icon-pill {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2) !important;
+}
+.db-kpi-icon-pill.blue { background: #1D4ED8 !important; color: #FFFFFF !important; }
+.db-kpi-icon-pill.rose { background: #E11D48 !important; color: #FFFFFF !important; }
+.db-kpi-icon-pill.green { background: #059669 !important; color: #FFFFFF !important; }
+.db-kpi-icon-pill.purple { background: #7E22CE !important; color: #FFFFFF !important; }
+
+/* Quick Action Tiles - Vivid Saturated Colors */
+.db-action-tile.pastel-blue { background: #EBF5FF !important; border: 2px solid #93C5FD !important; }
+.db-action-tile.pastel-blue .db-action-icon-wrap { background: #DBEAFE !important; color: #1D4ED8 !important; }
+.db-action-tile.pastel-green { background: #ECFDF5 !important; border: 2px solid #86EFAC !important; }
+.db-action-tile.pastel-green .db-action-icon-wrap { background: #DCFCE7 !important; color: #059669 !important; }
+.db-action-tile.pastel-orange { background: #FFFBEB !important; border: 2px solid #FCD34D !important; }
+.db-action-tile.pastel-orange .db-action-icon-wrap { background: #FEF3C7 !important; color: #D97706 !important; }
+.db-action-tile.pastel-purple { background: #FAF5FF !important; border: 2px solid #D8B4FE !important; }
+.db-action-tile.pastel-purple .db-action-icon-wrap { background: #F3E8FF !important; color: #7E22CE !important; }
+
+/* ===================================================================
+   HERO BANNER EXACT MATCH TO REFERENCE IMAGE 2
+   =================================================================== */
+.db-hero-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+/* Remove the white square box around the bag */
+.db-storefront-3d-wrap {
+  width: 90px !important;
+  height: 90px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 8px 18px rgba(20, 85, 217, 0.25)) !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Seamless blending of bag leaves onto the sky-blue banner */
+.db-storefront-3d-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  border-radius: 0 !important;
+  mix-blend-mode: multiply !important;
+}
+
+/* Frosted-White Capsule Pill around "Welcome Back, Pooja!" matching Image 2 */
+.db-hero-text-block {
+  display: flex !important;
+  flex-direction: column !important;
+  background: rgba(255, 255, 255, 0.76) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
+  border-radius: 20px !important;
+  padding: 10px 22px 12px 22px !important;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.08) !important;
+}
+
+.db-hero-title {
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  color: #0F172A !important;
+  margin: 0 0 2px 0 !important;
+}
+
+.db-hero-title-blue {
+  color: #1455D9 !important;
+}
+
+.db-hero-subtitle {
+  font-size: 12px !important;
+  color: #475569 !important;
+  margin: 0 0 9px 0 !important;
+  font-weight: 500 !important;
+}
+
+/* ===================================================================
+   HERO BANNER EXACT RECREATION (PIXEL-PERFECT MATCH TO REFERENCE)
+   =================================================================== */
+.db-hero-banner {
+  background: linear-gradient(135deg, #dbeafe 0%, #edf5fe 50%, #f4f8fe 100%) !important;
+  border: 1.5px solid #bfdbfe !important;
+  border-radius: 18px !important;
+  padding: 12px 24px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.08) !important;
+  height: 130px !important;
+  min-height: 130px !important;
+  max-height: 130px !important;
+}
+
+.db-hero-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* 3D Blue Bag without box - standing naturally with leaves on the surface */
+.db-storefront-3d-wrap {
+  width: 95px !important;
+  height: 95px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 8px 18px rgba(20, 85, 217, 0.25)) !important;
+  padding: 0 !important;
+}
+
+.db-storefront-3d-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  border-radius: 0 !important;
+  mix-blend-mode: multiply !important;
+}
+
+/* Frosted-White Capsule Pill around "Welcome Back, Pooja!" */
+.db-hero-text-block {
+  display: flex !important;
+  flex-direction: column !important;
+  background: rgba(255, 255, 255, 0.76) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
+  border-radius: 20px !important;
+  padding: 10px 22px 12px 22px !important;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.08) !important;
+}
+
+.db-hero-title {
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  color: #0F172A !important;
+  margin: 0 0 2px 0 !important;
+}
+
+.db-hero-title-blue {
+  color: #1455D9 !important;
+}
+
+.db-hero-subtitle {
+  font-size: 12px !important;
+  color: #475569 !important;
+  margin: 0 0 9px 0 !important;
+  font-weight: 500 !important;
+}
+
+.db-hero-meta-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.db-date-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: #FFFFFF !important;
+  border: 1.5px solid #DBEAFE !important;
+  padding: 4px 12px !important;
+  border-radius: 9999px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #2563EB !important;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.08) !important;
+}
+
+.db-hero-insights-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: #1455D9 !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  padding: 5px 16px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  box-shadow: 0 3px 10px rgba(20, 85, 217, 0.4) !important;
+  transition: all 0.15s ease !important;
+}
+
+/* Script Overlay: "Freshness in Every Cart" with Golden Swoosh Arc */
+.db-hero-script-badge {
+  position: absolute !important;
+  top: 50% !important;
+  right: 22% !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
+  transform: translateY(-50%) rotate(-3deg) !important;
+}
+
+.db-hero-script-badge span {
+  font-family: "Brush Script MT", "Segoe Script", cursive, sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: #1E40AF !important;
+  text-shadow: 0 2px 4px rgba(255, 255, 255, 0.9), 0 0 10px rgba(30, 64, 175, 0.2) !important;
+  position: relative !important;
+  display: inline-block !important;
+}
+
+.db-hero-script-badge::after {
+  content: "" !important;
+  position: absolute !important;
+  bottom: -6px !important;
+  right: 8px !important;
+  width: 90px !important;
+  height: 4px !important;
+  border-radius: 9999px !important;
+  background: linear-gradient(90deg, #F59E0B 0%, #FBBF24 100%) !important;
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.4) !important;
+}
+
+/* ===================================================================
+   KPI SPARKLINE GLOWING WAVES MATCHING TARGET REFERENCE
+   =================================================================== */
+.db-kpi-sparkline-wrap {
+  width: 76px !important;
+  height: 42px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  pointer-events: none !important;
+}
+
+.db-kpi-sparkline-svg {
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
+}
+
+/* ===================================================================
+   CENTERED ULTRA-BRIGHT SUPERMARKET THOUGHT / SLOGAN
+   =================================================================== */
+.db-hero-thought-center {
+  position: absolute !important;
+  left: 47% !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 15 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  pointer-events: none !important;
+  white-space: nowrap !important;
+}
+
+.db-thought-script {
+  font-family: "Brush Script MT", "Segoe Script", cursive, "Caveat", sans-serif !important;
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  color: #1E3A8A !important;
+  letter-spacing: 0.5px !important;
+  line-height: 1.15 !important;
+  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.95), 0 0 16px rgba(37, 99, 235, 0.3) !important;
+}
+
+.db-thought-sub {
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  color: #2563EB !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+  margin-top: 3px !important;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.95) !important;
+}
+
+.db-thought-swoosh {
+  width: 110px !important;
+  height: 4px !important;
+  border-radius: 9999px !important;
+  background: linear-gradient(90deg, #F59E0B 0%, #FBBF24 50%, #F59E0B 100%) !important;
+  margin-top: 4px !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.6) !important;
+}
+
+/* ===================================================================
+   KPI CARDS EXACT MATCH TO REFERENCE IMAGE 1
+   =================================================================== */
+.db-kpi-card {
+  border-radius: 14px !important;
+  padding: 10px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  height: 74px !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.db-kpi-card.blue-theme {
+  background: linear-gradient(135deg, #EEF6FF 0%, #FFFFFF 100%) !important;
+  border: 1.5px solid #BFDBFE !important;
+}
+
+.db-kpi-card.rose-theme {
+  background: linear-gradient(135deg, #FFF1F3 0%, #FFFFFF 100%) !important;
+  border: 1.5px solid #FECDD3 !important;
+}
+
+.db-kpi-card.green-theme {
+  background: linear-gradient(135deg, #ECFDF5 0%, #FFFFFF 100%) !important;
+  border: 1.5px solid #A7F3D0 !important;
+}
+
+.db-kpi-card.purple-theme {
+  background: linear-gradient(135deg, #FAF5FF 0%, #FFFFFF 100%) !important;
+  border: 1.5px solid #E9D5FF !important;
+}
+
+/* Luminous Halo Ring around Icon */
+.db-kpi-halo {
+  padding: 4px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.db-kpi-halo.blue { background: rgba(37, 99, 235, 0.16) !important; }
+.db-kpi-halo.rose { background: rgba(244, 63, 94, 0.16) !important; }
+.db-kpi-halo.green { background: rgba(16, 185, 129, 0.16) !important; }
+.db-kpi-halo.purple { background: rgba(139, 92, 246, 0.16) !important; }
+
+.db-kpi-icon-pill {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.db-kpi-icon-pill.blue { background: #2563EB !important; box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35) !important; }
+.db-kpi-icon-pill.rose { background: #F43F5E !important; box-shadow: 0 3px 8px rgba(244, 63, 94, 0.35) !important; }
+.db-kpi-icon-pill.green { background: #10B981 !important; box-shadow: 0 3px 8px rgba(16, 185, 129, 0.35) !important; }
+.db-kpi-icon-pill.purple { background: #8B5CF6 !important; box-shadow: 0 3px 8px rgba(139, 92, 246, 0.35) !important; }
+
+.db-kpi-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+}
+
+.db-kpi-value {
+  font-size: 21px !important;
+  font-weight: 800 !important;
+  color: #0F172A !important;
+  margin: 1px 0 !important;
+  letter-spacing: -0.3px !important;
+}
+
+.db-kpi-trend {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+}
+
+/* 5 Stepped Gradient Mini-Bars (|||||) matching Image 1 */
+.db-kpi-stepped-bars {
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 4px !important;
+  height: 40px !important;
+  padding-right: 2px !important;
+  flex-shrink: 0 !important;
+}
+
+.db-bar {
+  width: 6px !important;
+  border-radius: 3px !important;
+}
+
+/* Blue Stepped Bars */
+.db-bar.blue:nth-child(1) { background: rgba(59, 130, 246, 0.35) !important; }
+.db-bar.blue:nth-child(2) { background: rgba(59, 130, 246, 0.5) !important; }
+.db-bar.blue:nth-child(3) { background: rgba(59, 130, 246, 0.65) !important; }
+.db-bar.blue:nth-child(4) { background: rgba(59, 130, 246, 0.8) !important; }
+.db-bar.blue.active { background: #2563EB !important; box-shadow: 0 0 8px rgba(37, 99, 235, 0.45) !important; }
+
+/* Rose Stepped Bars */
+.db-bar.rose:nth-child(1) { background: rgba(244, 63, 94, 0.35) !important; }
+.db-bar.rose:nth-child(2) { background: rgba(244, 63, 94, 0.5) !important; }
+.db-bar.rose:nth-child(3) { background: rgba(244, 63, 94, 0.65) !important; }
+.db-bar.rose:nth-child(4) { background: rgba(244, 63, 94, 0.8) !important; }
+.db-bar.rose.active { background: #F43F5E !important; box-shadow: 0 0 8px rgba(244, 63, 94, 0.45) !important; }
+
+/* Green Stepped Bars */
+.db-bar.green:nth-child(1) { background: rgba(16, 185, 129, 0.35) !important; }
+.db-bar.green:nth-child(2) { background: rgba(16, 185, 129, 0.5) !important; }
+.db-bar.green:nth-child(3) { background: rgba(16, 185, 129, 0.65) !important; }
+.db-bar.green:nth-child(4) { background: rgba(16, 185, 129, 0.8) !important; }
+.db-bar.green.active { background: #10B981 !important; box-shadow: 0 0 8px rgba(16, 185, 129, 0.45) !important; }
+
+/* Purple Stepped Bars */
+.db-bar.purple:nth-child(1) { background: rgba(168, 85, 247, 0.35) !important; }
+.db-bar.purple:nth-child(2) { background: rgba(168, 85, 247, 0.5) !important; }
+.db-bar.purple:nth-child(3) { background: rgba(168, 85, 247, 0.65) !important; }
+.db-bar.purple:nth-child(4) { background: rgba(168, 85, 247, 0.8) !important; }
+.db-bar.purple.active { background: #8B5CF6 !important; box-shadow: 0 0 8px rgba(139, 92, 246, 0.45) !important; }
+
+/* ===================================================================
+   FIX HERO PANORAMIC IMAGE CLIPPING (FIT FULL CART & TEXT)
+   =================================================================== */
+.db-hero-banner {
+  height: 142px !important;
+  min-height: 142px !important;
+  max-height: 142px !important;
+  padding: 8px 24px !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+.db-hero-panoramic-bg {
+  position: absolute !important;
+  top: 0 !important;
+  right: 14px !important;
+  width: 65% !important;
+  height: 100% !important;
+  background-size: contain !important;
+  background-position: right center !important;
+  background-repeat: no-repeat !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.4) 12%, black 35%) !important;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.4) 12%, black 35%) !important;
+}
+
+/* ===================================================================
+   HERO BANNER POSITIONING FIX (PINS 3D BAG & WELCOME CARD TO LEFT)
+   =================================================================== */
+.db-hero-banner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  position: relative !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  height: 130px !important;
+  min-height: 130px !important;
+  max-height: 130px !important;
+  padding: 10px 24px !important;
+  box-sizing: border-box !important;
+}
+
+.db-hero-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  position: relative !important;
+  z-index: 25 !important;
+  max-width: 50% !important;
+}
+
+.db-storefront-3d-wrap {
+  width: 90px !important;
+  height: 90px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 8px 18px rgba(20, 85, 217, 0.25)) !important;
+  padding: 0 !important;
+}
+
+.db-storefront-3d-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  border-radius: 0 !important;
+  mix-blend-mode: multiply !important;
+}
+
+.db-hero-thought-center {
+  position: absolute !important;
+  left: 48% !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 15 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  pointer-events: none !important;
+  white-space: nowrap !important;
+}
+
+.db-hero-panoramic-bg {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  width: 48% !important;
+  height: 100% !important;
+  background-size: cover !important;
+  background-position: right center !important;
+  background-repeat: no-repeat !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+
+/* ===================================================================
+   3D STOREFRONT "BEFORE IMAGE" RESTORATION
+   =================================================================== */
+.db-storefront-3d-wrap {
+  width: 90px !important;
+  height: 90px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #FFFFFF !important;
+  border-radius: 16px !important;
+  padding: 6px !important;
+  border: 1.5px solid #BFDBFE !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.12) !important;
+}
+
+.db-storefront-3d-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  border-radius: 12px !important;
+  mix-blend-mode: normal !important;
+}

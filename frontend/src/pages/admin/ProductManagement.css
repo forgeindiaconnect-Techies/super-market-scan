@@ -2717,3 +2717,854 @@
   from { opacity: 0; transform: translateY(16px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* Royal Blue Header Banner Matching Reference Image */
+.pm-hero-section {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  position: relative !important;
+  background: linear-gradient(135deg, #072a72 0%, #0d4fd6 50%, #1e40af 100%) !important;
+  border-radius: 16px !important;
+  padding: 14px 24px !important;
+  margin-bottom: 14px !important;
+  overflow: hidden !important;
+  min-height: 125px !important;
+  box-shadow: 0 4px 20px rgba(13, 79, 214, 0.22) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.pm-main-title {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+}
+
+.pm-main-subtitle {
+  font-size: 13px !important;
+  color: #bfdbfe !important;
+  margin: 0 0 4px 0 !important;
+}
+
+.pm-title-underline {
+  display: none !important;
+}
+
+.pm-hero-art {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 48% !important;
+  height: 100% !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  background-image: url("/erp-banner-art.jpg") !important;
+  background-size: cover !important;
+  background-position: right center !important;
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 35%, black 100%) !important;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 35%, black 100%) !important;
+}
+
+.pm-hero-store-bg,
+.pm-hero-ribbon-wrap,
+.pm-hero-cart-img {
+  display: none !important;
+}
+
+/* 3D Bag Icon & Badges for Royal Blue Hero Banner */
+.pm-hero-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  position: relative !important;
+  z-index: 5 !important;
+  max-width: 62% !important;
+}
+
+.pm-hero-bag-icon {
+  width: 66px !important;
+  height: 66px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35)) !important;
+}
+
+.pm-hero-bag-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+.pm-hero-text-block {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.pm-hero-badges-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  margin-top: 4px !important;
+}
+
+.pm-hero-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+  padding: 3px 10px !important;
+  border-radius: 9999px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+.pm-hero-badge .check {
+  color: #4ade80 !important;
+  font-weight: 800 !important;
+}
+
+/* ==========================================================================
+   Modern Frosted-Glass Action Pills for Hero Banners
+   Fixes Harsh White Stacked Rectangular Buttons across all modules
+   ========================================================================== */
+
+/* 1. Force Horizontal Flex Row for Buttons Container */
+.pm-hero-left div[style*="display: flex"],
+.pm-hero-left .action-pills-row,
+.pm-hero-section div[style*="flexWrap: wrap"] {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  margin-top: 12px !important;
+}
+
+/* 2. Base Modern Pill Button Style */
+.action-pill-btn,
+.pm-hero-section button.action-pill-btn,
+.pm-hero-section a.action-pill-btn,
+.pm-hero-left button,
+.pm-hero-left a {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  padding: 6.5px 14px !important;
+  border-radius: 9999px !important; /* Smooth Rounded Capsule */
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+/* 3. Frosted Glass Style for Secondary / Sync / Outline Buttons */
+.action-pill-btn.refresh,
+.action-pill-btn:not(.primary) {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14) !important;
+}
+
+.action-pill-btn.refresh:hover,
+.action-pill-btn:not(.primary):hover {
+  background: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+}
+
+.action-pill-btn.refresh svg,
+.action-pill-btn:not(.primary) svg {
+  color: #93c5fd !important;
+  stroke: #93c5fd !important;
+}
+
+/* 4. Solid White Capsule for Primary Action Buttons (e.g. Batch Print, Export, Add) */
+.action-pill-btn.primary,
+.action-pill-btn.add-btn {
+  background: #ffffff !important;
+  color: #1455d9 !important;
+  border: 1px solid #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2) !important;
+}
+
+.action-pill-btn.primary:hover,
+.action-pill-btn.add-btn:hover {
+  background: #eff6ff !important;
+  color: #0f46b3 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+.action-pill-btn.primary svg,
+.action-pill-btn.add-btn svg {
+  color: #1455d9 !important;
+  stroke: #1455d9 !important;
+}
+
+/* 5. Clean icon sizing */
+.action-pill-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+  flex-shrink: 0 !important;
+}
+
+/* ==========================================================================
+   Complete Design System Match to media_1794295086826_4096a838.jpg
+   ========================================================================== */
+
+/* 1. SOFT BLUE GRADIENT BANNER */
+.pm-hero-section {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  position: relative !important;
+  background: linear-gradient(135deg, #ebf3fe 0%, #d8eaff 50%, #cde3fd 100%) !important;
+  border-radius: 16px !important;
+  padding: 14px 24px !important;
+  margin-bottom: 14px !important;
+  overflow: hidden !important;
+  min-height: 125px !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.08) !important;
+  border: 1px solid #bfdbfe !important;
+}
+
+.pm-hero-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  position: relative !important;
+  z-index: 5 !important;
+  max-width: 62% !important;
+}
+
+/* Blue rounded square icon box */
+.pm-hero-bag-icon {
+  width: 48px !important;
+  height: 48px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #1455d9 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(20, 85, 217, 0.35) !important;
+}
+
+.pm-hero-bag-icon svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.pm-hero-text-block {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+/* Dark readable typography */
+.pm-main-title {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin: 0 !important;
+  letter-spacing: -0.3px !important;
+  line-height: 1.15 !important;
+}
+
+.pm-main-subtitle {
+  font-size: 13px !important;
+  color: #475569 !important;
+  margin: 0 0 4px 0 !important;
+  font-weight: 500 !important;
+}
+
+.pm-title-underline {
+  display: none !important;
+}
+
+/* Soft white checklist badges */
+.pm-hero-badges-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  margin-top: 2px !important;
+}
+
+.pm-hero-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: #ffffff !important;
+  border: 1px solid #dbeafe !important;
+  color: #1e3a8a !important;
+  padding: 3px 11px !important;
+  border-radius: 9999px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+.pm-hero-badge .check {
+  color: #16a34a !important;
+  font-weight: 800 !important;
+}
+
+/* Banner Right Art */
+.pm-hero-art {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 48% !important;
+  height: 100% !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  background-image: url("/erp-banner-art.jpg") !important;
+  background-size: cover !important;
+  background-position: right center !important;
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 30%, black 100%) !important;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 30%, black 100%) !important;
+}
+
+.pm-hero-store-bg,
+.pm-hero-ribbon-wrap,
+.pm-hero-cart-img {
+  display: none !important;
+}
+
+/* 2. WHITE HEADER WITH SUBTLE SHADOW */
+.admin-header-bar {
+  background: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+  border-bottom: 1px solid #eef2f6 !important;
+}
+
+/* 3. ROYAL BLUE PRIMARY BUTTONS */
+.action-pill-btn.primary,
+.pm-add-btn,
+.pm-btn-primary {
+  background: #1455d9 !important;
+  color: #ffffff !important;
+  border-radius: 9999px !important;
+  font-weight: 700 !important;
+  padding: 8px 18px !important;
+  box-shadow: 0 4px 14px rgba(20, 85, 217, 0.3) !important;
+}
+
+.action-pill-btn.primary:hover,
+.pm-add-btn:hover {
+  background: #0f46b3 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 4. STOCK STATUS PILLS */
+.status-pill.in-stock,
+.pm-status-pill.in-stock {
+  background: #dcfce7 !important;
+  color: #15803d !important;
+  border: 1px solid #bbf7d0 !important;
+  font-weight: 700 !important;
+  border-radius: 9999px !important;
+}
+
+.status-pill.low-stock,
+.pm-status-pill.low-stock {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a !important;
+  font-weight: 700 !important;
+  border-radius: 9999px !important;
+}
+
+.status-pill.out-of-stock,
+.pm-status-pill.out-of-stock {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
+  font-weight: 700 !important;
+  border-radius: 9999px !important;
+}
+
+/* 5. TABLE HEADER ROYAL BLUE & WHITE ROWS */
+.pm-products-table thead th,
+.table-header-row {
+  background: #1455d9 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: none !important;
+}
+
+/* High-Contrast Banner Buttons */
+.pm-hero-left {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 6px !important;
+  position: relative !important;
+  z-index: 5 !important;
+  max-width: 60% !important;
+  text-align: left !important;
+}
+
+.pm-hero-left:has(.pm-hero-bag-icon) {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.pm-hero-left > div:last-child,
+.pm-hero-left div[style*="display: flex"],
+.pm-hero-left .action-pills-row,
+.pm-hero-section div[style*="flexWrap: wrap"] {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  margin-top: 10px !important;
+  width: auto !important;
+}
+
+.action-pill-btn,
+.pm-hero-section button.action-pill-btn,
+.pm-hero-section a.action-pill-btn,
+.pm-hero-left button,
+.pm-hero-left a {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  padding: 7px 16px !important;
+  border-radius: 9999px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+.action-pill-btn.refresh,
+.action-pill-btn:not(.primary) {
+  background: #ffffff !important;
+  color: #1455d9 !important;
+  border: 1.5px solid #bfdbfe !important;
+  box-shadow: 0 2px 8px rgba(20, 85, 217, 0.08) !important;
+}
+
+.action-pill-btn.refresh svg,
+.action-pill-btn:not(.primary) svg {
+  color: #1455d9 !important;
+  stroke: #1455d9 !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.action-pill-btn.primary,
+.action-pill-btn.add-btn,
+.pm-add-btn,
+.pm-btn-primary {
+  background: #1455d9 !important;
+  color: #ffffff !important;
+  border: 1.5px solid #1455d9 !important;
+  box-shadow: 0 4px 14px rgba(20, 85, 217, 0.28) !important;
+}
+
+.action-pill-btn.primary svg,
+.action-pill-btn.add-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* 4 KPI Card Pastel Colors (Blue - Orange - Green - Purple) */
+.pm-kpi-card:nth-child(1), .pm-kpi-card.blue-theme { 
+  border-bottom: 2.5px solid #60a5fa !important; 
+}
+.pm-kpi-card:nth-child(1) .pm-kpi-icon-pill, .pm-kpi-icon-pill.blue { 
+  background: #eff6ff !important; 
+  border: 1.5px solid #dbeafe !important; 
+  color: #2563eb !important; 
+}
+
+.pm-kpi-card:nth-child(2), .pm-kpi-card.yellow-theme, .pm-kpi-card.orange-theme { 
+  border-bottom: 2.5px solid #fbbf24 !important; 
+}
+.pm-kpi-card:nth-child(2) .pm-kpi-icon-pill, .pm-kpi-icon-pill.yellow, .pm-kpi-icon-pill.orange { 
+  background: #fffbeb !important; 
+  border: 1.5px solid #fef3c7 !important; 
+  color: #f59e0b !important; 
+}
+
+.pm-kpi-card:nth-child(3), .pm-kpi-card.green-theme { 
+  border-bottom: 2.5px solid #4ade80 !important; 
+}
+.pm-kpi-card:nth-child(3) .pm-kpi-icon-pill, .pm-kpi-icon-pill.green { 
+  background: #ecfdf5 !important; 
+  border: 1.5px solid #d1fae5 !important; 
+  color: #10b981 !important; 
+}
+
+.pm-kpi-card:nth-child(4), .pm-kpi-card.purple-theme { 
+  border-bottom: 2.5px solid #c084fc !important; 
+}
+.pm-kpi-card:nth-child(4) .pm-kpi-icon-pill, .pm-kpi-icon-pill.purple { 
+  background: #faf5ff !important; 
+  border: 1.5px solid #ede9fe !important; 
+  color: #8b5cf6 !important; 
+}
+
+
+/* ==========================================================================
+   Perfect Orders & Catalog Table Alignment Fix
+   ========================================================================== */
+.pm-products-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+.pm-products-table th,
+.pm-products-table td {
+  vertical-align: middle !important;
+  padding: 12px 14px !important;
+  box-sizing: border-box !important;
+}
+
+.pm-products-table thead th {
+  background: #1455d9 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  height: 44px !important;
+  border: none !important;
+}
+
+.pm-products-table tbody tr {
+  border-bottom: 1px solid #f1f5f9 !important;
+  transition: background 0.15s ease !important;
+}
+
+.pm-products-table tbody tr:hover {
+  background: #f8fafc !important;
+}
+
+.pm-products-table th:nth-child(1),
+.pm-products-table td:nth-child(1) {
+  text-align: left !important;
+  padding-left: 20px !important;
+}
+
+.pm-products-table th:nth-child(4),
+.pm-products-table td:nth-child(4) {
+  text-align: center !important;
+}
+
+.pm-products-table th:nth-child(6),
+.pm-products-table td:nth-child(6) {
+  text-align: center !important;
+}
+
+.pm-products-table th:last-child,
+.pm-products-table td:last-child {
+  text-align: right !important;
+  padding-right: 20px !important;
+}
+
+.pm-products-table td:last-child > div {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+}
+
+.om-status-pill {
+  min-width: 96px !important;
+  justify-content: center !important;
+  display: inline-flex !important;
+}
+
+.om-method-tag {
+  min-width: 58px !important;
+  justify-content: center !important;
+  display: inline-flex !important;
+}
+
+.pm-action-circle {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #eff6ff !important;
+  border: 1px solid #dbeafe !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.pm-action-circle:hover {
+  background: #dbeafe !important;
+  transform: translateY(-1px) !important;
+}
+
+.om-action-btn {
+  height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  white-space: nowrap !important;
+}
+
+/* ===================================================================
+   FIX PRODUCT MANAGEMENT HEADER TYPOGRAPHY & SPACING
+   =================================================================== */
+.pm-hero-section {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  background: #FFFFFF !important;
+  border: 1.5px solid #E2E8F0 !important;
+  border-radius: 20px !important;
+  padding: 18px 28px !important;
+  margin-bottom: 16px !important;
+  box-shadow: 0 4px 18px rgba(0, 50, 150, 0.05) !important;
+  min-height: 120px !important;
+}
+
+.pm-hero-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  position: relative !important;
+  z-index: 5 !important;
+  max-width: 580px !important;
+}
+
+.pm-hero-bag-icon {
+  width: 50px !important;
+  height: 50px !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+  flex-shrink: 0 !important;
+}
+
+.pm-hero-text-block {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 3px !important;
+}
+
+.pm-main-title {
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  color: #0F172A !important;
+  margin: 0 !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.3px !important;
+  display: block !important;
+}
+
+.pm-main-subtitle {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  margin: 0 0 6px 0 !important;
+  line-height: 1.3 !important;
+  display: block !important;
+}
+
+.pm-hero-badges-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.pm-hero-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: #F8FAFC !important;
+  border: 1.5px solid #CBD5E1 !important;
+  padding: 4px 12px !important;
+  border-radius: 9999px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  color: #1E293B !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+.pm-hero-badge .check {
+  color: #10B981 !important;
+  font-weight: 900 !important;
+  font-size: 12px !important;
+}
+
+/* ===================================================================
+   PRODUCT MANAGEMENT VIBRANT HERO BANNER & KPI CARDS (MATCHING DASHBOARD)
+   =================================================================== */
+.pm-hero-section {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  position: relative !important;
+  background: linear-gradient(135deg, #DBEAFE 0%, #EDF5FE 50%, #F4F8FE 100%) !important;
+  border: 1.5px solid #BFDBFE !important;
+  border-radius: 20px !important;
+  padding: 20px 30px !important;
+  margin-bottom: 16px !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.08) !important;
+  min-height: 135px !important;
+}
+
+.pm-hero-left {
+  position: relative !important;
+  z-index: 10 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.pm-hero-bag-icon {
+  width: 50px !important;
+  height: 50px !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+  flex-shrink: 0 !important;
+}
+
+.pm-main-title {
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  color: #0F172A !important;
+  margin: 0 0 3px 0 !important;
+  letter-spacing: -0.4px !important;
+}
+
+.pm-main-subtitle {
+  font-size: 13px !important;
+  color: #475569 !important;
+  margin: 0 0 10px 0 !important;
+  font-weight: 500 !important;
+}
+
+.pm-hero-badges-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.pm-hero-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: #FFFFFF !important;
+  border: 1.5px solid #DBEAFE !important;
+  padding: 4px 12px !important;
+  border-radius: 9999px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #1E40AF !important;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.08) !important;
+}
+
+.pm-hero-badge .check {
+  color: #10B981 !important;
+  font-weight: 800 !important;
+}
+
+/* Product Management 4 KPI Cards - Rich Vibrant Theme */
+.pm-kpi-card {
+  border-radius: 16px !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+  padding: 12px 18px !important;
+}
+
+.pm-kpi-card.blue-theme {
+  background: linear-gradient(135deg, #EEF6FF 0%, #FFFFFF 100%) !important;
+  border: 1.5px solid #BFDBFE !important;
+}
+
+.pm-kpi-card.rose-theme {
+  background: linear-gradient(135deg, #FFF1F3 0%, #FFFFFF 100%) !important;
+  border: 1.5px solid #FECDD3 !important;
+}
+
+.pm-kpi-card.green-theme {
+  background: linear-gradient(135deg, #ECFDF5 0%, #FFFFFF 100%) !important;
+  border: 1.5px solid #A7F3D0 !important;
+}
+
+.pm-kpi-card.purple-theme {
+  background: linear-gradient(135deg, #FAF5FF 0%, #FFFFFF 100%) !important;
+  border: 1.5px solid #E9D5FF !important;
+}
+
+.pm-kpi-icon-pill.blue {
+  background: #DBEAFE !important;
+  color: #1D4ED8 !important;
+  border: 1px solid #BFDBFE !important;
+}
+
+.pm-kpi-icon-pill.rose {
+  background: #FFE4E6 !important;
+  color: #E11D48 !important;
+  border: 1px solid #FECDD3 !important;
+}
+
+.pm-kpi-icon-pill.green {
+  background: #DCFCE7 !important;
+  color: #059669 !important;
+  border: 1px solid #BBF7D0 !important;
+}
+
+.pm-kpi-icon-pill.purple {
+  background: #F3E8FF !important;
+  color: #7E22CE !important;
+  border: 1px solid #E9D5FF !important;
+}

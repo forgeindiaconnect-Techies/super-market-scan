@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import * as Print from "expo-print";
 import { OrderRecord } from "../context/CartContext";

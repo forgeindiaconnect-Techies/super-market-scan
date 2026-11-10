@@ -14,20 +14,14 @@ import {
   X,
 } from "lucide-react";
 
-let sidebarWavesBg = "/sidebar-waves-bg.jpg";
+let storefrontImg = "/storefront-3d.jpg";
 try {
-  sidebarWavesBg = new URL("../assets/sidebar-waves-bg.jpg", import.meta.url).href;
+  storefrontImg = new URL("../assets/storefront-3d.jpg", import.meta.url).href;
 } catch (_) {
-  sidebarWavesBg = "/sidebar-waves-bg.jpg";
+  storefrontImg = "/storefront-3d.jpg";
 }
 
-let groceryBasketImg = "/grocery-basket-3d.jpg";
-try {
-  groceryBasketImg = new URL("../assets/grocery-basket-3d.jpg", import.meta.url).href;
-} catch (_) {
-  groceryBasketImg = "/grocery-basket-3d.jpg";
-}
-
+// 9 Primary Navigation Tabs in strict Title Case
 const navItems = [
   { path: "/admin", label: "Dashboard", icon: Home, end: true },
   { path: "/admin/products", label: "Products", icon: Package },
@@ -44,15 +38,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
 
   return (
-    <aside
-      className={`admin-sidebar ${isOpen ? "open" : ""}`}
-      style={{
-        backgroundImage: `url(${sidebarWavesBg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center bottom",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
+    <aside className={`admin-sidebar ${isOpen ? "open" : ""}`}>
       {/* 1. GrocerEase Brand Header */}
       <div className="sidebar-brand-header">
         <Link to="/admin" className="sidebar-brand-link" onClick={onClose}>
@@ -74,15 +60,12 @@ export default function Sidebar({ isOpen, onClose }) {
         </button>
       </div>
 
-      {/* 2. Navigation Items matching target reference */}
+      {/* 2. Permanent Navigation Items */}
       <nav className="sidebar-nav">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.end
             ? location.pathname === "/admin" || location.pathname === "/admin/"
-            : item.path === "/admin/reports"
-            ? location.pathname.startsWith("/admin/reports") ||
-              location.pathname.startsWith("/admin/analytics")
             : location.pathname.startsWith(item.path);
 
           return (
@@ -94,14 +77,33 @@ export default function Sidebar({ isOpen, onClose }) {
               className={`nav-item ${isActive ? "active" : ""}`}
             >
               <div className="nav-icon-wrap">
-                <Icon size={16} strokeWidth={isActive ? 2.4 : 2} />
+                <Icon size={17} strokeWidth={isActive ? 2.5 : 2} />
               </div>
               <span className="nav-label">{item.label}</span>
             </NavLink>
           );
         })}
+      </nav>
 
-        {/* Logout Navigation Item */}
+      {/* 3. Bottom 3D Supermarket Showcase Card */}
+      <div className="sidebar-promo-wrap">
+        <div className="sidebar-store-card">
+          <div className="store-basket-art">
+            <img
+              src={storefrontImg}
+              alt="Smart Shopping"
+              className="store-basket-art-img"
+            />
+          </div>
+
+          <div className="store-card-text">
+            <h4 className="store-card-heading">Smart Shopping</h4>
+            <p className="store-card-sub">Better Living</p>
+            <span className="store-card-script">Together Always...</span>
+          </div>
+        </div>
+
+        {/* Logout Button Fixed immediately AFTER the 3D storefront image card */}
         <button
           type="button"
           className="nav-item sidebar-logout-btn"
@@ -112,32 +114,10 @@ export default function Sidebar({ isOpen, onClose }) {
           }}
         >
           <div className="nav-icon-wrap">
-            <LogOut size={16} strokeWidth={2} />
+            <LogOut size={16} strokeWidth={2.2} />
           </div>
           <span className="nav-label">Logout</span>
         </button>
-      </nav>
-
-      {/* 3. Bottom Supermarket Promo Card & Version Footer */}
-      <div className="sidebar-promo-wrap">
-        <div className="sidebar-store-card">
-          <div className="store-basket-art">
-            <img
-              src={groceryBasketImg}
-              alt="Smart Shopping"
-              className="store-basket-art-img"
-              onError={(e) => {
-                e.currentTarget.src = "/storefront-3d.jpg";
-              }}
-            />
-          </div>
-
-          <div className="store-card-text">
-            <h4 className="store-card-heading">Smart Shopping</h4>
-            <p className="store-card-sub">Better Living</p>
-            <span className="store-card-script">Together Always...</span>
-          </div>
-        </div>
 
         <div className="sidebar-version-pill">
           <span>v1.0.0 | GrocerEase © 2026</span>
