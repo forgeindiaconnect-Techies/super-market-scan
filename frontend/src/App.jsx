@@ -4,6 +4,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ProductManagement from "./pages/admin/ProductManagement";
 import AddProduct from "./pages/admin/AddProduct";
+import ScanAndEnter from "./pages/admin/ScanAndEnter";
 import InventoryManagement from "./pages/admin/InventoryManagement";
 import BarcodeManagement from "./pages/admin/BarcodeManagement";
 import OrdersManagement from "./pages/admin/OrdersManagement";
@@ -24,6 +25,7 @@ function App() {
           <Route index element={<AdminDashboard />} />
           <Route path="products" element={<ProductManagement />} />
           <Route path="add-product" element={<AddProduct />} />
+          <Route path="scan-enter" element={<ScanAndEnter />} />
           <Route path="inventory" element={<InventoryManagement />} />
           <Route path="barcodes" element={<BarcodeManagement />} />
           <Route path="orders" element={<OrdersManagement />} />

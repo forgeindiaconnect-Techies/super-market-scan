@@ -24,6 +24,7 @@ import {
 import JsBarcode from "jsbarcode";
 import API from "../../services/api";
 import BarcodeSVG from "../../components/BarcodeSVG";
+import ErpPageBanner from "../../components/ErpPageBanner";
 import bannerCartImg from "../../assets/banner-cart.png";
 import {
   getPersistentProducts,
@@ -210,6 +211,111 @@ export default function BarcodeManagement() {
     }
   };
 
+  // Download single barcode as high-resolution PNG image
+  const handleDownloadBarcode = (product) => {
+    const code = String(product.barcode || product._id || "").trim();
+    if (!code) {
+      alert("No barcode available to download for this product.");
+      return;
+    }
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 320;
+      const ctx = canvas.getContext("2d");
+
+      // White Card Background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Clean Border Outline
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+      // Supermarket Header Tag
+      ctx.fillStyle = "#1d4ed8";
+      ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("SMART SUPERMARKET • GROCEREASE", canvas.width / 2, 38);
+
+      // Product Title
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      const title = product.name || "Product Barcode";
+      ctx.fillText(title.length > 38 ? title.slice(0, 36) + "..." : title, canvas.width / 2, 70);
+
+      // Category, Brand & Price Subtitle
+      ctx.fillStyle = "#64748b";
+      ctx.font = "600 13px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      const sub = `${product.brand ? product.brand + " • " : ""}${product.category || "Grocery"} • Price: ₹${Number(product.price || 0).toFixed(2)}`;
+      ctx.fillText(sub, canvas.width / 2, 94);
+
+      // Scannable Barcode via JsBarcode onto dedicated canvas
+      const bcCanvas = document.createElement("canvas");
+      JsBarcode(bcCanvas, code, {
+        format: code.length === 13 && /^\d{13}$/.test(code) ? "EAN13" : "CODE128",
+        width: 2.6,
+        height: 100,
+        displayValue: true,
+        fontSize: 18,
+        font: "monospace",
+        fontOptions: "bold",
+        margin: 8,
+        background: "#ffffff",
+        lineColor: "#0f172a",
+      });
+
+      // Center the barcode onto the main canvas
+      const startX = (canvas.width - bcCanvas.width) / 2;
+      ctx.drawImage(bcCanvas, Math.max(startX, 15), 115);
+
+      // Bottom Verified Tag Pill
+      ctx.fillStyle = "#ecfdf5";
+      ctx.fillRect(canvas.width / 2 - 100, 275, 200, 26);
+      ctx.strokeStyle = "#a7f3d0";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(canvas.width / 2 - 100, 275, 200, 26);
+
+      ctx.fillStyle = "#059669";
+      ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx.fillText(`VERIFIED SCANNABLE: ${code}`, canvas.width / 2, 292);
+
+      // Export as PNG and download
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const safeName = (product.name || "barcode").replace(/[^a-zA-Z0-9_-]/g, "_");
+        a.download = `Barcode_${safeName}_${code}.png`;
+        a.href = url;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        setToastMessage(`✓ Downloaded barcode PNG for "${product.name}"!`);
+        setTimeout(() => setToastMessage(""), 3500);
+      }, "image/png");
+    } catch (err) {
+      console.error("Barcode download error:", err);
+      alert("Could not generate barcode download: " + err.message);
+    }
+  };
+
+  // Batch download all filtered barcodes as PNGs
+  const handleBatchDownload = async (items) => {
+    if (!items || items.length === 0) return;
+    setToastMessage(`Preparing download for ${items.length} barcodes...`);
+
+    for (let i = 0; i < items.length; i++) {
+      setTimeout(() => {
+        handleDownloadBarcode(items[i]);
+      }, i * 300);
+    }
+  };
+
   // Single or Batch Print Barcode Labels
   const handlePrintLabels = (items, title = "Supermarket Shelf Barcode Labels") => {
     const printWindow = window.open("", "_blank", "width=850,height=900");
@@ -223,9 +329,9 @@ export default function BarcodeManagement() {
         const svgString = generateBarcodeSvgString(p.barcode || p._id);
         return `
         <div class="sticker">
-          <div class="store-badge">SMART SUPERMARKET &bull; GROCEREASE</div>
+          <div class="store-badge">SMART SUPERMARKET • GROCEREASE</div>
           <div class="prod-title">${p.name}</div>
-          <div class="prod-sub">${p.brand ? p.brand + " &bull; " : ""}${p.category || ""}</div>
+          <div class="prod-sub">${p.brand ? p.brand + " • " : ""}${p.category || ""}</div>
           <div class="barcode-box">
             ${svgString}
           </div>
@@ -443,94 +549,14 @@ export default function BarcodeManagement() {
   return (
     <div className="grocer-page-container">
       {/* ========================================================================= */}
-      {/* 1. HERO TOP BANNER WITH SHOPPING CART & DYNAMIC RIBBON                    */}
-      {/* Matches Product Management and Reference Image 1                          */}
+      {/* 1. HERO TOP BANNER - EXACT MATCH TO REGISTER NEW PRODUCT                  */}
       {/* ========================================================================= */}
-      <section className="pm-hero-section">
-        <div className="pm-hero-left">
-          <h1 className="pm-main-title">Barcode Management</h1>
-          <p className="pm-main-subtitle">
-            GS1/EAN-13 barcode generation, scannable thermal label printing & camera lookup validation
-          </p>
-          <div className="pm-title-underline" />
-
-          {/* Action pills */}
-          <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="action-pill-btn primary"
-              onClick={() => handlePrintLabels(filteredProducts, "Batch Barcode Labels Sheet")}
-              disabled={filteredProducts.length === 0}
-              style={{ padding: "8px 16px", fontSize: "12.5px" }}
-            >
-              <Printer size={15} />
-              <span>Batch Print Sheet ({filteredProducts.length})</span>
-            </button>
-
-            <button
-              type="button"
-              className="action-pill-btn refresh"
-              onClick={() => setTesterOpen(!testerOpen)}
-              style={{ padding: "8px 16px", fontSize: "12.5px" }}
-            >
-              <Barcode size={15} />
-              <span>{testerOpen ? "Hide Barcode Tester" : "Test Barcode Lookup"}</span>
-            </button>
-
-            <button
-              type="button"
-              className="action-pill-btn refresh"
-              onClick={fetchProducts}
-              disabled={loading}
-              style={{ padding: "8px 16px", fontSize: "12.5px" }}
-            >
-              <RefreshCw size={14} className={loading ? "spin" : ""} />
-              <span>{loading ? "Syncing..." : "Sync DB"}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic Curved Ribbon & Fresh Groceries Shopping Cart */}
-        <div className="pm-hero-art">
-          <div className="pm-hero-store-bg" />
-
-          <div className="pm-hero-ribbon-wrap">
-            <svg className="pm-hero-ribbon-svg" viewBox="0 0 640 150" fill="none" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="goldRibbonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#F59E0B" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#FDE047" />
-                  <stop offset="50%" stopColor="#FBBF24" />
-                  <stop offset="80%" stopColor="#F59E0B" />
-                  <stop offset="100%" stopColor="#FBBF24" />
-                </linearGradient>
-                <linearGradient id="blueRibbonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#1E3A8A" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#1D4ED8" />
-                  <stop offset="50%" stopColor="#2563EB" />
-                  <stop offset="80%" stopColor="#1E40AF" />
-                  <stop offset="100%" stopColor="#1E3A8A" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M 0 115 C 120 75, 220 50, 340 68 C 450 82, 540 60, 640 45 L 640 68 C 540 82, 450 105, 340 92 C 220 75, 120 100, 0 138 Z"
-                fill="url(#blueRibbonGrad)"
-                opacity="0.95"
-              />
-              <path
-                d="M 0 108 C 120 68, 220 43, 340 61 C 450 75, 540 53, 640 38 L 640 46 C 540 61, 450 83, 340 69 C 220 51, 120 76, 0 116 Z"
-                fill="url(#goldRibbonGrad)"
-              />
-            </svg>
-          </div>
-
-          <img
-            src={bannerCartImg}
-            alt="Supermarket Shopping Cart with Fresh Groceries"
-            className="pm-hero-cart-img"
-          />
-        </div>
-      </section>
+      <ErpPageBanner
+        title="Barcode Management"
+        subtitle="GS1/EAN-13 barcode generation, scannable thermal label printing & camera lookup validation"
+        badges={["GS1/EAN-13 Standard", "Thermal Printable Sheet", "Instant Camera Lookup"]}
+        icon={<Barcode size={22} color="#ffffff" strokeWidth={2.4} />}
+      />
 
       {/* Toast Notification */}
       {toastMessage && (
@@ -620,6 +646,49 @@ export default function BarcodeManagement() {
         </div>
       </section>
 
+      {/* Quick Action Barcode Controls */}
+      <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap", alignItems: "center" }}>
+        <button
+          type="button"
+          className="action-pill-btn primary"
+          onClick={() => handlePrintLabels(filteredProducts, "Batch Barcode Labels Sheet")}
+          disabled={filteredProducts.length === 0}
+          style={{ padding: "8px 16px", fontSize: "12.5px" }}
+        >
+          <Printer size={14} />
+          <span>Batch Print Sheet ({filteredProducts.length})</span>
+        </button>
+        <button
+          type="button"
+          className="action-pill-btn primary"
+          onClick={() => handleBatchDownload(filteredProducts)}
+          disabled={filteredProducts.length === 0}
+          style={{ padding: "8px 16px", fontSize: "12.5px", background: "#059669", borderColor: "#059669", color: "#ffffff" }}
+        >
+          <Download size={14} color="#ffffff" />
+          <span>Download PNG Barcodes ({filteredProducts.length})</span>
+        </button>
+        <button
+          type="button"
+          className="action-pill-btn refresh"
+          onClick={() => setTesterOpen(!testerOpen)}
+          style={{ padding: "8px 16px", fontSize: "12.5px" }}
+        >
+          <Barcode size={14} />
+          <span>{testerOpen ? "Hide Tester" : "Test Barcode Lookup"}</span>
+        </button>
+        <button
+          type="button"
+          className="action-pill-btn refresh"
+          onClick={fetchProducts}
+          disabled={loading}
+          style={{ padding: "8px 16px", fontSize: "12.5px" }}
+        >
+          <RefreshCw size={13} className={loading ? "spin" : ""} />
+          <span>{loading ? "Refreshing..." : "Refresh"}</span>
+        </button>
+      </div>
+
       {/* ========================================================================= */}
       {/* 3. INTERACTIVE LIVE BARCODE LOOKUP TESTER (REQUIREMENT #4)                */}
       {/* ========================================================================= */}
@@ -708,8 +777,17 @@ export default function BarcodeManagement() {
                       type="button"
                       className="bc-icon-btn"
                       onClick={() => handlePrintLabels([testResult.product], `Label_${testResult.product.name}`)}
+                      title="Print scannable shelf sticker"
                     >
                       <Printer size={13} /> Print This
+                    </button>
+                    <button
+                      type="button"
+                      className="bc-icon-btn download"
+                      onClick={() => handleDownloadBarcode(testResult.product)}
+                      title="Download high-resolution barcode image (PNG)"
+                    >
+                      <Download size={13} /> Download
                     </button>
                   </div>
                 </div>
@@ -827,60 +905,70 @@ export default function BarcodeManagement() {
               const isInternal = p.barcode?.startsWith("200");
               return (
                 <div key={p._id || p.barcode} className="bc-sticker-card">
-                  <span className="bc-store-tag">Smart Supermarket &bull; GrocerEase</span>
-                  <h4 className="bc-product-title">{p.name}</h4>
+                  <span className="bc-store-tag">Smart Supermarket • GrocerEase</span>
+                  <h4 className="bc-product-title" title={p.name}>{p.name}</h4>
                   <span className="bc-product-sub">
-                    {p.brand ? `${p.brand} &bull; ` : ""}
-                    {p.category}
+                    {p.brand ? `${p.brand} • ` : ""}
+                    {p.category || "Grocery"}
                   </span>
 
                   {/* Scannable Barcode SVG */}
                   <div className="bc-svg-container">
-                    <BarcodeSVG barcode={p.barcode || p._id} width={1.8} height={50} />
+                    <BarcodeSVG barcode={p.barcode || p._id} width={1.8} height={48} />
                   </div>
 
-                  {/* Footer Row */}
-                  <div className="bc-footer-row">
-                    <div>
-                      <span className="bc-price-bold">₹{Number(p.price || 0).toFixed(2)}</span>
-                      <span style={{ display: "block", fontSize: "11px", color: isInternal ? "#2563EB" : "#7C3AED", fontWeight: 700 }}>
-                        {isInternal ? "Store EAN-13" : "Manufacturer"}
-                      </span>
-                    </div>
+                  {/* Price & Badge Strip */}
+                  <div className="bc-price-row">
+                    <span className="bc-price-bold">₹{Number(p.price || 0).toFixed(2)}</span>
+                    <span className={`bc-type-badge ${isInternal ? "internal" : "manufacturer"}`}>
+                      {isInternal ? "Store EAN-13" : "Manufacturer"}
+                    </span>
+                  </div>
 
-                    <div className="bc-actions-group">
-                      <button
-                        type="button"
-                        className="bc-icon-btn"
-                        onClick={() => {
-                          setTestInput(p.barcode || "");
-                          handleTestLookup(p.barcode || "");
-                        }}
-                        title="Test barcode scan lookup"
-                      >
-                        <Check size={13} />
-                        <span>Test</span>
-                      </button>
+                  {/* 4 Equal Action Buttons */}
+                  <div className="bc-actions-grid">
+                    <button
+                      type="button"
+                      className="bc-action-btn"
+                      onClick={() => {
+                        setTestInput(p.barcode || "");
+                        handleTestLookup(p.barcode || "");
+                      }}
+                      title="Test barcode scan lookup"
+                    >
+                      <Check size={13} />
+                      <span>Test</span>
+                    </button>
 
-                      <button
-                        type="button"
-                        className="bc-icon-btn"
-                        onClick={() => handlePrintLabels([p], `Label_${p.name}`)}
-                        title="Print shelf sticker"
-                      >
-                        <Printer size={13} />
-                        <span>Print</span>
-                      </button>
+                    <button
+                      type="button"
+                      className="bc-action-btn"
+                      onClick={() => handlePrintLabels([p], `Label_${p.name}`)}
+                      title="Print shelf sticker"
+                    >
+                      <Printer size={13} />
+                      <span>Print</span>
+                    </button>
 
-                      <button
-                        type="button"
-                        className="bc-icon-btn"
-                        onClick={() => handleOpenBarcodeModal(p)}
-                        title="Edit or regenerate barcode"
-                      >
-                        <Sparkles size={13} />
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="bc-action-btn download"
+                      onClick={() => handleDownloadBarcode(p)}
+                      title="Download high-resolution barcode image (PNG)"
+                    >
+                      <Download size={13} />
+                      <span>PNG</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="bc-action-btn edit"
+                      onClick={() => handleOpenBarcodeModal(p)}
+                      title="Edit or regenerate barcode"
+                    >
+                      <Sparkles size={13} />
+                      <span>Edit</span>
+                    </button>
                   </div>
                 </div>
               );
@@ -907,13 +995,13 @@ export default function BarcodeManagement() {
             <table className="pm-products-table">
               <thead>
                 <tr>
-                  <th>PRODUCT DETAILS</th>
-                  <th>CATEGORY</th>
-                  <th>BARCODE TYPE</th>
-                  <th>SCANNABLE BARCODE</th>
-                  <th>PRICE</th>
-                  <th>STOCK</th>
-                  <th style={{ textAlign: "center" }}>ACTIONS</th>
+                  <th style={{ minWidth: "180px", textAlign: "left" }}>PRODUCT DETAILS</th>
+                  <th style={{ minWidth: "110px", textAlign: "left" }}>CATEGORY</th>
+                  <th style={{ minWidth: "130px", textAlign: "center" }}>BARCODE TYPE</th>
+                  <th style={{ minWidth: "180px", textAlign: "center" }}>SCANNABLE BARCODE</th>
+                  <th style={{ minWidth: "90px", textAlign: "center" }}>PRICE</th>
+                  <th style={{ minWidth: "100px", textAlign: "center" }}>STOCK</th>
+                  <th className="bc-th-actions" style={{ minWidth: "250px", width: "250px", textAlign: "center" }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
@@ -941,7 +1029,7 @@ export default function BarcodeManagement() {
                         <span className="pm-category-text">{p.category}</span>
                       </td>
 
-                      <td>
+                      <td style={{ textAlign: "center" }}>
                         <span
                           style={{
                             fontSize: "11px",
@@ -950,42 +1038,54 @@ export default function BarcodeManagement() {
                             borderRadius: "6px",
                             background: isInternal ? "#EFF6FF" : "#F3E8FF",
                             color: isInternal ? "#1D4ED8" : "#6B21A8",
+                            display: "inline-block",
                           }}
                         >
                           {isInternal ? "Store EAN-13" : "Manufacturer"}
                         </span>
                       </td>
 
-                      <td>
-                        <div style={{ maxWidth: "200px" }}>
+                      <td style={{ textAlign: "center" }}>
+                        <div style={{ maxWidth: "200px", margin: "0 auto", display: "inline-block" }}>
                           <BarcodeSVG barcode={p.barcode || p._id} width={1.4} height={32} />
                         </div>
                       </td>
 
-                      <td>
+                      <td style={{ textAlign: "center" }}>
                         <span className="pm-price-bold">₹{Number(p.price || 0).toFixed(2)}</span>
                       </td>
 
-                      <td>
+                      <td style={{ textAlign: "center" }}>
                         <strong style={{ color: p.stock === 0 ? "#DC2626" : "#0F172A" }}>
                           {p.stock} units
                         </strong>
                       </td>
 
-                      <td style={{ textAlign: "center" }}>
-                        <div style={{ display: "inline-flex", gap: "6px" }}>
+                      <td className="bc-td-actions" style={{ textAlign: "center", minWidth: "250px", width: "250px" }}>
+                        <div className="bc-table-actions-row">
                           <button
                             type="button"
-                            className="bc-icon-btn"
+                            className="bc-table-btn print bc-icon-btn"
                             onClick={() => handlePrintLabels([p], `Label_${p.name}`)}
+                            title="Print shelf sticker"
                           >
                             <Printer size={13} />
                             <span>Print</span>
                           </button>
                           <button
                             type="button"
-                            className="bc-icon-btn"
+                            className="bc-table-btn download bc-icon-btn"
+                            onClick={() => handleDownloadBarcode(p)}
+                            title="Download scannable barcode image (PNG)"
+                          >
+                            <Download size={13} />
+                            <span>Download</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="bc-table-btn edit bc-icon-btn"
                             onClick={() => handleOpenBarcodeModal(p)}
+                            title="Edit or regenerate barcode"
                           >
                             <Sparkles size={13} />
                             <span>Edit</span>
@@ -1096,6 +1196,16 @@ export default function BarcodeManagement() {
               )}
 
               <div className="pm-modal-actions">
+                <button
+                  type="button"
+                  className="pm-btn-cancel"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#059669", borderColor: "#a7f3d0", background: "#f0fdf4" }}
+                  onClick={() => handleDownloadBarcode({ ...editingBarcodeProduct, barcode: barcodeFormValue })}
+                  title="Download barcode image (PNG)"
+                >
+                  <Download size={14} />
+                  <span>Download Barcode</span>
+                </button>
                 <button
                   type="button"
                   className="pm-btn-cancel"

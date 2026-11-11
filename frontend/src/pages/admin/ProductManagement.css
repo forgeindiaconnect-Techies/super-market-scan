@@ -20,43 +20,41 @@
   position: relative;
   background: #ffffff;
   border: 1px solid #eef2f6;
-  border-radius: 24px;
-  padding: 24px 34px;
+  border-radius: 18px;
+  padding: 18px 28px;
   margin-bottom: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 50, 150, 0.04);
-  min-height: 160px;
+  box-shadow: 0 4px 18px rgba(0, 50, 150, 0.04);
+  min-height: 136px;
+  max-height: 152px;
   box-sizing: border-box;
 }
 
 .pm-hero-left {
   position: relative;
   z-index: 5;
-  max-width: 460px;
+  max-width: 65%;
 }
 
 .pm-main-title {
-  font-size: 26px;
+  font-size: 18px;
   font-weight: 800;
   color: #0f172a;
-  letter-spacing: -0.5px;
-  margin: 0 0 6px 0;
+  letter-spacing: -0.3px;
+  margin: 0 0 2px 0;
   line-height: 1.15;
 }
 
 .pm-main-subtitle {
-  font-size: 13.5px;
+  font-size: 11.5px;
   color: #64748b;
-  margin: 0 0 10px 0;
+  margin: 0 0 4px 0;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.25;
 }
 
 .pm-title-underline {
-  width: 52px;
-  height: 4px;
-  background: #fbbf24;
-  border-radius: 2px;
+  display: none !important;
 }
 
 .pm-hero-art {
@@ -126,24 +124,23 @@
 .pm-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
 .pm-kpi-card {
   background: #ffffff;
   border-radius: 18px;
-  padding: 12px 14px;
+  padding: 16px 22px;
   border: 1px solid #eef2f6;
-  box-shadow: 0 4px 16px rgba(0, 50, 150, 0.035);
+  box-shadow: 0 4px 18px rgba(0, 50, 150, 0.05);
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12px;
-  min-height: 96px;
-  max-height: 104px;
+  gap: 16px;
+  min-height: 118px;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
   box-sizing: border-box;
 }
@@ -724,19 +721,48 @@
   cursor: not-allowed;
 }
 
-.pm-page-num.active {
+.pm-page-num {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #2563eb;
-  color: #ffffff;
+  background: #ffffff;
+  color: #475569;
   font-size: 13px;
   font-weight: 700;
-  border: none;
+  border: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pm-page-num:hover:not(.active) {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.pm-page-num.active {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  font-size: 13px;
+  font-weight: 700;
+  border: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3) !important;
+}
+
+.pm-view-all-btn.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25) !important;
 }
 
 .pm-goto-wrap {
@@ -895,104 +921,184 @@
    =================================================================== */
 .bc-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .bc-sticker-card {
   background: #ffffff;
-  border: 1px solid #eef2f6;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 18px 18px 16px;
+  padding: 16px 14px 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
   position: relative;
-  box-shadow: 0 4px 16px rgba(0, 50, 150, 0.03);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  box-shadow: 0 2px 10px rgba(0, 50, 150, 0.04);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .bc-sticker-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 50, 150, 0.08);
+  border-color: #cbd5e1;
 }
 
 .bc-store-tag {
   font-size: 10px;
   font-weight: 800;
   color: #2563eb;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .bc-product-title {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 800;
   color: #0f172a;
   text-align: center;
-  margin: 0 0 2px;
+  margin: 0 0 3px;
   line-height: 1.25;
+  height: 38px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 .bc-product-sub {
-  font-size: 12px;
+  font-size: 11.5px;
   color: #64748b;
   margin-bottom: 8px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1.2;
 }
 
 .bc-svg-container {
   background: #ffffff;
   border: 1.5px dashed #cbd5e1;
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 8px 10px;
   width: 100%;
+  height: 88px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  overflow: hidden;
 }
 
-.bc-footer-row {
+.bc-price-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid #f1f5f9;
+  margin-bottom: 10px;
+  box-sizing: border-box;
 }
 
 .bc-price-bold {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
   color: #0f172a;
+  line-height: 1;
 }
 
-.bc-actions-group {
-  display: flex;
-  gap: 6px;
+.bc-type-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2.5px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
-.bc-icon-btn {
+.bc-type-badge.internal {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+}
+
+.bc-type-badge.manufacturer {
+  background: #faf5ff;
+  color: #7c3aed;
+  border: 1px solid #f3e8ff;
+}
+
+.bc-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bc-action-btn {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 6px 10px;
+  padding: 6px 2px;
   color: #475569;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 4px;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  box-sizing: border-box;
+  width: 100%;
 }
 
-.bc-icon-btn:hover {
+.bc-action-btn:hover {
   background: #eff6ff;
   border-color: #2563eb;
   color: #2563eb;
+}
+
+.bc-action-btn.download {
+  color: #059669 !important;
+  border-color: #a7f3d0 !important;
+  background: #f0fdf4 !important;
+}
+
+.bc-action-btn.download:hover {
+  background: #dcfce7 !important;
+  border-color: #059669 !important;
+  color: #047857 !important;
+}
+
+.bc-action-btn.edit {
+  color: #7c3aed !important;
+  border-color: #e9d5ff !important;
+  background: #faf5ff !important;
+}
+
+.bc-action-btn.edit:hover {
+  background: #f3e8ff !important;
+  border-color: #7c3aed !important;
+  color: #6d28d9 !important;
 }
 
 .bc-view-toggle {
@@ -1712,6 +1818,14 @@
   cursor: pointer;
 }
 
+.rm-bar-fill.empty {
+  height: 3px !important;
+  background: #cbd5e1 !important;
+  border-radius: 2px !important;
+  opacity: 0.5 !important;
+  cursor: default !important;
+}
+
 .rm-bar-fill:hover {
   opacity: 0.85;
 }
@@ -1728,6 +1842,13 @@
   font-size: 10.5px;
   font-weight: 800;
   color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.rm-bar-val-empty {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #94a3b8;
   margin-bottom: 4px;
 }
 
@@ -3441,20 +3562,23 @@
 
 /* ===================================================================
    PRODUCT MANAGEMENT VIBRANT HERO BANNER & KPI CARDS (MATCHING DASHBOARD)
+   Ultra-Compact, Sleek, Unified Across All Pages (78px - 88px Height)
    =================================================================== */
 .pm-hero-section {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
   position: relative !important;
-  background: linear-gradient(135deg, #DBEAFE 0%, #EDF5FE 50%, #F4F8FE 100%) !important;
-  border: 1.5px solid #BFDBFE !important;
-  border-radius: 20px !important;
-  padding: 20px 30px !important;
-  margin-bottom: 16px !important;
+  background: linear-gradient(90deg, #93c5fd 0%, #bfdbfe 25%, #dbeafe 52%, #eaf3fc 78%, #eff6ff 100%) !important;
+  border: 1px solid #93c5fd !important;
+  border-radius: 16px !important;
+  padding: 8px 20px !important;
+  margin-bottom: 12px !important;
   overflow: hidden !important;
-  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.08) !important;
-  min-height: 135px !important;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.12), 0 1px 3px rgba(37, 99, 235, 0.06) !important;
+  min-height: 80px !important;
+  max-height: 88px !important;
+  box-sizing: border-box !important;
 }
 
 .pm-hero-left {
@@ -3462,67 +3586,221 @@
   z-index: 10 !important;
   display: flex !important;
   align-items: center !important;
-  gap: 16px !important;
+  gap: 12px !important;
+  max-width: 65% !important;
 }
 
 .pm-hero-bag-icon {
-  width: 50px !important;
-  height: 50px !important;
-  border-radius: 14px !important;
-  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 11px !important;
+  background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+  box-shadow: 0 3px 10px rgba(29, 78, 216, 0.35) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.85) !important;
   flex-shrink: 0 !important;
 }
 
+.pm-hero-text-block {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-width: 0 !important;
+}
+
 .pm-main-title {
-  font-size: 24px !important;
+  font-size: 18px !important;
   font-weight: 800 !important;
-  color: #0F172A !important;
-  margin: 0 0 3px 0 !important;
-  letter-spacing: -0.4px !important;
+  color: #0A1E4A !important;
+  margin: 0 0 2px 0 !important;
+  letter-spacing: -0.3px !important;
+  line-height: 1.15 !important;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4) !important;
 }
 
 .pm-main-subtitle {
-  font-size: 13px !important;
-  color: #475569 !important;
-  margin: 0 0 10px 0 !important;
-  font-weight: 500 !important;
+  font-size: 11.5px !important;
+  color: #1E3A8A !important;
+  margin: 0 0 4px 0 !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 580px !important;
 }
 
 .pm-hero-badges-row {
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
-  flex-wrap: wrap !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
 }
 
 .pm-hero-badge {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 5px !important;
+  gap: 4px !important;
   background: #FFFFFF !important;
-  border: 1.5px solid #DBEAFE !important;
-  padding: 4px 12px !important;
+  border: 1px solid #93C5FD !important;
+  padding: 2.5px 9px !important;
   border-radius: 9999px !important;
-  font-size: 11px !important;
+  font-size: 10.5px !important;
   font-weight: 700 !important;
   color: #1E40AF !important;
-  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.08) !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.1) !important;
+  white-space: nowrap !important;
+  line-height: 1.2 !important;
 }
 
 .pm-hero-badge .check {
-  color: #10B981 !important;
-  font-weight: 800 !important;
+  color: #059669 !important;
+  font-weight: 900 !important;
 }
 
-/* Product Management 4 KPI Cards - Rich Vibrant Theme */
+.pm-hero-action-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: #FFFFFF !important;
+  border: 1px solid #93C5FD !important;
+  padding: 2.5px 9px !important;
+  border-radius: 8px !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  color: #1E40AF !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.1) !important;
+  white-space: nowrap !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+}
+
+.pm-hero-action-pill:hover {
+  background: #EFF6FF !important;
+  border-color: #2563EB !important;
+  transform: translateY(-1px) !important;
+}
+
+.pm-hero-action-pill.primary {
+  background: #1D4ED8 !important;
+  border-color: #1E40AF !important;
+  color: #FFFFFF !important;
+}
+
+.pm-hero-action-pill.success {
+  background: #059669 !important;
+  border-color: #047857 !important;
+  color: #FFFFFF !important;
+}
+
+.pm-hero-art {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 55% !important;
+  max-width: 700px !important;
+  height: 100% !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  background-image: url("/erp-banner-art.jpg") !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: right center !important;
+  padding-right: 36px !important;
+  box-sizing: border-box !important;
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.25) 12%, rgba(0, 0, 0, 0.8) 28%, black 45%) !important;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.25) 12%, rgba(0, 0, 0, 0.8) 28%, black 45%) !important;
+}
+
+.pm-hero-cart-img,
+.pm-hero-store-bg,
+.pm-hero-ribbon-wrap {
+  display: none !important;
+}
+
+/* Product Management 4 KPI Cards - Rich Vibrant Theme & Generous Proportions */
+.pm-kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 16px !important;
+  margin-bottom: 18px !important;
+}
+
 .pm-kpi-card {
-  border-radius: 16px !important;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
-  padding: 12px 18px !important;
+  border-radius: 18px !important;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06) !important;
+  padding: 16px 22px !important;
+  min-height: 118px !important;
+  max-height: none !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 16px !important;
+  box-sizing: border-box !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease !important;
+}
+
+.pm-kpi-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.1) !important;
+}
+
+.pm-kpi-icon-pill {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 15px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.pm-kpi-icon-pill svg {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.pm-kpi-content {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.pm-kpi-number {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  letter-spacing: -0.5px !important;
+  margin: 0 0 2px 0 !important;
+  line-height: 1.15 !important;
+}
+
+.pm-kpi-label {
+  font-size: 13px !important;
+  color: #64748b !important;
+  font-weight: 600 !important;
+  margin: 0 0 4px 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.pm-kpi-trend {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
 }
 
 .pm-kpi-card.blue-theme {
@@ -3538,6 +3816,12 @@
 .pm-kpi-card.green-theme {
   background: linear-gradient(135deg, #ECFDF5 0%, #FFFFFF 100%) !important;
   border: 1.5px solid #A7F3D0 !important;
+}
+
+.pm-kpi-card.yellow-theme,
+.pm-kpi-card.orange-theme {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FFFFFF 100%) !important;
+  border: 1.5px solid #FDE68A !important;
 }
 
 .pm-kpi-card.purple-theme {
@@ -3563,8 +3847,114 @@
   border: 1px solid #BBF7D0 !important;
 }
 
+.pm-kpi-icon-pill.yellow,
+.pm-kpi-icon-pill.orange {
+  background: #FEF3C7 !important;
+  color: #D97706 !important;
+  border: 1px solid #FDE68A !important;
+}
+
 .pm-kpi-icon-pill.purple {
   background: #F3E8FF !important;
   color: #7E22CE !important;
   border: 1px solid #E9D5FF !important;
+}
+
+/* ==========================================================================
+   Barcode Directory Ledger Table Actions & Buttons Alignment
+   ========================================================================== */
+.pm-products-table th.bc-th-actions,
+.pm-products-table thead th.bc-th-actions,
+.pm-products-table td.bc-td-actions,
+.pm-products-table tbody td.bc-td-actions {
+  text-align: center !important;
+  min-width: 250px !important;
+  width: 250px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  vertical-align: middle !important;
+}
+
+.pm-products-table td.bc-td-actions > div,
+.bc-table-actions-row {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+}
+
+.bc-table-btn,
+.bc-icon-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+  border: 1.5px solid transparent !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.15s ease !important;
+  font-family: inherit !important;
+}
+
+/* Print Button (Sleek Blue Pill) */
+.bc-table-btn.print,
+.bc-icon-btn.print,
+.bc-table-btn:not(.download):not(.edit):first-child {
+  background: #EFF6FF !important;
+  color: #1D4ED8 !important;
+  border-color: #BFDBFE !important;
+}
+
+.bc-table-btn.print:hover,
+.bc-icon-btn.print:hover,
+.bc-table-btn:not(.download):not(.edit):first-child:hover {
+  background: #DBEAFE !important;
+  border-color: #3B82F6 !important;
+  color: #1E40AF !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(29, 78, 216, 0.18) !important;
+}
+
+/* Download Button (Emerald Green Pill) */
+.bc-table-btn.download,
+.bc-icon-btn.download {
+  background: #ECFDF5 !important;
+  color: #047857 !important;
+  border-color: #A7F3D0 !important;
+}
+
+.bc-table-btn.download:hover,
+.bc-icon-btn.download:hover {
+  background: #D1FAE5 !important;
+  border-color: #10B981 !important;
+  color: #065F46 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(4, 120, 87, 0.18) !important;
+}
+
+/* Edit / Regenerate Button (Purple Pill) */
+.bc-table-btn.edit,
+.bc-icon-btn.edit,
+.bc-table-btn:last-child {
+  background: #FAF5FF !important;
+  color: #7C3AED !important;
+  border-color: #E9D5FF !important;
+}
+
+.bc-table-btn.edit:hover,
+.bc-icon-btn.edit:hover,
+.bc-table-btn:last-child:hover {
+  background: #F3E8FF !important;
+  border-color: #8B5CF6 !important;
+  color: #6D28D9 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(124, 58, 237, 0.18) !important;
 }

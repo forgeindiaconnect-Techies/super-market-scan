@@ -1,4 +1,6 @@
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const dns = require("dns");
@@ -24,6 +26,57 @@ try {
     { src: path.join(brainDir, "gift_box_3d_icon_1794053425724.jpg"), names: ["gift-box-3d.jpg"] },
   ];
 
+  const currentUploads = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\6fa4a95c-77f9-4a4d-950b-d57336a67a4c\\.user_uploaded";
+
+  // Also sync exact high-res banner PNG directly provided by user
+  const bannerPngSrc = path.join(currentUploads, "media_1794380516331_479d7e05.png");
+  if (fs.existsSync(bannerPngSrc)) {
+    const pngBuf = fs.readFileSync(bannerPngSrc);
+    fs.writeFileSync(path.join(assetsDir, "barcode-config-banner.png"), pngBuf);
+    fs.writeFileSync(path.join(publicDir, "barcode-config-banner.png"), pngBuf);
+    const pngW = pngBuf.readUInt32BE(16);
+    const pngH = pngBuf.readUInt32BE(20);
+    console.log(`✓ Synced official banner media_1794380516331_479d7e05.png (${pngW}x${pngH}) -> barcode-config-banner.png`);
+    fs.writeFileSync(
+      path.join(assetsDir, "banner-dimensions.json"),
+      JSON.stringify({ width: pngW, height: pngH, timestamp: Date.now() }, null, 2)
+    );
+  }
+
+  // Also sync exact scan-and-enter mockup target image from current conversation
+  const validTargetMockups = [
+    "media_1794378869972_b08c5718.jpg",
+    "media_1794378428000_3e4e6bba.jpg",
+  ];
+  for (const mName of validTargetMockups) {
+    const p = path.join(currentUploads, mName);
+    if (fs.existsSync(p)) {
+      const buf = fs.readFileSync(p);
+      fs.writeFileSync(path.join(assetsDir, "scan-enter-target.jpg"), buf);
+      fs.writeFileSync(path.join(publicDir, "scan-enter-target.jpg"), buf);
+      
+      // Parse JPEG dimensions
+      let w = 0, h = 0;
+      for (let i = 0; i < buf.length - 8; i++) {
+        if (buf[i] === 0xFF && (buf[i+1] === 0xC0 || buf[i+1] === 0xC2)) {
+          h = buf.readUInt16BE(i + 5);
+          w = buf.readUInt16BE(i + 7);
+          break;
+        }
+      }
+
+
+      fs.writeFileSync(
+        path.join(assetsDir, "mockup-dimensions.json"),
+        JSON.stringify({ filename: mName, width: w, height: h, timestamp: Date.now() }, null, 2)
+      );
+      fs.writeFileSync(path.join(assetsDir, "target-mockup-clean.jpg"), buf);
+      fs.writeFileSync(path.join(publicDir, "target-mockup-clean.jpg"), buf);
+      console.log(`✓ Restored correct target mockup ${mName} (${w}x${h}) -> scan-enter-target.jpg`);
+      break;
+    }
+  }
+
   for (const item of syncList) {
     if (fs.existsSync(item.src)) {
       for (const name of item.names) {
@@ -39,6 +92,8 @@ try {
 
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
+const { checkCloudinaryConnection } = require("./config/cloudinary");
 const Product = require("./models/Product");
 
 // Seed initial products if DB is empty so real-time CRUD and stock updates persist permanently
@@ -148,7 +203,8 @@ app.get("/api/health", (req, res) => {
   res.json({
     success: true,
     message: "Backend API is working",
-    database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected"
+    database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
+    cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? "Configured" : "Not configured",
   });
 });
 
@@ -166,9 +222,26 @@ app.get("/api/banner", (req, res) => {
 
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/upload", uploadRoutes);
 
 const PORT = process.env.PORT || 5001;
 
-app.listen(PORT, "0.0.0.0", () => {
+const httpServer = http.createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+
+app.set("io", io);
+
+io.on("connection", (socket) => {
+  console.log("Admin notification client connected:", socket.id);
+});
+
+httpServer.listen(PORT, "0.0.0.0", async () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
+  await checkCloudinaryConnection();
 });

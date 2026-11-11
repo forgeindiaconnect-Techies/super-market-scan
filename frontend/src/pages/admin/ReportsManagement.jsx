@@ -26,14 +26,16 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import API from "../../services/api";
+import ErpPageBanner from "../../components/ErpPageBanner";
+import { mergeApiWithStorage, getPersistentProducts } from "../../utils/realtimeStorage";
 import bannerCartImg from "../../assets/banner-cart.png";
 import "./ProductManagement.css";
 
 const DATE_PRESETS = [
   { value: "all", label: "All Time" },
   { value: "today", label: "Today" },
-  { value: "week", label: "This Week (7 Days)" },
-  { value: "month", label: "This Month (30 Days)" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
   { value: "year", label: "This Year" },
 ];
 
@@ -41,7 +43,7 @@ const REPORT_TABS = [
   { id: "sales", label: "Sales Reports", icon: TrendingUp },
   { id: "products", label: "Product Performance", icon: Package },
   { id: "inventory", label: "Inventory Health", icon: Boxes },
-  { id: "orders", label: "Order Status Ledger", icon: ShoppingBag },
+  { id: "orders", label: "Orders Ledger", icon: ShoppingBag },
   { id: "customers", label: "Customer Insights", icon: Users },
 ];
 
@@ -63,11 +65,17 @@ export default function ReportsManagement() {
       }
 
       const reportData = response.data;
+      const apiOrders = Array.isArray(reportData.orders) ? reportData.orders : [];
+      const apiProducts = Array.isArray(reportData.products) ? reportData.products : [];
 
-      setOrders(Array.isArray(reportData.orders) ? reportData.orders : []);
-      setProducts(Array.isArray(reportData.products) ? reportData.products : []);
+      // Merge backend products with local persistent storage for real-time consistency
+      const mergedProducts = mergeApiWithStorage(apiProducts);
+
+      setOrders(apiOrders);
+      setProducts(mergedProducts);
     } catch (err) {
       console.error("Reports API error:", err);
+      setProducts(getPersistentProducts());
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -78,7 +86,7 @@ export default function ReportsManagement() {
 
     const timer = setInterval(() => {
       fetchReportData(false);
-    }, 3500);
+    }, 3000);
 
     const handleStorageUpdate = () => {
       fetchReportData(false);
@@ -193,31 +201,84 @@ export default function ReportsManagement() {
     }));
   }, [completedOrders, totalVerifiedSales]);
 
-  // Daily Sales Trends for Chart (last 7 recorded days)
+  // Daily / Periodic Sales Trends for Real-time Chart
   const salesTrendsData = useMemo(() => {
     const dayMap = {};
     const now = new Date();
 
-    // Seed last 7 days so chart is never empty
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const key = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
-      dayMap[key] = { label: key, amount: 0, ordersCount: 0 };
+    if (datePreset === "today") {
+      // 2-hour intervals for Today's live sales
+      const hours = [8, 10, 12, 14, 16, 18, 20, 22];
+      hours.forEach((h) => {
+        const label = `${h > 12 ? h - 12 : h} ${h >= 12 ? "PM" : "AM"}`;
+        dayMap[label] = { label, amount: 0, ordersCount: 0 };
+      });
+
+      completedOrders.forEach((o) => {
+        const d = new Date(o.completedAt || o.createdAt);
+        if (!Number.isNaN(d.getTime())) {
+          const h = d.getHours();
+          const bucket = hours.reduce((prev, curr) => (h >= curr ? curr : prev), hours[0]);
+          const label = `${bucket > 12 ? bucket - 12 : bucket} ${bucket >= 12 ? "PM" : "AM"}`;
+          if (dayMap[label]) {
+            dayMap[label].amount += Number(o.totalAmount || 0);
+            dayMap[label].ordersCount += 1;
+          }
+        }
+      });
+      return Object.values(dayMap);
     }
 
-    completedOrders.forEach((o) => {
-      if (o.createdAt) {
-        const d = new Date(o.createdAt);
+    if (datePreset === "week") {
+      // Exact last 7 days calendar timeline
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
         const key = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
-        if (dayMap[key]) {
-          dayMap[key].amount += Number(o.totalAmount || 0);
-          dayMap[key].ordersCount += 1;
+        dayMap[key] = { label: key, amount: 0, ordersCount: 0, time: d.getTime() };
+      }
+
+      completedOrders.forEach((o) => {
+        const d = new Date(o.completedAt || o.createdAt);
+        if (!Number.isNaN(d.getTime())) {
+          const key = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
+          if (dayMap[key]) {
+            dayMap[key].amount += Number(o.totalAmount || 0);
+            dayMap[key].ordersCount += 1;
+          }
         }
+      });
+      return Object.values(dayMap);
+    }
+
+    // "all", "month", "year":
+    // 1. Initialize recent 7 days baseline
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const key = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
+      dayMap[key] = { label: key, amount: 0, ordersCount: 0, time: d.getTime() };
+    }
+
+    // 2. Incorporate all completed orders so NO real revenue is lost
+    completedOrders.forEach((o) => {
+      const d = new Date(o.completedAt || o.createdAt);
+      if (!Number.isNaN(d.getTime())) {
+        const key = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
+        if (!dayMap[key]) {
+          dayMap[key] = {
+            label: key,
+            amount: 0,
+            ordersCount: 0,
+            time: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(),
+          };
+        }
+        dayMap[key].amount += Number(o.totalAmount || 0);
+        dayMap[key].ordersCount += 1;
       }
     });
 
-    return Object.values(dayMap);
-  }, [completedOrders]);
+    const sorted = Object.values(dayMap).sort((a, b) => a.time - b.time);
+    return sorted.slice(-8);
+  }, [completedOrders, datePreset]);
 
   const maxTrendAmount = useMemo(() => {
     const max = Math.max(...salesTrendsData.map((d) => d.amount), 1);
@@ -281,6 +342,11 @@ export default function ReportsManagement() {
 
     return { productSalesList: sortedProducts, categorySalesList: sortedCategories };
   }, [products, completedOrders]);
+
+  // Active departments with revenue only
+  const activeCategorySales = useMemo(() => {
+    return (categorySalesList || []).filter((cat) => cat.revenue > 0);
+  }, [categorySalesList]);
 
   const bestSellingProducts = useMemo(() => {
     return productSalesList.filter((p) => p.unitsSold > 0).slice(0, 8);
@@ -388,95 +454,17 @@ export default function ReportsManagement() {
   return (
     <div className="grocer-page-container">
       {/* ========================================================================= */}
-      {/* 1. TOP HERO BANNER WITH SHOPPING CART & DYNAMIC CURVED RIBBON             */}
+      {/* 1. TOP HERO BANNER - EXACT MATCH TO REGISTER NEW PRODUCT                  */}
       {/* ========================================================================= */}
-      <section className="pm-hero-section">
-        <div className="pm-hero-left">
-          <h1 className="pm-main-title">Reports & Analytics Intelligence</h1>
-          <p className="pm-main-subtitle">
-            Executive revenue metrics, product velocity, inventory health audits & shopper statistics
-          </p>
-          <div className="pm-title-underline" />
-
-          {/* Action Pills */}
-          <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="action-pill-btn primary"
-              onClick={handleExportCSV}
-              style={{ padding: "8px 16px", fontSize: "12.5px" }}
-            >
-              <FileSpreadsheet size={14} />
-              <span>Export {activeTab.toUpperCase()} Report (Excel/CSV)</span>
-            </button>
-
-            <button
-              type="button"
-              className="action-pill-btn refresh"
-              onClick={handlePrintReport}
-              style={{ padding: "8px 16px", fontSize: "12.5px" }}
-            >
-              <Printer size={14} />
-              <span>Print Official PDF Report</span>
-            </button>
-
-            <button
-              type="button"
-              className="action-pill-btn refresh"
-              onClick={() => fetchReportData(true)}
-              disabled={loading}
-              style={{ padding: "8px 16px", fontSize: "12.5px" }}
-            >
-              <RefreshCw size={14} className={loading ? "spin" : ""} />
-              <span>{loading ? "Syncing..." : "Sync DB"}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic Curved Ribbon & Fresh Groceries Shopping Cart */}
-        <div className="pm-hero-art">
-          <div className="pm-hero-store-bg" />
-
-          <div className="pm-hero-ribbon-wrap">
-            <svg className="pm-hero-ribbon-svg" viewBox="0 0 640 150" fill="none" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="goldRibbonGradReports" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#F59E0B" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#FDE047" />
-                  <stop offset="50%" stopColor="#FBBF24" />
-                  <stop offset="80%" stopColor="#F59E0B" />
-                  <stop offset="100%" stopColor="#FBBF24" />
-                </linearGradient>
-                <linearGradient id="blueRibbonGradReports" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#1E3A8A" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#1D4ED8" />
-                  <stop offset="50%" stopColor="#2563EB" />
-                  <stop offset="80%" stopColor="#1E40AF" />
-                  <stop offset="100%" stopColor="#1E3A8A" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M 0 115 C 120 75, 220 50, 340 68 C 450 82, 540 60, 640 45 L 640 68 C 540 82, 450 105, 340 92 C 220 75, 120 100, 0 138 Z"
-                fill="url(#blueRibbonGradReports)"
-                opacity="0.95"
-              />
-              <path
-                d="M 0 108 C 120 68, 220 43, 340 61 C 450 75, 540 53, 640 38 L 640 46 C 540 61, 450 83, 340 69 C 220 51, 120 76, 0 116 Z"
-                fill="url(#goldRibbonGradReports)"
-              />
-            </svg>
-          </div>
-
-          <img
-            src={bannerCartImg}
-            alt="Supermarket Shopping Cart with Fresh Groceries"
-            className="pm-hero-cart-img"
-          />
-        </div>
-      </section>
+      <ErpPageBanner
+        title="Reports & Analytics"
+        subtitle="Real-time supermarket sales trends, inventory turnover & customer insights"
+        badges={["Live Sales Tracking", "Revenue Analytics", "Export CSV & Print"]}
+        icon={<BarChart3 size={22} color="#ffffff" strokeWidth={2.4} />}
+      />
 
       {/* ========================================================================= */}
-      {/* 2. FIVE HORIZONTAL EXECUTIVE KPI CARDS (SPEC REQUIREMENT #1)               */}
+      {/* 2. FIVE HORIZONTAL EXECUTIVE KPI CARDS                                    */}
       {/* ========================================================================= */}
       <section className="rm-kpi-grid-5">
         {/* Card 1: Total Sales */}
@@ -486,10 +474,9 @@ export default function ReportsManagement() {
           </div>
           <div className="pm-kpi-content">
             <h3 className="pm-kpi-number">₹{totalVerifiedSales.toLocaleString("en-IN")}</h3>
-            <span className="pm-kpi-label">Total Verified Sales</span>
+            <span className="pm-kpi-label">Total Sales</span>
             <div className="pm-kpi-trend green">
-              <span className="trend-arrow">✓</span>
-              <span>Completed Only</span>
+              <span>{completedOrders.length} completed</span>
             </div>
           </div>
         </div>
@@ -501,10 +488,9 @@ export default function ReportsManagement() {
           </div>
           <div className="pm-kpi-content">
             <h3 className="pm-kpi-number">{totalOrdersCount}</h3>
-            <span className="pm-kpi-label">Total Orders Placed</span>
+            <span className="pm-kpi-label">Total Orders</span>
             <div className="pm-kpi-trend green">
-              <span className="trend-arrow">↑</span>
-              <span>{completedOrders.length} completed</span>
+              <span>All order records</span>
             </div>
           </div>
         </div>
@@ -516,9 +502,8 @@ export default function ReportsManagement() {
           </div>
           <div className="pm-kpi-content">
             <h3 className="pm-kpi-number">{totalProductsSold}</h3>
-            <span className="pm-kpi-label">Products Sold</span>
+            <span className="pm-kpi-label">Items Sold</span>
             <div className="pm-kpi-trend green">
-              <span className="trend-arrow">✓</span>
               <span>Units checked out</span>
             </div>
           </div>
@@ -531,10 +516,9 @@ export default function ReportsManagement() {
           </div>
           <div className="pm-kpi-content">
             <h3 className="pm-kpi-number">{totalCustomersCount}</h3>
-            <span className="pm-kpi-label">Total Customers</span>
+            <span className="pm-kpi-label">Customers</span>
             <div className="pm-kpi-trend green">
-              <span className="trend-arrow">↑</span>
-              <span>Unique Shoppers</span>
+              <span>Unique shoppers</span>
             </div>
           </div>
         </div>
@@ -548,9 +532,8 @@ export default function ReportsManagement() {
             <h3 className="pm-kpi-number" style={{ color: lowStockProductsList.length > 0 ? "#DC2626" : "#0F172A" }}>
               {lowStockProductsList.length}
             </h3>
-            <span className="pm-kpi-label">Low-Stock SKUs</span>
+            <span className="pm-kpi-label">Low Stock Items</span>
             <div className="pm-kpi-trend" style={{ color: "#DC2626" }}>
-              <span className="trend-arrow">▲</span>
               <span>{outOfStockProductsList.length} out of stock</span>
             </div>
           </div>
@@ -580,21 +563,90 @@ export default function ReportsManagement() {
           })}
         </div>
 
-        {/* Date Preset Buttons */}
-        <div className="rm-date-filters">
-          <Calendar size={16} color="#64748B" />
-          {DATE_PRESETS.map((dp) => (
-            <button
-              key={dp.value}
-              type="button"
-              onClick={() => setDatePreset(dp.value)}
-              className={`rm-date-filter-btn ${
-                datePreset === dp.value ? "active" : ""
-              }`}
-            >
-              {dp.label}
-            </button>
-          ))}
+        {/* Date Preset Buttons & Action Controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <div className="rm-date-filters">
+            <Calendar size={16} color="#64748B" />
+            {DATE_PRESETS.map((dp) => (
+              <button
+                key={dp.value}
+                type="button"
+                onClick={() => setDatePreset(dp.value)}
+                className={`rm-date-filter-btn ${
+                  datePreset === dp.value ? "active" : ""
+                }`}
+              >
+                {dp.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="pm-action-btn primary"
+            onClick={handleExportCSV}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              fontSize: "12px",
+              fontWeight: 700,
+              background: "#1D4ED8",
+              color: "#FFFFFF",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            <FileSpreadsheet size={13} />
+            <span>Export CSV</span>
+          </button>
+
+          <button
+            type="button"
+            className="pm-action-btn"
+            onClick={handlePrintReport}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              fontSize: "12px",
+              fontWeight: 700,
+              background: "#F1F5F9",
+              color: "#1E293B",
+              border: "1px solid #CBD5E1",
+              cursor: "pointer",
+            }}
+          >
+            <Printer size={13} />
+            <span>Print</span>
+          </button>
+
+          <button
+            type="button"
+            className="pm-action-btn"
+            onClick={() => fetchReportData(true)}
+            disabled={loading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              fontSize: "12px",
+              fontWeight: 700,
+              background: "#F1F5F9",
+              color: "#1E293B",
+              border: "1px solid #CBD5E1",
+              cursor: "pointer",
+            }}
+          >
+            <RefreshCw size={13} className={loading ? "spin" : ""} />
+            <span>{loading ? "Refreshing..." : "Refresh"}</span>
+          </button>
         </div>
       </div>
 
@@ -602,28 +654,35 @@ export default function ReportsManagement() {
       {/* 4. VISUAL SALES OVERVIEW CHARTS & PERFORMANCE DISTRIBUTION                 */}
       {/* ========================================================================= */}
       <section className="rm-chart-grid-2">
-        {/* Chart A: Daily Sales Trend Bar Chart */}
+        {/* Chart A: Sales Trend Bar Chart */}
         <div className="rm-chart-card">
           <div className="rm-chart-header">
             <h3 className="rm-chart-title">
               <TrendingUp size={18} color="#2563EB" />
-              <span>Verified Sales Trend & Volume ({datePreset.toUpperCase()})</span>
+              <span>Sales Trend & Volume</span>
             </h3>
             <span style={{ fontSize: "11px", color: "#64748B", fontWeight: 700 }}>
-              Completed Checkouts Only
+              Completed Revenue
             </span>
           </div>
 
           <div className="rm-bar-group">
             {salesTrendsData.map((d, idx) => {
-              const heightPct = Math.max(12, Math.round((d.amount / maxTrendAmount) * 100));
+              const heightPct =
+                d.amount > 0
+                  ? Math.max(10, Math.round((d.amount / maxTrendAmount) * 100))
+                  : 0;
               return (
                 <div key={idx} className="rm-bar-col">
-                  {d.amount > 0 && (
-                    <span className="rm-bar-val">₹{d.amount > 999 ? `${(d.amount / 1000).toFixed(1)}k` : d.amount}</span>
+                  {d.amount > 0 ? (
+                    <span className="rm-bar-val">
+                      ₹{d.amount > 999 ? `${(d.amount / 1000).toFixed(1)}k` : d.amount}
+                    </span>
+                  ) : (
+                    <span className="rm-bar-val-empty">-</span>
                   )}
                   <div
-                    className="rm-bar-fill"
+                    className={`rm-bar-fill ${d.amount === 0 ? "empty" : ""}`}
                     style={{ height: `${heightPct}%` }}
                     title={`${d.label}: ₹${d.amount} (${d.ordersCount} orders)`}
                   />
@@ -634,8 +693,8 @@ export default function ReportsManagement() {
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: "14px", fontSize: "12px", color: "#64748B" }}>
-            <span>Total Trend Turnover: <strong>₹{totalVerifiedSales.toLocaleString("en-IN")}</strong></span>
-            <span>AOV: <strong>₹{completedOrders.length > 0 ? Math.round(totalVerifiedSales / completedOrders.length) : 0}</strong></span>
+            <span>Total Sales: <strong>₹{totalVerifiedSales.toLocaleString("en-IN")}</strong></span>
+            <span>Average Order: <strong>₹{completedOrders.length > 0 ? Math.round(totalVerifiedSales / completedOrders.length).toLocaleString("en-IN") : 0}</strong></span>
           </div>
         </div>
 
@@ -650,32 +709,38 @@ export default function ReportsManagement() {
 
           {/* Category Progress Bars */}
           <div className="rm-progress-list">
-            {categorySalesList.slice(0, 4).map((cat) => {
-              const pct = totalVerifiedSales > 0 ? Math.round((cat.revenue / totalVerifiedSales) * 100) : 0;
-              return (
-                <div key={cat.category} className="rm-progress-item">
-                  <div className="rm-progress-meta">
-                    <span style={{ color: "#0F172A" }}>{cat.category}</span>
-                    <span style={{ color: "#2563EB" }}>₹{cat.revenue.toLocaleString("en-IN")} ({pct}%)</span>
+            {activeCategorySales.length === 0 ? (
+              <div style={{ padding: "24px", textAlign: "center", color: "#64748B", fontSize: "13px" }}>
+                No department sales in this period.
+              </div>
+            ) : (
+              activeCategorySales.slice(0, 5).map((cat) => {
+                const pct = totalVerifiedSales > 0 ? Math.round((cat.revenue / totalVerifiedSales) * 100) : 0;
+                return (
+                  <div key={cat.category} className="rm-progress-item">
+                    <div className="rm-progress-meta">
+                      <span style={{ color: "#0F172A", fontWeight: 600 }}>{cat.category}</span>
+                      <span style={{ color: "#2563EB", fontWeight: 700 }}>₹{cat.revenue.toLocaleString("en-IN")} ({pct}%)</span>
+                    </div>
+                    <div className="rm-progress-track">
+                      <div
+                        className="rm-progress-bar"
+                        style={{
+                          width: `${pct}%`,
+                          background: "linear-gradient(90deg, #3B82F6 0%, #1D4ED8 100%)",
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="rm-progress-track">
-                    <div
-                      className="rm-progress-bar"
-                      style={{
-                        width: `${pct}%`,
-                        background: "linear-gradient(90deg, #3B82F6 0%, #1D4ED8 100%)",
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
           {/* Payment Method Distribution Strip */}
           <div style={{ marginTop: "18px", paddingTop: "14px", borderTop: "1px dashed #E2E8F0" }}>
             <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-              Settlement Methods (Verified Paid)
+              Payment Methods
             </span>
             <div style={{ display: "flex", gap: "8px" }}>
               {paymentMethodStats.map((pm) => (
@@ -692,7 +757,7 @@ export default function ReportsManagement() {
                 >
                   <span style={{ fontSize: "11px", color: "#64748B", display: "block" }}>{pm.method}</span>
                   <strong style={{ fontSize: "13px", color: "#0F172A" }}>{pm.percentage}%</strong>
-                  <span style={{ fontSize: "10.5px", color: "#2563EB", display: "block" }}>₹{pm.amount}</span>
+                  <span style={{ fontSize: "10.5px", color: "#2563EB", display: "block" }}>₹{pm.amount.toLocaleString("en-IN")}</span>
                 </div>
               ))}
             </div>
@@ -701,7 +766,7 @@ export default function ReportsManagement() {
       </section>
 
       {/* ========================================================================= */}
-      {/* 5. REPORT CATEGORY DETAILS & DATA TABLES (SPEC REQUIREMENT #2)             */}
+      {/* 5. REPORT CATEGORY DETAILS & DATA TABLES                                  */}
       {/* ========================================================================= */}
 
       {/* ------------------------------------------------------------------------- */}
@@ -715,7 +780,7 @@ export default function ReportsManagement() {
                 <TrendingUp size={18} color="#FFFFFF" />
               </div>
               <h3 className="pm-catalog-heading">
-                Sales Reports Ledger ({completedOrders.length} Completed Transactions)
+                Sales Reports ({completedOrders.length} Completed Orders)
               </h3>
             </div>
           </div>
@@ -724,21 +789,21 @@ export default function ReportsManagement() {
             <table className="pm-products-table">
               <thead>
                 <tr>
-                  <th>ORDER NUMBER</th>
-                  <th>TIMESTAMP</th>
+                  <th>ORDER ID</th>
+                  <th>DATE & TIME</th>
                   <th>CUSTOMER</th>
                   <th>PAYMENT METHOD</th>
-                  <th>GROSS SUBTOTAL</th>
+                  <th>SUBTOTAL</th>
                   <th>DISCOUNT</th>
-                  <th>VERIFIED AMOUNT</th>
-                  <th>SETTLEMENT STATUS</th>
+                  <th>TOTAL AMOUNT</th>
+                  <th>STATUS</th>
                 </tr>
               </thead>
               <tbody>
                 {completedOrders.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ textAlign: "center", padding: "32px", color: "#64748B" }}>
-                      No verified completed sales recorded in this period.
+                      No completed orders recorded in this period.
                     </td>
                   </tr>
                 ) : (
@@ -750,12 +815,12 @@ export default function ReportsManagement() {
                         </span>
                       </td>
                       <td>{new Date(o.createdAt).toLocaleString("en-IN")}</td>
-                      <td><strong>{o.customer?.name || "Guest Shopper"}</strong></td>
+                      <td><strong>{o.customer?.name || "Shopper"}</strong></td>
                       <td><span className="om-method-tag upi">{o.paymentMethod}</span></td>
                       <td>₹{Number(o.subtotalAmount || o.totalAmount).toFixed(2)}</td>
                       <td style={{ color: "#059669" }}>-₹{Number(o.discountAmount || 0).toFixed(2)}</td>
                       <td><span className="pm-price-bold">₹{Number(o.totalAmount).toFixed(2)}</span></td>
-                      <td><span className="om-status-pill completed">✓ Verified Completed</span></td>
+                      <td><span className="om-status-pill completed">Completed</span></td>
                     </tr>
                   ))
                 )}
@@ -778,7 +843,7 @@ export default function ReportsManagement() {
                   <Package size={18} color="#FFFFFF" />
                 </div>
                 <h3 className="pm-catalog-heading">
-                  Best-Selling Products (Ranked by Sales Volume & Revenue)
+                  Best-Selling Products
                 </h3>
               </div>
             </div>
@@ -790,10 +855,10 @@ export default function ReportsManagement() {
                     <th>RANK</th>
                     <th>PRODUCT NAME</th>
                     <th>CATEGORY</th>
-                    <th>SELLING PRICE</th>
+                    <th>PRICE</th>
                     <th style={{ textAlign: "center" }}>UNITS SOLD</th>
                     <th>TOTAL REVENUE</th>
-                    <th>CURRENT SHELF STOCK</th>
+                    <th>CURRENT STOCK</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -816,11 +881,11 @@ export default function ReportsManagement() {
                         <td>₹{Number(p.price).toFixed(2)}</td>
                         <td style={{ textAlign: "center" }}>
                           <span style={{ background: "#EFF6FF", color: "#1D4ED8", padding: "3px 8px", borderRadius: "6px", fontWeight: 800 }}>
-                            {p.unitsSold} units
+                            {p.unitsSold}
                           </span>
                         </td>
                         <td><span className="pm-price-bold">₹{p.revenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></td>
-                        <td><strong>{p.stock} units</strong></td>
+                        <td><strong>{p.stock}</strong></td>
                       </tr>
                     ))
                   )}
@@ -837,7 +902,7 @@ export default function ReportsManagement() {
                   <Clock size={18} color="#FFFFFF" />
                 </div>
                 <h3 className="pm-catalog-heading">
-                  Least-Selling & Slow-Moving SKUs (Stock Optimization)
+                  Slow-Moving Stock
                 </h3>
               </div>
             </div>
@@ -848,11 +913,11 @@ export default function ReportsManagement() {
                   <tr>
                     <th>PRODUCT NAME</th>
                     <th>CATEGORY</th>
-                    <th>SELLING PRICE</th>
+                    <th>PRICE</th>
                     <th style={{ textAlign: "center" }}>UNITS SOLD</th>
-                    <th>REVENUE GENERATED</th>
-                    <th>CURRENT SHELF STOCK</th>
-                    <th>TIED ASSET VALUATION</th>
+                    <th>REVENUE</th>
+                    <th>CURRENT STOCK</th>
+                    <th>STOCK VALUE</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -863,11 +928,11 @@ export default function ReportsManagement() {
                       <td>₹{Number(p.price).toFixed(2)}</td>
                       <td style={{ textAlign: "center" }}>
                         <span style={{ color: p.unitsSold === 0 ? "#DC2626" : "#475569", fontWeight: 700 }}>
-                          {p.unitsSold} units
+                          {p.unitsSold}
                         </span>
                       </td>
                       <td>₹{p.revenue.toFixed(2)}</td>
-                      <td>{p.stock} units</td>
+                      <td>{p.stock}</td>
                       <td><strong>₹{(p.stock * p.price).toFixed(2)}</strong></td>
                     </tr>
                   ))}
@@ -889,12 +954,12 @@ export default function ReportsManagement() {
                 <Boxes size={18} color="#FFFFFF" />
               </div>
               <h3 className="pm-catalog-heading">
-                Supermarket Stock Health & Valuation Audit ({products.length} Registered Products)
+                Inventory Health & Valuation ({products.length} Products)
               </h3>
             </div>
             <div style={{ display: "flex", gap: "10px" }}>
               <span className="inv-valuation-badge">
-                Total Asset Valuation: ₹{totalInventoryValuation.toLocaleString("en-IN")}
+                Total Inventory Value: ₹{totalInventoryValuation.toLocaleString("en-IN")}
               </span>
             </div>
           </div>
@@ -909,7 +974,7 @@ export default function ReportsManagement() {
                   <th>MIN THRESHOLD</th>
                   <th>STOCK STATUS</th>
                   <th>UNIT PRICE</th>
-                  <th>TOTAL VALUATION</th>
+                  <th>TOTAL VALUE</th>
                 </tr>
               </thead>
               <tbody>
@@ -926,15 +991,15 @@ export default function ReportsManagement() {
                         {p.brand && <span style={{ color: "#64748B", fontSize: "11px", display: "block" }}>{p.brand}</span>}
                       </td>
                       <td><span className="pm-category-text">{p.category}</span></td>
-                      <td><strong>{stock} units</strong></td>
-                      <td>{threshold} units</td>
+                      <td><strong>{stock}</strong></td>
+                      <td>{threshold}</td>
                       <td>
                         {isOut ? (
-                          <span className="om-status-pill failed">✕ Out of Stock</span>
+                          <span className="om-status-pill failed">Out of Stock</span>
                         ) : isLow ? (
-                          <span className="om-status-pill pending">▲ Low Stock</span>
+                          <span className="om-status-pill pending">Low Stock</span>
                         ) : (
-                          <span className="om-status-pill completed">✓ In Stock</span>
+                          <span className="om-status-pill completed">In Stock</span>
                         )}
                       </td>
                       <td>₹{Number(p.price || 0).toFixed(2)}</td>
@@ -959,7 +1024,7 @@ export default function ReportsManagement() {
                 <ShoppingBag size={18} color="#FFFFFF" />
               </div>
               <h3 className="pm-catalog-heading">
-                Order Status Audit ({filteredOrders.length} Orders in Period)
+                Order Status History ({filteredOrders.length} Orders)
               </h3>
             </div>
           </div>
@@ -971,15 +1036,15 @@ export default function ReportsManagement() {
               <span className="num" style={{ color: "#16A34A" }}>{completedOrders.length}</span>
             </div>
             <div className="rm-stat-box">
-              <span className="title">Pending Cash/Auth</span>
+              <span className="title">Pending</span>
               <span className="num" style={{ color: "#D97706" }}>{pendingOrders.length}</span>
             </div>
             <div className="rm-stat-box">
-              <span className="title">Approved Orders</span>
+              <span className="title">Approved</span>
               <span className="num" style={{ color: "#4F46E5" }}>{approvedOrders.length}</span>
             </div>
             <div className="rm-stat-box">
-              <span className="title">Cancelled/Failed</span>
+              <span className="title">Failed</span>
               <span className="num" style={{ color: "#DC2626" }}>{failedOrders.length}</span>
             </div>
           </div>
@@ -995,7 +1060,7 @@ export default function ReportsManagement() {
                   <th>AMOUNT</th>
                   <th>PAYMENT METHOD</th>
                   <th>STATUS</th>
-                  <th>GATE EXIT BARCODE</th>
+                  <th>EXIT BARCODE</th>
                 </tr>
               </thead>
               <tbody>
@@ -1007,7 +1072,7 @@ export default function ReportsManagement() {
                       </span>
                     </td>
                     <td>{new Date(o.createdAt).toLocaleString("en-IN")}</td>
-                    <td><strong>{o.customer?.name || "Guest Shopper"}</strong></td>
+                    <td><strong>{o.customer?.name || "Shopper"}</strong></td>
                     <td>{o.totalItems || 1} items</td>
                     <td><span className="pm-price-bold">₹{Number(o.totalAmount).toFixed(2)}</span></td>
                     <td><span className="om-method-tag upi">{o.paymentMethod}</span></td>
@@ -1044,7 +1109,7 @@ export default function ReportsManagement() {
                 <Users size={18} color="#FFFFFF" />
               </div>
               <h3 className="pm-catalog-heading">
-                Customer Purchase Intelligence & Spender Rankings
+                Customer Insights & Rankings
               </h3>
             </div>
           </div>
@@ -1054,12 +1119,12 @@ export default function ReportsManagement() {
               <thead>
                 <tr>
                   <th>CUSTOMER NAME</th>
-                  <th>MOBILE NUMBER</th>
-                  <th style={{ textAlign: "center" }}>TOTAL ORDERS</th>
-                  <th>LIFETIME VERIFIED SPEND</th>
-                  <th>AVERAGE ORDER VALUE</th>
-                  <th>PREFERRED PAYMENT</th>
-                  <th>LATEST VISIT</th>
+                  <th>MOBILE</th>
+                  <th style={{ textAlign: "center" }}>ORDERS</th>
+                  <th>TOTAL SPENT</th>
+                  <th>AVG ORDER</th>
+                  <th>PAYMENT METHOD</th>
+                  <th>LAST VISIT</th>
                 </tr>
               </thead>
               <tbody>

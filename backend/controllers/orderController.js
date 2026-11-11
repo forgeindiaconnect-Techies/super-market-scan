@@ -172,6 +172,19 @@ exports.checkout = async (req, res) => {
       });
     } catch (_) {}
 
+    try {
+      const io = req.app?.get("io");
+      if (io) {
+        io.emit("new-order", {
+          order,
+          title: `New Order: ${order.orderNumber}`,
+          message: `${order.customer?.name || "Shopper"} placed order for ₹${order.totalAmount} (${order.totalItems} items)`,
+          time: "Just now",
+          type: "order",
+        });
+      }
+    } catch (_) {}
+
     return res.status(201).json({
       success: true,
       message: isCashPayment

@@ -1,12 +1,68 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Bell, Search, Menu, ChevronDown, ShoppingCart, Store, Shield, ExternalLink } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import {
+  Bell,
+  Search,
+  Menu,
+  ChevronDown,
+  ShoppingCart,
+  Store,
+  Shield,
+  ExternalLink,
+  AlertTriangle,
+  ShoppingBag,
+  CheckCircle,
+  ArrowRight,
+} from "lucide-react";
+import { io } from "socket.io-client";
 import API from "../services/api";
+import { getPersistentProducts } from "../utils/realtimeStorage";
 
 export default function Header({ onMenuClick }) {
+  const navigate = useNavigate();
   const [backendOnline, setBackendOnline] = useState(true);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Live Real-Time Socket.IO & Inventory Notifications
+  const [notifications, setNotifications] = useState([]);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const notifRef = useRef(null);
+
+  useEffect(() => {
+    const socket = io("http://localhost:5001");
+
+    socket.on("connect", () => {
+      setSocketConnected(true);
+    });
+
+    socket.on("disconnect", () => {
+      setSocketConnected(false);
+    });
+
+    socket.on("new-order", (data) => {
+      setNotifications((prev) => {
+        if (prev.some((item) => item.order?._id === data.order?._id)) {
+          return prev;
+        }
+        return [{ ...data, read: false }, ...prev];
+      });
+    });
+
+    socket.on("admin:notification", (data) => {
+      setNotifications((prev) => {
+        if (data.id && prev.some((item) => item.id === data.id)) {
+          return prev;
+        }
+        return [{ ...data, read: false }, ...prev];
+      });
+    });
+
+    return () => socket.disconnect();
+  }, []);
+
+  const unreadCount = notifications.filter((item) => !item.read).length;
 
   useEffect(() => {
     const checkHealth = () => {
@@ -18,6 +74,82 @@ export default function Header({ onMenuClick }) {
     checkHealth();
     const interval = setInterval(checkHealth, 8000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Load active inventory low-stock alerts
+  useEffect(() => {
+    const loadInventoryAlerts = async () => {
+      try {
+        const res = await API.get("/products");
+        const list =
+          res.data?.success && Array.isArray(res.data.products)
+            ? res.data.products
+            : getPersistentProducts();
+
+        const lowStock = list.filter(
+          (p) => Number(p.stock) <= Number(p.lowStockThreshold || 5)
+        );
+
+        const alerts = lowStock.map((p) => ({
+          id: `low-${p._id || p.barcode}`,
+          title: `Low Stock: ${p.name}`,
+          message: `Only ${p.stock} units remaining (Threshold: ${
+            p.lowStockThreshold || 5
+          }). Click to review inventory.`,
+          type: "warning",
+          link: "/admin/inventory",
+          time: "Active alert",
+          read: false,
+        }));
+
+        setNotifications((prev) => {
+          const socketOrders = prev.filter((n) => !n.id?.startsWith("low-"));
+          const existingIds = new Set(socketOrders.map((n) => n.id));
+          const freshAlerts = alerts.filter((a) => !existingIds.has(a.id));
+          return [...socketOrders, ...freshAlerts];
+        });
+      } catch (_) {
+        const list = getPersistentProducts();
+        const lowStock = list.filter(
+          (p) => Number(p.stock) <= Number(p.lowStockThreshold || 5)
+        );
+        const alerts = lowStock.map((p) => ({
+          id: `low-${p._id || p.barcode}`,
+          title: `Low Stock: ${p.name}`,
+          message: `Only ${p.stock} units remaining (Threshold: ${
+            p.lowStockThreshold || 5
+          }).`,
+          type: "warning",
+          link: "/admin/inventory",
+          time: "Active alert",
+          read: false,
+        }));
+        setNotifications((prev) => {
+          const socketOrders = prev.filter((n) => !n.id?.startsWith("low-"));
+          return [...socketOrders, ...alerts];
+        });
+      }
+    };
+
+    loadInventoryAlerts();
+    const invInterval = setInterval(loadInventoryAlerts, 15000);
+    window.addEventListener("grocerease_storage_updated", loadInventoryAlerts);
+
+    return () => {
+      clearInterval(invInterval);
+      window.removeEventListener("grocerease_storage_updated", loadInventoryAlerts);
+    };
+  }, []);
+
+  // Dismiss dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotificationOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Keyboard shortcut Ctrl+K to focus search
@@ -80,16 +212,102 @@ export default function Header({ onMenuClick }) {
           </span>
         </div>
 
-        {/* Notification Bell matching badge count '1' */}
-        <button
-          type="button"
-          className="header-icon-btn"
-          aria-label="Notifications"
-          onClick={() => alert("1 Inventory Alert: Low stock threshold reached for Apples.")}
-        >
-          <Bell size={16} />
-          <span className="notification-badge-count">1</span>
-        </button>
+        {/* Real-time Order Notifications */}
+        <div className="notification-wrapper" ref={notifRef}>
+          <button
+            type="button"
+            className="header-icon-btn"
+            aria-label="Notifications"
+            aria-expanded={notificationOpen}
+            onClick={() => {
+              setNotificationOpen((prev) => !prev);
+              setNotifications((prev) =>
+                prev.map((item) => ({ ...item, read: true }))
+              );
+            }}
+          >
+            <Bell size={16} />
+            {unreadCount > 0 && (
+              <span className="notification-badge-count">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notificationOpen && (
+            <div className="notification-panel">
+              <div className="notification-panel-header">
+                <div>
+                  <strong>Order Notifications</strong>
+                  <p>New customer purchases</p>
+                </div>
+                <span>{notifications.length} Orders</span>
+              </div>
+
+              <div className="notification-list">
+                {notifications.length === 0 ? (
+                  <div className="notification-empty">
+                    <Bell size={25} />
+                    <strong>No new orders</strong>
+                    <p>Customer orders will appear here.</p>
+                  </div>
+                ) : (
+                  notifications.map((item, idx) => {
+                    const order = item.order || item;
+
+                    return (
+                      <div className="notification-order-item" key={order._id || idx}>
+                        <div className="notification-order-top">
+                          <strong>New Customer Order</strong>
+                          <span>{order.paymentStatus || "Pending"}</span>
+                        </div>
+
+                        <p><strong>Order:</strong> {order.orderNumber || order._id}</p>
+                        <p><strong>Customer:</strong> {order.customer?.name || "Guest Shopper"}</p>
+                        <p><strong>Phone:</strong> {order.customer?.phone || "Not provided"}</p>
+
+                        <div className="notification-products">
+                          {order.items?.map((product, index) => (
+                            <div key={`${product.product || product.name || index}-${index}`}>
+                              {product.name} × {product.quantity}
+                              <span>
+                                ₹{Number(product.subtotal || (product.price * product.quantity) || 0).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <p><strong>Payment:</strong> {order.paymentMethod || "UPI"}</p>
+                        <p>
+                          <strong>Discount:</strong>{" "}
+                          ₹{Number(order.discountAmount || 0).toFixed(2)}
+                        </p>
+
+                        <div className="notification-total">
+                          Total: ₹{Number(order.totalAmount || 0).toFixed(2)}
+                        </div>
+
+                        <small>
+                          {order.createdAt
+                            ? new Date(order.createdAt).toLocaleString()
+                            : "Recently placed"}
+                        </small>
+
+                        <Link
+                          to="/admin/orders"
+                          className="notification-view-order"
+                          onClick={() => setNotificationOpen(false)}
+                        >
+                          View & Approve Order →
+                        </Link>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Compact Admin Profile: Pooja V, Super Admin */}
         <div

@@ -28,6 +28,7 @@ import {
   Tag,
 } from "lucide-react";
 import API from "../../services/api";
+import ErpPageBanner from "../../components/ErpPageBanner";
 import bannerCartImg from "../../assets/banner-cart.png";
 import "./ProductManagement.css";
 
@@ -418,82 +419,14 @@ export default function CustomersManagement() {
   return (
     <div className="grocer-page-container">
       {/* ========================================================================= */}
-      {/* 1. TOP HERO BANNER WITH SHOPPING CART & DYNAMIC CURVED RIBBON             */}
+      {/* 1. TOP HERO BANNER - EXACT MATCH TO REGISTER NEW PRODUCT                  */}
       {/* ========================================================================= */}
-      <section className="pm-hero-section">
-        <div className="pm-hero-left">
-          <h1 className="pm-main-title">Customer Management</h1>
-          <p className="pm-main-subtitle">
-            Registered shopper profiles, verified self-checkout purchase histories & loyalty tiers
-          </p>
-          <div className="pm-title-underline" />
-
-          {/* Action Pills */}
-          <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="action-pill-btn primary"
-              onClick={handleExportCSV}
-              style={{ padding: "8px 16px", fontSize: "12.5px" }}
-            >
-              <Download size={14} />
-              <span>Export Customers CSV ({filteredCustomers.length})</span>
-            </button>
-
-            <button
-              type="button"
-              className="action-pill-btn refresh"
-              onClick={() => fetchData(true)}
-              disabled={loading}
-              style={{ padding: "8px 16px", fontSize: "12.5px" }}
-            >
-              <RefreshCw size={14} className={loading ? "spin" : ""} />
-              <span>{loading ? "Syncing..." : "Sync DB"}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic Curved Ribbon & Fresh Groceries Shopping Cart */}
-        <div className="pm-hero-art">
-          <div className="pm-hero-store-bg" />
-
-          <div className="pm-hero-ribbon-wrap">
-            <svg className="pm-hero-ribbon-svg" viewBox="0 0 640 150" fill="none" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="goldRibbonGradCust" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#F59E0B" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#FDE047" />
-                  <stop offset="50%" stopColor="#FBBF24" />
-                  <stop offset="80%" stopColor="#F59E0B" />
-                  <stop offset="100%" stopColor="#FBBF24" />
-                </linearGradient>
-                <linearGradient id="blueRibbonGradCust" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#1E3A8A" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#1D4ED8" />
-                  <stop offset="50%" stopColor="#2563EB" />
-                  <stop offset="80%" stopColor="#1E40AF" />
-                  <stop offset="100%" stopColor="#1E3A8A" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M 0 115 C 120 75, 220 50, 340 68 C 450 82, 540 60, 640 45 L 640 68 C 540 82, 450 105, 340 92 C 220 75, 120 100, 0 138 Z"
-                fill="url(#blueRibbonGradCust)"
-                opacity="0.95"
-              />
-              <path
-                d="M 0 108 C 120 68, 220 43, 340 61 C 450 75, 540 53, 640 38 L 640 46 C 540 61, 450 83, 340 69 C 220 51, 120 76, 0 116 Z"
-                fill="url(#goldRibbonGradCust)"
-              />
-            </svg>
-          </div>
-
-          <img
-            src={bannerCartImg}
-            alt="Supermarket Shopping Cart with Fresh Groceries"
-            className="pm-hero-cart-img"
-          />
-        </div>
-      </section>
+      <ErpPageBanner
+        title="Customer Management"
+        subtitle="Registered shopper profiles, verified self-checkout purchase histories & loyalty tiers"
+        badges={["Verified Shopper Profiles", "Loyalty Tier Automation", "Self-Checkout Tracking"]}
+        icon={<Users size={22} color="#ffffff" strokeWidth={2.4} />}
+      />
 
       {/* Action Toast Feedback */}
       {actionToast && (
@@ -663,10 +596,55 @@ export default function CustomersManagement() {
             </h3>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-            <span style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <span style={{ fontSize: "12px", color: "#64748B", fontWeight: 600, marginRight: "6px" }}>
               Page {currentPage} of {totalPages}
             </span>
+
+            <button
+              type="button"
+              className="pm-action-btn primary"
+              onClick={handleExportCSV}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "6px 12px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 700,
+                background: "#1D4ED8",
+                color: "#FFFFFF",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <Download size={13} />
+              <span>Export CSV</span>
+            </button>
+
+            <button
+              type="button"
+              className="pm-action-btn"
+              onClick={() => fetchData(true)}
+              disabled={loading}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "6px 12px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 700,
+                background: "#F1F5F9",
+                color: "#1E293B",
+                border: "1px solid #CBD5E1",
+                cursor: "pointer",
+              }}
+            >
+              <RefreshCw size={13} className={loading ? "spin" : ""} />
+              <span>{loading ? "Syncing..." : "Sync Shoppers"}</span>
+            </button>
           </div>
         </div>
 

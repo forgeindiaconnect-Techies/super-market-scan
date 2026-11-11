@@ -6,19 +6,24 @@ export default function ErpPageBanner({
   title = "Management Module",
   subtitle = "Manage your supermarket operations efficiently",
   badges = ["Track Stock", "Monitor Sales", "Keep Store Ready"],
+  icon = null,
 }) {
   return (
     <div className="erp-page-banner">
       <div className="erp-banner-left">
-        <div className="erp-banner-icon-wrap">
-          <img
-            src={blueShoppingBagImg}
-            alt="GrocerEase Bag"
-            className="erp-banner-bag-img"
-            onError={(e) => {
-              e.currentTarget.src = "/blue-shopping-bag-3d.jpg";
-            }}
-          />
+        <div className={`erp-banner-icon-wrap ${icon ? "has-custom-icon" : ""}`}>
+          {icon ? (
+            icon
+          ) : (
+            <img
+              src={blueShoppingBagImg}
+              alt="GrocerEase Bag"
+              className="erp-banner-bag-img"
+              onError={(e) => {
+                e.currentTarget.src = "/blue-shopping-bag-3d.jpg";
+              }}
+            />
+          )}
         </div>
         <div className="erp-banner-title-block">
           <h1 className="erp-banner-title">{title}</h1>

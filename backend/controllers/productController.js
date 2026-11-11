@@ -127,6 +127,21 @@ exports.createProduct = async (req, res) => {
       description: description?.trim() || "",
     });
 
+    try {
+      const io = req.app?.get("io");
+      if (io) {
+        io.emit("admin:notification", {
+          id: "prod-" + Date.now(),
+          type: product.stock <= (product.lowStockThreshold || 5) ? "warning" : "success",
+          title: product.stock <= (product.lowStockThreshold || 5) ? `Low Stock Alert: ${product.name}` : `Product Added: ${product.name}`,
+          message: product.stock <= (product.lowStockThreshold || 5)
+            ? `Stock is down to ${product.stock} units (Threshold: ${product.lowStockThreshold || 5})`
+            : `Added to inventory at ₹${product.price} (${product.stock} units)`,
+          time: "Just now",
+        });
+      }
+    } catch (_) {}
+
     return res.status(201).json({
       success: true,
       message: "Product added successfully",
@@ -448,6 +463,22 @@ exports.updateProductStock = async (req, res) => {
         message: "Product not found",
       });
     }
+
+    try {
+      const io = req.app?.get("io");
+      if (io) {
+        const isLow = product.stock <= (product.lowStockThreshold || 5);
+        io.emit("admin:notification", {
+          id: "stock-" + Date.now(),
+          type: isLow ? "warning" : "info",
+          title: isLow ? `Low Stock Alert: ${product.name}` : `Stock Updated: ${product.name}`,
+          message: isLow
+            ? `Warning: Only ${product.stock} units remaining (Threshold: ${product.lowStockThreshold || 5})`
+            : `Stock set to ${product.stock} units.`,
+          time: "Just now",
+        });
+      }
+    } catch (_) {}
 
     return res.status(200).json({
       success: true,

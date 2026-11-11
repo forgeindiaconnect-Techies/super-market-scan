@@ -22,6 +22,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import bannerCartImg from "../../assets/banner-cart.png";
+import ErpPageBanner from "../../components/ErpPageBanner";
 import "./ProductManagement.css";
 
 const SETTINGS_TABS = [
@@ -109,96 +110,14 @@ export default function SettingsManagement() {
   return (
     <div className="grocer-page-container">
       {/* ========================================================================= */}
-      {/* 1. TOP HERO BANNER WITH SHOPPING CART & DYNAMIC CURVED RIBBON             */}
+      {/* 1. TOP HERO BANNER - EXACT MATCH TO REGISTER NEW PRODUCT                  */}
       {/* ========================================================================= */}
-      <section className="pm-hero-section">
-        <div className="pm-hero-left">
-          <h1 className="pm-main-title">Store & Hardware Settings</h1>
-          <p className="pm-main-subtitle">
-            Configure supermarket branch profile, exit turnstile IoT gates, UPI billing & administrative security
-          </p>
-          <div className="pm-title-underline" />
-
-          {/* Quick Info Badges */}
-          <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "#EFF6FF",
-                border: "1px solid #DBEAFE",
-                color: "#1D4ED8",
-                fontWeight: 700,
-                fontSize: "12px",
-                padding: "6px 14px",
-                borderRadius: "20px",
-              }}
-            >
-              <Store size={14} />
-              <span>Branch: STORE-001 (Active)</span>
-            </div>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "#ECFDF5",
-                border: "1px solid #A7F3D0",
-                color: "#059669",
-                fontWeight: 700,
-                fontSize: "12px",
-                padding: "6px 14px",
-                borderRadius: "20px",
-              }}
-            >
-              <Cpu size={14} />
-              <span>4 Turnstiles Online</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Dynamic Curved Ribbon & Fresh Groceries Shopping Cart */}
-        <div className="pm-hero-art">
-          <div className="pm-hero-store-bg" />
-
-          <div className="pm-hero-ribbon-wrap">
-            <svg className="pm-hero-ribbon-svg" viewBox="0 0 640 150" fill="none" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="goldRibbonGradSettings" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#F59E0B" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#FDE047" />
-                  <stop offset="50%" stopColor="#FBBF24" />
-                  <stop offset="80%" stopColor="#F59E0B" />
-                  <stop offset="100%" stopColor="#FBBF24" />
-                </linearGradient>
-                <linearGradient id="blueRibbonGradSettings" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#1E3A8A" stopOpacity="0" />
-                  <stop offset="15%" stopColor="#1D4ED8" />
-                  <stop offset="50%" stopColor="#2563EB" />
-                  <stop offset="80%" stopColor="#1E40AF" />
-                  <stop offset="100%" stopColor="#1E3A8A" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M 0 115 C 120 75, 220 50, 340 68 C 450 82, 540 60, 640 45 L 640 68 C 540 82, 450 105, 340 92 C 220 75, 120 100, 0 138 Z"
-                fill="url(#blueRibbonGradSettings)"
-                opacity="0.95"
-              />
-              <path
-                d="M 0 108 C 120 68, 220 43, 340 61 C 450 75, 540 53, 640 38 L 640 46 C 540 61, 450 83, 340 69 C 220 51, 120 76, 0 116 Z"
-                fill="url(#goldRibbonGradSettings)"
-              />
-            </svg>
-          </div>
-
-          <img
-            src={bannerCartImg}
-            alt="Supermarket Shopping Cart with Fresh Groceries"
-            className="pm-hero-cart-img"
-          />
-        </div>
-      </section>
+      <ErpPageBanner
+        title="Store & Hardware Settings"
+        subtitle="Configure supermarket branch profile, exit turnstile IoT gates, UPI billing & security"
+        badges={["Branch: STORE-001 (Active)", "4 Turnstiles Online", "Automated IoT Gates"]}
+        icon={<Store size={22} color="#ffffff" strokeWidth={2.4} />}
+      />
 
       {/* Toast Notification */}
       {toastMessage && (

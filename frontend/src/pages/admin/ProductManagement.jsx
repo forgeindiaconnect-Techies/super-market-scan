@@ -20,9 +20,12 @@ import {
   X,
   AlertTriangle,
   Boxes,
+  Download,
 } from "lucide-react";
+import JsBarcode from "jsbarcode";
 import API from "../../services/api";
 import BarcodeSVG from "../../components/BarcodeSVG";
+import ErpPageBanner from "../../components/ErpPageBanner";
 import bannerCartImg from "../../assets/banner-cart.png";
 import {
   getPersistentProducts,
@@ -60,6 +63,11 @@ export default function ProductManagement() {
     totalOrders: 4,
     activeCustomers: 4,
   });
+
+  // Pagination state (6 items per page so 9+ items paginate naturally)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(6);
+  const [viewAll, setViewAll] = useState(false);
 
   // Modals state
   const [viewProduct, setViewProduct] = useState(null);
@@ -150,6 +158,21 @@ export default function ProductManagement() {
       return matchesSearch && matchesCat && matchesStock;
     });
   }, [products, search, categoryFilter, stockFilter]);
+
+  // Reset to page 1 whenever search or filter criteria change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, categoryFilter, stockFilter]);
+
+  // Calculate pagination parameters
+  const effectivePageSize = viewAll ? Math.max(filteredProducts.length, 1) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / effectivePageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * effectivePageSize;
+  const endIndex = Math.min(startIndex + effectivePageSize, filteredProducts.length);
+  const displayedProducts = viewAll
+    ? filteredProducts
+    : filteredProducts.slice(startIndex, endIndex);
 
   // Adjust stock quantity live (+1 or -1) with instant persistence & backend sync
   const handleQuickStock = async (product, change) => {
@@ -243,6 +266,86 @@ export default function ProductManagement() {
     }
   };
 
+  const handleDownloadBarcode = (product) => {
+    const code = String(product.barcode || product._id || "").trim();
+    if (!code) {
+      alert("No barcode available to download for this product.");
+      return;
+    }
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 320;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+      ctx.fillStyle = "#1d4ed8";
+      ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("SMART SUPERMARKET • GROCEREASE", canvas.width / 2, 38);
+
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      const title = product.name || "Product Barcode";
+      ctx.fillText(title.length > 38 ? title.slice(0, 36) + "..." : title, canvas.width / 2, 70);
+
+      ctx.fillStyle = "#64748b";
+      ctx.font = "600 13px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      const sub = `${product.brand ? product.brand + " • " : ""}${product.category || "Grocery"} • Price: ₹${Number(product.price || 0).toFixed(2)}`;
+      ctx.fillText(sub, canvas.width / 2, 94);
+
+      const bcCanvas = document.createElement("canvas");
+      JsBarcode(bcCanvas, code, {
+        format: code.length === 13 && /^\d{13}$/.test(code) ? "EAN13" : "CODE128",
+        width: 2.6,
+        height: 100,
+        displayValue: true,
+        fontSize: 18,
+        font: "monospace",
+        fontOptions: "bold",
+        margin: 8,
+        background: "#ffffff",
+        lineColor: "#0f172a",
+      });
+
+      const startX = (canvas.width - bcCanvas.width) / 2;
+      ctx.drawImage(bcCanvas, Math.max(startX, 15), 115);
+
+      ctx.fillStyle = "#ecfdf5";
+      ctx.fillRect(canvas.width / 2 - 100, 275, 200, 26);
+      ctx.strokeStyle = "#a7f3d0";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(canvas.width / 2 - 100, 275, 200, 26);
+
+      ctx.fillStyle = "#059669";
+      ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+      ctx.fillText(`VERIFIED SCANNABLE: ${code}`, canvas.width / 2, 292);
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const safeName = (product.name || "barcode").replace(/[^a-zA-Z0-9_-]/g, "_");
+        a.download = `Barcode_${safeName}_${code}.png`;
+        a.href = url;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    } catch (err) {
+      console.error("Barcode download error:", err);
+      alert("Could not generate barcode download: " + err.message);
+    }
+  };
+
   // Real-time computed metrics for 4 KPI cards (Never dummy hardcoded values)
   const totalProductsCount = products.length;
 
@@ -265,28 +368,14 @@ export default function ProductManagement() {
   return (
     <div className="grocer-page-container">
       {/* ========================================================================= */}
-      {/* 1. HERO TOP BANNER WITH SHOPPING CART BASKET OVERFLOWING WITH PRODUCE      */}
-      {/* Matching User Attached Reference Image                                    */}
+      {/* 1. HERO TOP BANNER - EXACT MATCH TO REGISTER NEW PRODUCT                  */}
       {/* ========================================================================= */}
-            <section className="pm-hero-section">
-        <div className="pm-hero-left">
-          <div className="pm-hero-bag-icon">
-            <ShoppingCart size={22} color="#FFFFFF" strokeWidth={2.4} />
-          </div>
-          <div className="pm-hero-text-block">
-            <h1 className="pm-main-title">Product Management</h1>
-            <p className="pm-main-subtitle">
-              Manage your supermarket product catalog efficiently
-            </p>
-            <div className="pm-hero-badges-row">
-              <span className="pm-hero-badge"><span className="check">✓</span> Track Stock</span>
-              <span className="pm-hero-badge"><span className="check">✓</span> Monitor Sales</span>
-              <span className="pm-hero-badge"><span className="check">✓</span> Keep Your Store Always Ready</span>
-            </div>
-          </div>
-        </div>
-        <div className="pm-hero-art" />
-      </section>
+      <ErpPageBanner
+        title="Product Management"
+        subtitle="Manage your supermarket product catalog efficiently"
+        badges={["Track Stock", "Monitor Sales", "Keep Store Ready"]}
+        icon={<ShoppingCart size={22} color="#ffffff" strokeWidth={2.4} />}
+      />
 
       {/* ========================================================================= */}
       {/* 2. FOUR KPI STAT CARDS (Total Products, Low Stock, Total Sales, Customers) */}
@@ -472,15 +561,18 @@ export default function ProductManagement() {
 
           <button
             type="button"
-            className="pm-view-all-btn"
+            className={`pm-view-all-btn ${viewAll ? "active" : ""}`}
             onClick={() => {
               setSearch("");
               setCategoryFilter("All Categories");
               setStockFilter("all");
+              setCurrentPage(1);
+              setViewAll((prev) => !prev);
             }}
+            title={viewAll ? "Switch back to paginated view (6/page)" : "View all products and reset filters"}
           >
-            <span>View All Products</span>
-            <ArrowRight size={14} />
+            <span>{viewAll ? "Paginate View (6/page)" : "View All Products"}</span>
+            <ArrowRight size={14} style={{ transform: viewAll ? "rotate(180deg)" : "none", transition: "transform 0.2s ease" }} />
           </button>
         </div>
 
@@ -500,13 +592,20 @@ export default function ProductManagement() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p) => {
-                const threshold = Number(p.lowStockThreshold || 5);
-                const isLow = p.stock > 0 && p.stock <= threshold;
-                const isOut = p.stock === 0;
+              {displayedProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: "center", padding: "40px 20px", color: "#64748B", fontSize: "14px" }}>
+                    No products matched your search or filter criteria.
+                  </td>
+                </tr>
+              ) : (
+                displayedProducts.map((p) => {
+                  const threshold = Number(p.lowStockThreshold || 5);
+                  const isLow = p.stock > 0 && p.stock <= threshold;
+                  const isOut = p.stock === 0;
 
-                return (
-                  <tr key={p._id}>
+                  return (
+                    <tr key={p._id}>
                     {/* 1. Product Details (Thumbnail + Name + Subtitle) */}
                     <td>
                       <div className="pm-cell-details">
@@ -516,6 +615,8 @@ export default function ProductManagement() {
                               src={p.imageUrl}
                               alt={p.name}
                               className="pm-product-img"
+                              referrerPolicy="no-referrer"
+                              crossOrigin="anonymous"
                               onError={(e) => {
                                 e.currentTarget.style.display = "none";
                               }}
@@ -631,7 +732,7 @@ export default function ProductManagement() {
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
@@ -639,34 +740,80 @@ export default function ProductManagement() {
         {/* Pagination Footer */}
         <div className="pm-pagination-bar">
           <span className="pm-pagination-info">
-            Showing 1 - {filteredProducts.length} of {products.length} products
+            {filteredProducts.length === 0
+              ? "0 products found"
+              : viewAll
+              ? `Showing all ${filteredProducts.length} of ${products.length} products`
+              : `Showing ${startIndex + 1} - ${endIndex} of ${filteredProducts.length} products (Page ${validCurrentPage} of ${totalPages})`}
           </span>
 
           <div className="pm-pagination-controls">
             <button
               type="button"
               className="pm-page-chevron"
-              disabled
+              disabled={validCurrentPage <= 1 || viewAll}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               aria-label="Previous page"
+              title="Previous page"
             >
               <ChevronLeft size={16} />
             </button>
 
-            <button type="button" className="pm-page-num active">
-              1
-            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                type="button"
+                className={`pm-page-num ${validCurrentPage === pageNum && !viewAll ? "active" : ""}`}
+                onClick={() => {
+                  setViewAll(false);
+                  setCurrentPage(pageNum);
+                }}
+                title={`Go to page ${pageNum}`}
+              >
+                {pageNum}
+              </button>
+            ))}
 
             <button
               type="button"
               className="pm-page-chevron"
+              disabled={validCurrentPage >= totalPages || viewAll}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               aria-label="Next page"
+              title="Next page"
             >
               <ChevronRight size={16} />
             </button>
 
             <div className="pm-goto-wrap">
               <span>Go to page</span>
-              <div className="pm-goto-box">1</div>
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={validCurrentPage}
+                disabled={viewAll || totalPages <= 1}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                    setViewAll(false);
+                    setCurrentPage(val);
+                  }
+                }}
+                className="pm-goto-box"
+                style={{
+                  width: "42px",
+                  height: "28px",
+                  textAlign: "center",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "6px",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                  color: "#0f172a",
+                  outline: "none",
+                  background: viewAll ? "#f1f5f9" : "#ffffff",
+                }}
+              />
             </div>
           </div>
         </div>
@@ -695,6 +842,8 @@ export default function ProductManagement() {
                   <img
                     src={viewProduct.imageUrl}
                     alt={viewProduct.name}
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
                     style={{ width: 100, height: 100, borderRadius: 12, objectFit: "contain" }}
                   />
                 ) : (
@@ -727,6 +876,28 @@ export default function ProductManagement() {
                 <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: "#2563EB", letterSpacing: 2 }}>
                   {viewProduct.barcode || viewProduct._id}
                 </div>
+                <button
+                  type="button"
+                  style={{
+                    marginTop: "10px",
+                    background: "#F0FDF4",
+                    border: "1px solid #BBF7D0",
+                    color: "#166534",
+                    borderRadius: "8px",
+                    padding: "6px 14px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                  onClick={() => handleDownloadBarcode(viewProduct)}
+                  title="Download barcode image (PNG)"
+                >
+                  <Download size={13} />
+                  <span>Download Barcode PNG</span>
+                </button>
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 20 }}>
