@@ -62,10 +62,18 @@ export default function Header({ onMenuClick }) {
   const [catalogOrders, setCatalogOrders] = useState([]);
   const [catalogCustomers, setCatalogCustomers] = useState([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const notifDropdownRef = useRef(null);
   const profileDropdownRef = useRef(null);
   const searchContainerRef = useRef(null);
+  const mobileSearchInputRef = useRef(null);
+
+  useEffect(() => {
+    if (mobileSearchOpen && mobileSearchInputRef.current) {
+      mobileSearchInputRef.current.focus();
+    }
+  }, [mobileSearchOpen]);
 
   // Preload catalog data when search input is focused or user types
   const loadSearchCatalog = async () => {
@@ -461,6 +469,69 @@ export default function Header({ onMenuClick }) {
           <ShoppingCart size={18} color="#1455D9" />
           <span className="mobile-brand-title">GrocerEase</span>
         </div>
+
+        {/* Mobile Search Open Trigger Button */}
+        <button
+          type="button"
+          className="header-mobile-search-toggle"
+          onClick={() => {
+            if (!catalogLoaded) loadSearchCatalog();
+            setMobileSearchOpen(true);
+            setSearchDropdownOpen(Boolean(searchQuery.trim()));
+          }}
+          aria-label="Open search"
+          title="Search products, orders, customers"
+        >
+          <Search size={16} />
+        </button>
+
+        {/* Full-width Mobile Search Bar (when active) */}
+        {mobileSearchOpen && (
+          <div className="header-mobile-search-bar">
+            <Search size={16} className="search-icon" color="#2563EB" />
+            <input
+              ref={mobileSearchInputRef}
+              type="text"
+              placeholder="Search products, orders, customers..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (e.target.value.trim()) {
+                  if (!catalogLoaded) loadSearchCatalog();
+                  setSearchDropdownOpen(true);
+                } else {
+                  setSearchDropdownOpen(false);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearchSubmit(e);
+                if (e.key === "Escape") setMobileSearchOpen(false);
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="search-clear-btn"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSearchDropdownOpen(false);
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
+            <button
+              type="button"
+              className="mobile-search-close-btn"
+              onClick={() => {
+                setMobileSearchOpen(false);
+                setSearchDropdownOpen(false);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         {/* Interactive Global Search with Live Dropdown */}
         <div ref={searchContainerRef} className="header-search-container">

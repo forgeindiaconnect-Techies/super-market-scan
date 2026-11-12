@@ -606,7 +606,7 @@ export default function BarcodeManagement() {
       </section>
 
       {/* Quick Action Barcode Controls (High-contrast, responsive, no text clipping) */}
-      <div style={{ display: "flex", gap: "10px", marginBottom: "18px", flexWrap: "wrap", alignItems: "center", width: "100%", boxSizing: "border-box" }}>
+      <div className="pm-actions-group" style={{ display: "flex", gap: "10px", marginBottom: "18px", flexWrap: "wrap", alignItems: "center", width: "100%", boxSizing: "border-box" }}>
         <button
           type="button"
           onClick={() => handlePrintLabels(filteredProducts, "Batch Barcode Labels Sheet")}

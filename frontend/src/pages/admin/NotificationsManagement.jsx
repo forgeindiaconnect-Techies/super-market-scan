@@ -977,16 +977,22 @@ export default function NotificationsManagement() {
                       {/* Calculations Foot */}
                       <div className="ledger-calculations">
                         {(() => {
+                          const calculatedItemsSubtotal = activeInspectedItem.items?.reduce(
+                            (sum, item) => sum + Number(item.subtotal || item.price * (item.quantity || 1) || 0),
+                            0
+                          ) || 0;
+                          const total = Number(activeInspectedItem.totalAmount || calculatedItemsSubtotal || 0);
                           const grossSub = Number(
                             activeInspectedItem.subtotalAmount ||
                             activeInspectedItem.order?.subtotalAmount ||
-                            activeInspectedItem.items?.reduce((s, i) => s + (Number(i.originalPrice || i.price || 0) * (i.quantity || 1)), 0) ||
-                            activeInspectedItem.totalAmount || 0
+                            calculatedItemsSubtotal ||
+                            total
                           );
-                          const total = Number(activeInspectedItem.totalAmount || 0);
+                          // Ensure displaySubtotal matches genuine purchased items sum
+                          const displaySubtotal = calculatedItemsSubtotal > 0 ? calculatedItemsSubtotal : grossSub;
                           const discount = Math.max(
                             0,
-                            Number(activeInspectedItem.discountAmount || activeInspectedItem.order?.discountAmount || (grossSub - total))
+                            Number(activeInspectedItem.discountAmount || activeInspectedItem.order?.discountAmount || (displaySubtotal - total))
                           );
                           const taxable = total / 1.05;
                           const gst = total - taxable;
@@ -996,8 +1002,8 @@ export default function NotificationsManagement() {
                           return (
                             <>
                               <div className="calc-row">
-                                <span>Gross Subtotal (MRP Value)</span>
-                                <strong style={{ color: "#0F172A" }}>₹{grossSub.toFixed(2)}</strong>
+                                <span>Subtotal</span>
+                                <strong style={{ color: "#0F172A" }}>₹{displaySubtotal.toFixed(2)}</strong>
                               </div>
                               {discount > 0 && (
                                 <div className="calc-row green" style={{ fontWeight: 700, color: "#059669" }}>

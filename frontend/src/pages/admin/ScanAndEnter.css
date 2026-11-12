@@ -957,20 +957,176 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 640px) {
-  .se-action-bar {
-    flex-direction: column;
-    gap: 10px;
-    align-items: stretch;
+@media (max-width: 768px) {
+  .se-container {
+    padding-bottom: 24px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
   }
+
+  .se-hero-section {
+    min-height: auto !important;
+    max-height: none !important;
+    height: auto !important;
+    padding: 12px 14px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    border-radius: 14px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .se-hero-left {
+    max-width: 100% !important;
+    width: 100% !important;
+    gap: 10px !important;
+  }
+
+  .se-hero-art {
+    display: none !important;
+  }
+
+  .se-hero-title {
+    font-size: 16px !important;
+  }
+
+  .se-hero-subtitle {
+    font-size: 11px !important;
+    white-space: normal !important;
+  }
+
+  .se-hero-badges-row {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+
+  .se-hero-badge {
+    font-size: 10px !important;
+    padding: 2px 7px !important;
+  }
+
+  /* 2. Main Grid: Single Column */
+  .se-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .se-card {
+    padding: 14px !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    gap: 14px !important;
+  }
+
+  /* Mode selection button row */
+  .se-mode-btn-row {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  .se-mode-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 8px 4px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+    text-align: center !important;
+  }
+
+  .se-mode-btn svg {
+    display: none !important;
+  }
+
+  /* Barcode input row with camera button */
+  .se-barcode-input-row {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .se-camera-btn-inline {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 9px !important;
+  }
+
+  /* Live Barcode Preview Box */
+  .se-barcode-canvas-wrap {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+    margin: 8px !important;
+  }
+
+  .se-barcode-render {
+    width: 100% !important;
+    overflow-x: auto !important;
+    align-items: center !important;
+  }
+
+  .se-fetched-badge {
+    font-size: 11px !important;
+    padding: 4px 10px !important;
+  }
+
+  /* 2-Column form inside card */
+  .se-row-2col,
+  .se-form-2col {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Action Bar on Mobile */
+  .se-action-bar {
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: stretch !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+  }
+
   .se-action-bar-left,
   .se-action-bar-right {
-    width: 100%;
-    justify-content: stretch;
+    width: 100% !important;
+    justify-content: stretch !important;
+    gap: 8px !important;
   }
+
   .se-action-bar-left .se-btn,
   .se-action-bar-right .se-btn {
-    flex: 1;
-    justify-content: center;
+    flex: 1 !important;
+    justify-content: center !important;
+    padding: 9px 12px !important;
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .se-mode-btn-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .se-mode-btn svg {
+    display: inline-block !important;
+  }
+
+  .se-summary-name {
+    font-size: 13.5px !important;
+  }
+
+  .se-sample-chips-row {
+    gap: 4px !important;
+  }
+
+  .se-sample-chip {
+    font-size: 10.5px !important;
+    padding: 4px 8px !important;
   }
 }
