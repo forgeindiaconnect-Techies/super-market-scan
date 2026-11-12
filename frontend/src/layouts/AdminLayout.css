@@ -1034,11 +1034,11 @@ body,
   justify-content: space-between !important;
   background: linear-gradient(90deg, #93c5fd 0%, #bfdbfe 25%, #dbeafe 52%, #eaf3fc 78%, #eff6ff 100%) !important;
   border-radius: 18px !important;
-  padding: 18px 28px !important;
+  padding: 20px 32px !important;
   position: relative !important;
   overflow: hidden !important;
-  min-height: 136px !important;
-  max-height: 152px !important;
+  min-height: 165px !important;
+  max-height: 185px !important;
   margin-bottom: 16px !important;
   box-shadow: 0 4px 18px rgba(37, 99, 235, 0.12), 0 1px 3px rgba(37, 99, 235, 0.06) !important;
   border: 1px solid #93c5fd !important;
@@ -1157,7 +1157,7 @@ body,
   display: flex !important;
   justify-content: flex-end !important;
   align-items: center !important;
-  padding-right: 36px !important; /* Inset deeply so 'Better Living...' text is 100% visible */
+  padding: 8px 50px 12px 0 !important; /* Inset deeply so 'Better Living...' text is 100% visible */
   box-sizing: border-box !important;
   overflow: hidden !important;
 }
@@ -1445,11 +1445,11 @@ body,
   justify-content: space-between !important;
   background: linear-gradient(90deg, #93c5fd 0%, #bfdbfe 25%, #dbeafe 52%, #eaf3fc 78%, #eff6ff 100%) !important;
   border-radius: 18px !important;
-  padding: 18px 28px !important;
+  padding: 20px 32px !important;
   position: relative !important;
   overflow: hidden !important;
-  min-height: 136px !important;
-  max-height: 152px !important;
+  min-height: 165px !important;
+  max-height: 185px !important;
   margin-bottom: 16px !important;
   box-shadow: 0 4px 18px rgba(37, 99, 235, 0.12), 0 1px 3px rgba(37, 99, 235, 0.06) !important;
   border: 1px solid #93c5fd !important;
@@ -1568,7 +1568,7 @@ body,
   display: flex !important;
   justify-content: flex-end !important;
   align-items: center !important;
-  padding-right: 36px !important; /* Inset deeply so 'Better Living...' text is 100% visible */
+  padding: 8px 50px 12px 0 !important; /* Inset deeply so 'Better Living...' text is 100% visible */
   box-sizing: border-box !important;
   overflow: hidden !important;
 }
@@ -1661,9 +1661,9 @@ body,
   background: linear-gradient(90deg, #93c5fd 0%, #bfdbfe 25%, #dbeafe 52%, #eaf3fc 78%, #eff6ff 100%) !important;
   border: 1px solid #93c5fd !important;
   box-shadow: 0 4px 18px rgba(37, 99, 235, 0.12), 0 1px 3px rgba(37, 99, 235, 0.06) !important;
-  min-height: 136px !important;
-  max-height: 152px !important;
-  padding: 18px 28px !important;
+  min-height: 165px !important;
+  max-height: 185px !important;
+  padding: 20px 32px !important;
 }
 
 .pm-main-title,

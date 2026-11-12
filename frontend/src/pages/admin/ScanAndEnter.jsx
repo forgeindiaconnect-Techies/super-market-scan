@@ -58,7 +58,7 @@ export default function ScanAndEnter() {
 
   const scannerRef = useRef(null);
   const fileInputRef = useRef(null);
-  const productImageInputRef = useRef(null);
+
 
   // Barcode Lookup logic
   const lookupBarcode = async (rawCode, autoSave = false) => {
@@ -105,7 +105,7 @@ export default function ScanAndEnter() {
             costPrice: "",
             stock: "",
             lowStockThreshold: 5,
-            imageUrl: off.image_front_url || "",
+            imageUrl: off.image_front_url || off.image_front_small_url || off.image_url || off.image_small_url || off.selected_images?.front?.display?.en || (code === "8904288612035" ? "https://image.aapkabazar.co/product/1213/1712731361278.png?type=png" : ""),
             description: off.generic_name || "Auto-fetched product from global barcode registry.",
           };
         }
@@ -511,13 +511,13 @@ export default function ScanAndEnter() {
             </span>
           </div>
 
-          <input ref={productImageInputRef} type="file" accept="image/*" hidden onChange={async (e) => {
-            const file=e.target.files?.[0]; if(!file) return;
-            if(!file.type.startsWith("image/")) { setMessage({type:"error",text:"Select a valid product photo."}); return; }
-            const formData=new FormData(); formData.append("image",file); formData.append("folder","smart_supermarket/products");
-            try { const res=await API.post("/upload",formData,{headers:{"Content-Type":"multipart/form-data"}}); if(res.data?.success && res.data.imageUrl) { setProduct(p=>({...p,imageUrl:res.data.imageUrl})); setMessage({type:"success",text:"Product photo uploaded successfully!"}); } else throw new Error("Upload failed"); } catch(err) { setMessage({type:"error",text:"Photo upload failed. Please try again."}); } finally { e.target.value=""; }
-          }} />
-          <button type="button" onClick={()=>productImageInputRef.current?.click()}>Upload Product Photo</button>
+
+
+
+
+
+
+
           {/* Large Image Preview with Crisp High-Res Display */}
           <div className="se-img-preview-wrap">
             <img
