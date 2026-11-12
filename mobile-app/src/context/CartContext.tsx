@@ -27,7 +27,19 @@ export type OrderRecord = {
   paymentMethod: string;
   paymentStatus: string;
   exitBarcode: string;
+  customer?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+  };
   createdAt: string;
+};
+
+export type CustomerInfo = {
+  name: string;
+  phone: string;
+  address?: string;
 };
 
 type CartContextType = {
@@ -43,6 +55,8 @@ type CartContextType = {
   recentOrders: OrderRecord[];
   addRecentOrder: (order: OrderRecord) => void;
   updateRecentOrder: (order: OrderRecord) => void;
+  customerInfo: CustomerInfo | null;
+  setCustomerInfo: (info: CustomerInfo) => void;
 };
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -56,14 +70,16 @@ const notifyAdminCartActivity = (data: {
   action: "added" | "updated" | "removed" | "cleared";
   totalCartItems: number;
   totalCartAmount: number;
+  customerName?: string;
+  customerPhone?: string;
 }) => {
   if (!API_URL) return;
   fetch(`${API_URL}/orders/cart-activity`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      sessionId: "customer-mobile",
-      customerName: "Mobile Shopper",
+      sessionId: data.customerPhone || "customer-mobile",
+      customerName: data.customerName || "Mobile Shopper",
       ...data,
     }),
   }).catch(() => {});
@@ -72,6 +88,7 @@ const notifyAdminCartActivity = (data: {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [recentOrders, setRecentOrders] = useState<OrderRecord[]>([]);
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
 
   const addToCart = (product: any, qty: number = 1): boolean => {
     if (!product || product.stock <= 0) return false;
@@ -80,9 +97,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     let success = true;
     let updatedCart: CartItem[] = [];
 
-    const rawPrice = Number(product.price);
-    const discount = Number(product.discount || 0);
-    const effectivePrice = Math.max(0, rawPrice - discount);
+    const rawPrice = Number(product.price || 0);
+    const rawCostPrice = Number(product.costPrice || 0);
+    const explicitDiscount = Number(product.discount || 0);
+
+    let originalMrp = rawPrice;
+    let finalPrice = rawPrice;
+    let discountAmount = explicitDiscount;
+
+    if (rawCostPrice > 0 && rawCostPrice !== rawPrice) {
+      originalMrp = Math.max(rawPrice, rawCostPrice);
+      finalPrice = Math.min(rawPrice, rawCostPrice);
+      discountAmount = Math.max(explicitDiscount, originalMrp - finalPrice);
+    } else if (explicitDiscount > 0) {
+      originalMrp = rawPrice;
+      finalPrice = Math.max(0, rawPrice - explicitDiscount);
+      discountAmount = explicitDiscount;
+    }
+
+    const effectivePrice = finalPrice;
 
     setCart((current) => {
       const existing = current.find((item) => item._id === product._id);
@@ -96,7 +129,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
         updatedCart = current.map((item) =>
           item._id === product._id
-            ? { ...item, quantity: item.quantity + addQty }
+            ? {
+                ...item,
+                quantity: item.quantity + addQty,
+                price: originalMrp,
+                discount: discountAmount,
+                effectivePrice: finalPrice,
+              }
             : item
         );
       } else {
@@ -114,9 +153,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             brand: product.brand || "",
             category: product.category || "",
             barcode: product.barcode || "",
-            price: rawPrice,
-            discount: discount,
-            effectivePrice: effectivePrice,
+            price: originalMrp,
+            discount: discountAmount,
+            effectivePrice: finalPrice,
             stock: Number(product.stock),
             imageUrl: product.imageUrl || "",
             description: product.description || "",
@@ -142,6 +181,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         action: "added",
         totalCartItems: newTotalItems,
         totalCartAmount: newTotalAmount,
+        customerName: customerInfo?.name,
+        customerPhone: customerInfo?.phone,
       });
     }
 
@@ -179,6 +220,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           action: "updated",
           totalCartItems: newTotalItems,
           totalCartAmount: newTotalAmount,
+          customerName: customerInfo?.name,
+          customerPhone: customerInfo?.phone,
         });
       }
 
@@ -206,6 +249,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           action: "removed",
           totalCartItems: newTotalItems,
           totalCartAmount: newTotalAmount,
+          customerName: customerInfo?.name,
+          customerPhone: customerInfo?.phone,
         });
       }
 
@@ -215,6 +260,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => {
     setCart([]);
+    setCustomerInfo(null);
   };
 
   const addRecentOrder = (order: OrderRecord) => {
@@ -256,6 +302,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         recentOrders,
         addRecentOrder,
         updateRecentOrder,
+        customerInfo,
+        setCustomerInfo,
       }}
     >
       {children}
@@ -270,3 +318,4 @@ export function useCart() {
   }
   return context;
 }
+

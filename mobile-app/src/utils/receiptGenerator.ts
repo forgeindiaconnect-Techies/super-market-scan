@@ -1,50 +1,10 @@
 import * as Print from "expo-print";
-import { Alert, Platform } from "react-native";
 import { OrderRecord } from "../context/CartContext";
 
 /**
- * Deterministic offline SVG Barcode Generator
- * Creates authentic optical barcode stripes without external dependencies or network requests
- */
-function generateBarcodeSvg(code: string): string {
-  const cleanCode = String(code || "EXIT-GATE-PASS").trim();
-  const bars: string[] = [];
-  let x = 12;
-
-  // Start Guard Bars
-  bars.push(`<rect x="${x}" y="0" width="2" height="42" fill="#0F172A" />`);
-  x += 3;
-  bars.push(`<rect x="${x}" y="0" width="1" height="42" fill="#0F172A" />`);
-  x += 3;
-
-  for (let i = 0; i < cleanCode.length; i++) {
-    const charCode = cleanCode.charCodeAt(i);
-    const w1 = (charCode % 3) + 1;
-    const s1 = ((charCode >> 1) % 2) + 1;
-    const w2 = ((charCode >> 2) % 3) + 1;
-    const s2 = ((charCode >> 3) % 2) + 2;
-
-    bars.push(`<rect x="${x}" y="0" width="${w1}" height="36" fill="#0F172A" />`);
-    x += w1 + s1;
-    bars.push(`<rect x="${x}" y="0" width="${w2}" height="36" fill="#0F172A" />`);
-    x += w2 + s2;
-  }
-
-  // End Guard Bars
-  bars.push(`<rect x="${x}" y="0" width="2" height="42" fill="#0F172A" />`);
-  x += 3;
-  bars.push(`<rect x="${x}" y="0" width="1" height="42" fill="#0F172A" />`);
-  x += 12;
-
-  return `
-    <svg viewBox="0 0 ${x} 44" width="100%" height="46" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-      ${bars.join("")}
-    </svg>
-  `;
-}
-
-/**
- * Builds an authentic, professional, real-time supermarket tax invoice / cash memo HTML
+ * Builds an authentic, professional, official supermarket tax invoice / cash memo HTML
+ * 100% identical for both Admin and Customer sides.
+ * Contains purely genuine billing, tax, and transaction information without any barcodes.
  */
 export function buildSupermarketReceiptHtml(order: OrderRecord): string {
   const items = Array.isArray(order.items) ? order.items : [];
@@ -62,50 +22,50 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
     hour12: true,
   });
 
-  const orderNum = order.orderNumber || "ORD-" + Date.now().toString().slice(-6);
+  const orderNum = order.orderNumber || (order._id ? `ORD-${order._id.slice(-6)}` : `ORD-${Date.now().toString().slice(-6)}`);
+  const transactionId = (order as any).paymentId || (order as any).transactionId || `TXN-${orderNum.replace(/^ORD-/, "")}`;
   const totalAmount = Number(order.totalAmount || 0);
   const subtotalAmount = Number(order.subtotalAmount ?? totalAmount);
   const discountAmount = Number(order.discountAmount ?? 0);
   const grossAmount = subtotalAmount + discountAmount;
   const payMethod = order.paymentMethod || "UPI";
   const payStatus = order.paymentStatus || "Completed";
-  const exitBarcode = order.exitBarcode || "EXIT-" + Date.now().toString().slice(-8);
+
   const customerName = (order as any).customer?.name || "Customer Shopper";
-  const customerPhone = (order as any).customer?.phone || "";
+  const customerPhone = (order as any).customer?.phone ? String((order as any).customer.phone).replace(/\D/g, "") : "";
+  const customerAddress = (order as any).customer?.address || "";
 
   const totalQty = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-  // Calculate Included GST (approx 5% statutory supermarket rate)
+  // Included GST (Statutory 5% supermarket grocery rate: 2.5% CGST + 2.5% SGST)
   const taxableAmount = totalAmount / 1.05;
   const totalGst = totalAmount - taxableAmount;
   const cgst = totalGst / 2;
   const sgst = totalGst / 2;
 
-  const barcodeSvgHtml = generateBarcodeSvg(exitBarcode);
-
-  // Generate authentic line items
+  // Generate itemized table rows
   const itemsRowsHtml = items
     .map((item, index) => {
       const name = item.name || "Supermarket Item";
       const brand = item.brand ? ` (${item.brand})` : "";
       const qty = item.quantity || 1;
       const rate = Number(item.price || item.effectivePrice || 0);
-      const discount = Number(item.discount || 0);
+      const discount = Number((item as any).discount || 0);
       const mrp = rate + discount;
       const amount = rate * qty;
       const hsn = (item as any).hsn || (item.category === "Groceries" ? "1006" : "2106");
 
       return `
         <tr>
-          <td style="padding: 7px 4px; font-size: 11.5px; text-align: center; color: #475569; vertical-align: top;">${index + 1}</td>
-          <td style="padding: 7px 4px; font-size: 12px; color: #0F172A; font-weight: 600; vertical-align: top;">
+          <td style="padding: 8px 4px; font-size: 11.5px; text-align: center; color: #475569; vertical-align: top; border-bottom: 1px dashed #E2E8F0;">${index + 1}</td>
+          <td style="padding: 8px 4px; font-size: 12px; color: #0F172A; font-weight: 600; vertical-align: top; border-bottom: 1px dashed #E2E8F0;">
             ${name}${brand}
           </td>
-          <td style="padding: 7px 4px; font-size: 11px; text-align: center; color: #64748B; font-family: monospace; vertical-align: top;">${hsn}</td>
-          <td style="padding: 7px 4px; font-size: 12px; text-align: center; color: #0F172A; font-weight: 700; vertical-align: top;">${qty}</td>
-          <td style="padding: 7px 4px; font-size: 11px; text-align: right; color: #94A3B8; text-decoration: ${discount > 0 ? "line-through" : "none"}; vertical-align: top;">₹${mrp.toFixed(2)}</td>
-          <td style="padding: 7px 4px; font-size: 11.5px; text-align: right; color: #334155; vertical-align: top;">₹${rate.toFixed(2)}</td>
-          <td style="padding: 7px 4px; font-size: 12px; text-align: right; color: #0F172A; font-weight: 800; vertical-align: top;">₹${amount.toFixed(2)}</td>
+          <td style="padding: 8px 4px; font-size: 11px; text-align: center; color: #64748B; font-family: monospace; vertical-align: top; border-bottom: 1px dashed #E2E8F0;">${hsn}</td>
+          <td style="padding: 8px 4px; font-size: 12px; text-align: center; color: #0F172A; font-weight: 700; vertical-align: top; border-bottom: 1px dashed #E2E8F0;">${qty}</td>
+          <td style="padding: 8px 4px; font-size: 11px; text-align: right; color: #94A3B8; text-decoration: ${discount > 0 ? "line-through" : "none"}; vertical-align: top; border-bottom: 1px dashed #E2E8F0;">₹${mrp.toFixed(2)}</td>
+          <td style="padding: 8px 4px; font-size: 11.5px; text-align: right; color: #334155; vertical-align: top; border-bottom: 1px dashed #E2E8F0;">₹${rate.toFixed(2)}</td>
+          <td style="padding: 8px 4px; font-size: 12px; text-align: right; color: #0F172A; font-weight: 800; vertical-align: top; border-bottom: 1px dashed #E2E8F0;">₹${amount.toFixed(2)}</td>
         </tr>
       `;
     })
@@ -132,22 +92,29 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Tax Invoice - ${orderNum}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
         <style>
           @page {
             size: 80mm auto;
-            margin: 4mm;
+            margin: 5mm;
           }
           * {
             box-sizing: border-box;
+            font-feature-settings: "zero" 0;
+            font-variant-numeric: normal;
           }
           body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, monospace, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-feature-settings: "zero" 0;
+            font-variant-numeric: normal;
             color: #0F172A;
             background-color: #F8FAFC;
             margin: 0;
             padding: 16px;
             font-size: 12px;
-            line-height: 1.4;
+            line-height: 1.45;
           }
           .receipt-container {
             max-width: 520px;
@@ -188,15 +155,16 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
           .store-legal {
             font-size: 10.5px;
             color: #64748B;
-            font-family: monospace;
+            font-family: 'Inter', sans-serif;
             margin: 0;
           }
           .invoice-banner {
             text-align: center;
-            margin: 10px 0 14px 0;
+            margin: 12px 0 14px 0;
             background: #F1F5F9;
             border-radius: 8px;
-            padding: 6px 10px;
+            padding: 7px 10px;
+            border: 1px solid #E2E8F0;
           }
           .invoice-title {
             font-size: 13.5px;
@@ -212,6 +180,8 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
             gap: 6px 14px;
             margin-bottom: 14px;
             font-size: 11.5px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #CBD5E1;
           }
           .meta-label {
             color: #64748B;
@@ -246,13 +216,13 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
             color: #334155;
             text-transform: uppercase;
             letter-spacing: 0.3px;
-            padding: 6px 4px;
+            padding: 8px 4px;
             border-bottom: 1px dashed #CBD5E1;
           }
           .totals-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
             font-size: 12px;
           }
           .totals-table td {
@@ -265,15 +235,16 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
             padding: 9px 14px;
             text-align: center;
             color: #047857;
-            font-size: 12.5px;
+            font-size: 12px;
             font-weight: 800;
-            margin: 12px 0;
+            margin: 10px 0;
             letter-spacing: 0.3px;
           }
           .grand-total-row {
             border-top: 2px dashed #0F172A;
             border-bottom: 2px dashed #0F172A;
             padding: 8px 0;
+            margin-top: 4px;
           }
           .grand-total-label {
             font-size: 14px;
@@ -281,39 +252,10 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
             color: #0F172A;
           }
           .grand-total-amount {
-            font-size: 18px;
+            font-size: 19px;
             font-weight: 900;
-            color: #1D4ED8;
+            color: #15803D;
             text-align: right;
-          }
-          .gate-pass-box {
-            background: #EFF6FF;
-            border: 1.5px dashed #3B82F6;
-            border-radius: 14px;
-            padding: 16px 14px;
-            text-align: center;
-            margin: 16px 0 14px 0;
-          }
-          .gate-pass-title {
-            font-size: 11px;
-            font-weight: 900;
-            letter-spacing: 1.2px;
-            color: #1E40AF;
-            margin: 0 0 8px 0;
-            text-transform: uppercase;
-          }
-          .barcode-code {
-            font-family: monospace;
-            font-size: 15px;
-            font-weight: 900;
-            letter-spacing: 2px;
-            color: #0F172A;
-            margin: 6px 0 4px 0;
-          }
-          .gate-pass-sub {
-            font-size: 10.5px;
-            color: #475569;
-            margin: 0;
           }
           .receipt-footer {
             text-align: center;
@@ -330,33 +272,46 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
         <div class="receipt-container">
           <!-- Supermarket Header -->
           <div class="header-center">
-            <div class="store-name">🛒 GrocerEase</div>
-            <div class="store-tag">Smart Autonomous Supermarket</div>
+            <div class="store-name">🛒 GROCEREASE SUPERMARKET</div>
+            <div class="store-tag">Smart Autonomous Retail & Self-Checkout System</div>
             <div class="store-address">Store #001 &bull; 100 Feet Road, Indiranagar, Bengaluru, KA 560038</div>
-            <div class="store-legal">GSTIN: 29AAAAA0000A1Z5 | FSSAI Lic: 11223344556677</div>
-            <div class="store-legal">CIN: U52100KA2025PTC123456 | Ph: +91 80 2345 6789</div>
+            <div class="store-legal">GSTIN: 29AABCU9603R1ZM | FSSAI Lic: 11223344556677</div>
+            <div class="store-legal">CIN: U52100KA2025PTC123456 | Support: +91 80 2345 6789</div>
           </div>
 
           <!-- Invoice Title Banner -->
           <div class="invoice-banner">
-            <h2 class="invoice-title">Tax Invoice / Retail Cash Memo</h2>
+            <h2 class="invoice-title">Retail Tax Invoice / Cash Memo</h2>
           </div>
 
           <!-- Transaction & Shopper Metadata -->
           <div class="meta-grid">
+            <div class="meta-label">Customer Name:</div>
+            <div class="meta-value">${customerName}</div>
+
+            ${customerPhone ? `
+            <div class="meta-label">Mobile Number:</div>
+            <div class="meta-value">+91 ${customerPhone}</div>
+            ` : ""}
+
+            ${customerAddress ? `
+            <div class="meta-label">Delivery Address:</div>
+            <div class="meta-value">${customerAddress}</div>
+            ` : ""}
+
             <div class="meta-label">Invoice Number:</div>
-            <div class="meta-value" style="font-family: monospace;">${orderNum}</div>
+            <div class="meta-value">${orderNum}</div>
+
+            <div class="meta-label">Transaction ID:</div>
+            <div class="meta-value">${transactionId}</div>
 
             <div class="meta-label">Date & Time:</div>
             <div class="meta-value">${formattedDate} &bull; ${formattedTime}</div>
 
             <div class="meta-label">Checkout Terminal:</div>
-            <div class="meta-value">Lane #04 (Self-Checkout)</div>
+            <div class="meta-value">Register #01 (Self-Checkout)</div>
 
-            <div class="meta-label">Customer Name:</div>
-            <div class="meta-value">${customerName}${customerPhone ? ` (${customerPhone})` : ""}</div>
-
-            <div class="meta-label">Payment Mode:</div>
+            <div class="meta-label">Payment Method:</div>
             <div class="meta-value">${payMethod === "Cash" ? "Cash at Exit" : payMethod}</div>
 
             <div class="meta-label">Payment Status:</div>
@@ -437,22 +392,10 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
               : ""
           }
 
-          <!-- Turnstile Exit Gate Pass & Optical Barcode -->
-          <div class="gate-pass-box">
-            <div class="gate-pass-title">=== EXIT TURNSTILE GATE PASS ===</div>
-            <div style="background: #FFFFFF; padding: 8px 12px; border-radius: 8px; display: inline-block; width: 88%;">
-              ${barcodeSvgHtml}
-            </div>
-            <div class="barcode-code">${exitBarcode}</div>
-            <p class="gate-pass-sub">
-              Present this optical barcode to Turnstile 1–4 to open the automated exit gate.
-            </p>
-          </div>
-
           <!-- Legal Terms & Footer -->
           <div class="receipt-footer">
             Goods once sold can be returned within 7 days with original tax invoice.<br/>
-            Go Green: Thank you for shopping with Paperless Autonomous Self-Checkout!<br/>
+            Paperless Autonomous Self-Checkout System &bull; Computer Generated Tax Invoice<br/>
             <strong>*** THANK YOU FOR SHOPPING AT GROCEREASE! PLEASE VISIT AGAIN ***</strong>
           </div>
         </div>
@@ -462,18 +405,12 @@ export function buildSupermarketReceiptHtml(order: OrderRecord): string {
 }
 
 /**
- * Generates and opens the real-time supermarket receipt.
- * Uses native Print.printAsync which opens the visual document preview directly on screen
- * and allows the user to view it and tap "Save as PDF" with zero FileProvider/ExpoSharing crashes.
+ * Generates and opens the genuine supermarket receipt using the native Print/PDF spooler.
  */
 export async function generateAndShareReceipt(order: OrderRecord): Promise<boolean> {
   if (!order) return false;
   try {
     const htmlContent = buildSupermarketReceiptHtml(order);
-    // Primary action: Open the receipt directly on screen using the native Print & PDF Spooler.
-    // On Android, this opens the system Print/PDF viewer directly with a 1-tap "Save as PDF" button.
-    // On iOS, it opens the AirPrint & PDF viewer with options to save or share.
-    // On Web, it triggers the browser print dialog.
     await Print.printAsync({ html: htmlContent });
     return true;
   } catch (error: any) {

@@ -113,9 +113,16 @@ export default function MyCartScreen() {
                       <Text style={styles.itemName} numberOfLines={2}>
                         {item.name}
                       </Text>
-                      <Text style={styles.itemUnitPrice}>
-                        ₹{item.effectivePrice}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginVertical: 2 }}>
+                        <Text style={styles.itemUnitPrice}>
+                          ₹{Number(item.effectivePrice || 0).toFixed(2)}
+                        </Text>
+                        {Number(item.price || 0) > Number(item.effectivePrice || 0) && (
+                          <Text style={{ fontSize: 12, color: "#94A3B8", textDecorationLine: "line-through", fontWeight: "600" }}>
+                            ₹{Number(item.price || 0).toFixed(2)}
+                          </Text>
+                        )}
+                      </View>
 
                       {/* Stepper Capsule matching Screen 4 */}
                       <View style={styles.stepperContainer}>
@@ -143,7 +150,7 @@ export default function MyCartScreen() {
                     {/* Row Total on Far Right matching Screen 4 */}
                     <View style={styles.itemRight}>
                       <Text style={styles.itemRowTotal}>
-                        ₹{item.effectivePrice * item.quantity}
+                        ₹{Number(item.effectivePrice * item.quantity || 0).toFixed(2)}
                       </Text>
                     </View>
                   </View>
@@ -154,19 +161,19 @@ export default function MyCartScreen() {
               <View style={styles.summaryCard}>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Subtotal</Text>
-                  <Text style={styles.summaryValue}>₹{grossAmount}</Text>
+                  <Text style={styles.summaryValue}>₹{Number(grossAmount || 0).toFixed(2)}</Text>
                 </View>
 
                 {displayDiscount > 0 && (
                   <View style={styles.summaryRow}>
                     <Text style={styles.discountLabel}>Discount</Text>
-                    <Text style={styles.discountValue}>−₹{displayDiscount}</Text>
+                    <Text style={styles.discountValue}>−₹{Number(displayDiscount || 0).toFixed(2)}</Text>
                   </View>
                 )}
 
                 <View style={styles.summaryRowTotal}>
                   <Text style={styles.totalLabel}>Total</Text>
-                  <Text style={styles.totalValue}>₹{displayTotal}</Text>
+                  <Text style={styles.totalValue}>₹{Number(displayTotal || 0).toFixed(2)}</Text>
                 </View>
               </View>
 

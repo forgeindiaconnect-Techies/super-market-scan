@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Users,
   Search,
@@ -26,6 +27,7 @@ import {
   Eye,
   Check,
   Tag,
+  ArrowRight,
 } from "lucide-react";
 import API from "../../services/api";
 import ErpPageBanner from "../../components/ErpPageBanner";
@@ -49,10 +51,18 @@ const TIER_FILTERS = [
 ];
 
 export default function CustomersManagement() {
+  const [searchParams] = useSearchParams();
   const [orders, setOrders] = useState([]);
   const [cartActivities, setCartActivities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
+
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q !== null) {
+      setSearch(q);
+    }
+  }, [searchParams]);
   const [selectedStatus, setSelectedStatus] = useState("All Statuses");
   const [selectedDateFilter, setSelectedDateFilter] = useState("all");
   const [selectedTier, setSelectedTier] = useState("All Membership Tiers");
@@ -60,7 +70,8 @@ export default function CustomersManagement() {
   // Profile modal & pagination
   const [activeCustomer, setActiveCustomer] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
+  const [viewAll, setViewAll] = useState(false);
   const [actionToast, setActionToast] = useState("");
 
   // Customer account status override map persisted in localStorage
@@ -145,6 +156,7 @@ export default function CustomersManagement() {
           name: rawName,
           phone: rawPhone || "Not provided",
           email: rawEmail || "",
+          address: (order.customer?.address || "").trim(),
           registrationDate: new Date(order.createdAt || Date.now()),
           latestOrderDate: new Date(order.createdAt || Date.now()),
           orders: [],
@@ -154,6 +166,10 @@ export default function CustomersManagement() {
           recentCartItems: [],
         };
         customerMap.set(identityKey, customer);
+      } else {
+        if (!customer.address && order.customer?.address) {
+          customer.address = (order.customer.address || "").trim();
+        }
       }
 
       // Update earliest registration date
@@ -326,15 +342,24 @@ export default function CustomersManagement() {
 
   // Pagination Logic
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
   const paginatedCustomers = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
+    if (viewAll) return filteredCustomers;
+    const start = (validCurrentPage - 1) * pageSize;
     return filteredCustomers.slice(start, start + pageSize);
-  }, [filteredCustomers, currentPage, pageSize]);
+  }, [filteredCustomers, validCurrentPage, pageSize, viewAll]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [search, selectedStatus, selectedTier, selectedDateFilter, pageSize]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
   // Toggle Customer Account Status
   const handleToggleCustomerStatus = (customer) => {
@@ -597,9 +622,92 @@ export default function CustomersManagement() {
           </div>
 
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <span style={{ fontSize: "12px", color: "#64748B", fontWeight: 600, marginRight: "6px" }}>
-              Page {currentPage} of {totalPages}
-            </span>
+            {/* Top Interactive Page Navigation Control */}
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "2px",
+                background: "#F8FAFC",
+                border: "1px solid #CBD5E1",
+                borderRadius: "8px",
+                padding: "2px 6px",
+              }}
+            >
+              <button
+                type="button"
+                className="pm-page-chevron"
+                style={{ width: "24px", height: "24px", border: "none", background: "transparent", cursor: validCurrentPage <= 1 || viewAll ? "not-allowed" : "pointer" }}
+                disabled={validCurrentPage <= 1 || viewAll}
+                onClick={() => {
+                  setViewAll(false);
+                  setCurrentPage((p) => Math.max(1, p - 1));
+                }}
+                title="Previous Page"
+              >
+                <ChevronLeft size={14} />
+              </button>
+
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: "#334155",
+                  fontWeight: 700,
+                  padding: "0 6px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {viewAll ? `All (${filteredCustomers.length})` : `Page ${validCurrentPage} of ${totalPages}`}
+              </span>
+
+              <button
+                type="button"
+                className="pm-page-chevron"
+                style={{ width: "24px", height: "24px", border: "none", background: "transparent", cursor: validCurrentPage >= totalPages || viewAll ? "not-allowed" : "pointer" }}
+                disabled={validCurrentPage >= totalPages || viewAll}
+                onClick={() => {
+                  setViewAll(false);
+                  setCurrentPage((p) => Math.min(totalPages, p + 1));
+                }}
+                title="Next Page"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+
+            {/* View All / Paginate View Toggle Button */}
+            <button
+              type="button"
+              className={`pm-view-all-btn ${viewAll ? "active" : ""}`}
+              onClick={() => {
+                setCurrentPage(1);
+                setViewAll((prev) => !prev);
+              }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "6px 12px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 700,
+                border: "1px solid #CBD5E1",
+                background: viewAll ? "#2563EB" : "#FFFFFF",
+                color: viewAll ? "#FFFFFF" : "#334155",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+              title={viewAll ? "Switch back to paginated view" : "View all customers on a single page"}
+            >
+              <span>{viewAll ? `Paginate (${pageSize}/p)` : "View All"}</span>
+              <ArrowRight
+                size={13}
+                style={{
+                  transform: viewAll ? "rotate(180deg)" : "none",
+                  transition: "transform 0.2s ease",
+                }}
+              />
+            </button>
 
             <button
               type="button"
@@ -621,29 +729,6 @@ export default function CustomersManagement() {
             >
               <Download size={13} />
               <span>Export CSV</span>
-            </button>
-
-            <button
-              type="button"
-              className="pm-action-btn"
-              onClick={() => fetchData(true)}
-              disabled={loading}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                padding: "6px 12px",
-                borderRadius: "8px",
-                fontSize: "12px",
-                fontWeight: 700,
-                background: "#F1F5F9",
-                color: "#1E293B",
-                border: "1px solid #CBD5E1",
-                cursor: "pointer",
-              }}
-            >
-              <RefreshCw size={13} className={loading ? "spin" : ""} />
-              <span>{loading ? "Syncing..." : "Sync Shoppers"}</span>
             </button>
           </div>
         </div>
@@ -696,10 +781,10 @@ export default function CustomersManagement() {
                             <span className="pm-name-main">{c.name}</span>
                             <span
                               style={{
-                                fontFamily: "monospace",
-                                fontSize: "11px",
+                                fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+                                fontSize: "11.5px",
                                 color: "#1D4ED8",
-                                fontWeight: 700,
+                                fontWeight: 800,
                               }}
                             >
                               {c.id}
@@ -724,6 +809,11 @@ export default function CustomersManagement() {
                             <Phone size={12} color="#64748B" />
                             {c.phone}
                           </span>
+                          {c.address ? (
+                            <span style={{ fontSize: "11px", color: "#64748B" }} title={c.address}>
+                              📍 {c.address}
+                            </span>
+                          ) : null}
                           {c.email ? (
                             <span
                               style={{
@@ -815,15 +905,22 @@ export default function CustomersManagement() {
         {filteredCustomers.length > 0 && (
           <div className="cm-pagination-wrap">
             <div className="cm-pagination-info">
-              Showing {(currentPage - 1) * pageSize + 1} to{" "}
-              {Math.min(currentPage * pageSize, filteredCustomers.length)} of{" "}
-              {filteredCustomers.length} registered customers
+              {viewAll
+                ? `Showing all ${filteredCustomers.length} registered customers`
+                : `Showing ${(validCurrentPage - 1) * pageSize + 1} to ${Math.min(
+                    validCurrentPage * pageSize,
+                    filteredCustomers.length
+                  )} of ${filteredCustomers.length} registered customers (Page ${validCurrentPage} of ${totalPages})`}
             </div>
 
             <div className="cm-pagination-actions">
               <select
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                  setViewAll(false);
+                }}
                 style={{
                   padding: "5px 10px",
                   borderRadius: "8px",
@@ -832,36 +929,103 @@ export default function CustomersManagement() {
                   fontWeight: 600,
                   color: "#334155",
                   background: "#FFFFFF",
+                  cursor: "pointer",
                 }}
               >
+                <option value={5}>5 per page</option>
                 <option value={10}>10 per page</option>
                 <option value={25}>25 per page</option>
                 <option value={50}>50 per page</option>
               </select>
 
+              {/* Prev Button */}
               <button
                 type="button"
                 className="cm-page-btn"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={validCurrentPage <= 1 || viewAll}
+                onClick={() => {
+                  setViewAll(false);
+                  setCurrentPage((p) => Math.max(1, p - 1));
+                }}
+                title="Previous Page"
               >
                 <ChevronLeft size={14} />
                 <span>Prev</span>
               </button>
 
-              <span style={{ fontSize: "12px", fontWeight: 700, color: "#0F172A", padding: "0 6px" }}>
-                {currentPage} / {totalPages}
-              </span>
+              {/* Individual Interactive Page Number Buttons */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  type="button"
+                  className={`pm-page-num ${validCurrentPage === pageNum && !viewAll ? "active" : ""}`}
+                  onClick={() => {
+                    setViewAll(false);
+                    setCurrentPage(pageNum);
+                  }}
+                  title={`Go to page ${pageNum}`}
+                  style={{
+                    cursor: "pointer",
+                    minWidth: "30px",
+                    height: "30px",
+                  }}
+                >
+                  {pageNum}
+                </button>
+              ))}
 
+              {/* Next Button */}
               <button
                 type="button"
                 className="cm-page-btn"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={validCurrentPage >= totalPages || viewAll}
+                onClick={() => {
+                  setViewAll(false);
+                  setCurrentPage((p) => Math.min(totalPages, p + 1));
+                }}
+                title="Next Page"
               >
                 <span>Next</span>
                 <ChevronRight size={14} />
               </button>
+
+              {/* Jump to page */}
+              <div
+                className="pm-goto-wrap"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "12px",
+                  color: "#64748B",
+                  marginLeft: "4px",
+                }}
+              >
+                <span>Go to page</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={validCurrentPage}
+                  disabled={viewAll || totalPages <= 1}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                      setViewAll(false);
+                      setCurrentPage(val);
+                    }
+                  }}
+                  style={{
+                    width: "48px",
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid #CBD5E1",
+                    fontSize: "12px",
+                    textAlign: "center",
+                    fontWeight: 700,
+                  }}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -888,7 +1052,7 @@ export default function CustomersManagement() {
                     {activeCustomer.name}
                   </h3>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px" }}>
-                    <span style={{ fontFamily: "monospace", fontSize: "12px", color: "#1D4ED8", fontWeight: 700 }}>
+                    <span style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontSize: "12px", color: "#1D4ED8", fontWeight: 800 }}>
                       {activeCustomer.id}
                     </span>
                     <span style={{ fontSize: "11px", color: "#64748B" }}>&bull;</span>

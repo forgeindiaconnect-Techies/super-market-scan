@@ -55,8 +55,12 @@ const orderSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["Pending", "Approved", "Completed", "Failed"],
+      enum: ["Pending", "Approved", "Completed", "Failed", "Network Error"],
       default: "Pending",
+    },
+    failureReason: {
+      type: String,
+      default: "",
     },
     approvedAt: {
       type: Date,
@@ -76,6 +80,7 @@ const orderSchema = new mongoose.Schema(
       name: { type: String, default: "Guest Shopper" },
       phone: { type: String, default: "" },
       email: { type: String, default: "" },
+      address: { type: String, default: "" },
     },
     exitBarcode: {
       type: String,

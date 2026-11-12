@@ -43,6 +43,7 @@ export default function ScanAndEnter() {
     category: "Groceries",
     brand: "",
     price: "",
+    discount: 0,
     costPrice: "",
     stock: "",
     lowStockThreshold: 5,
@@ -80,7 +81,7 @@ export default function ScanAndEnter() {
       if (res.data?.success && res.data.product) {
         found = res.data.product;
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // 2. Check local persistent inventory
     if (!found) {
@@ -89,38 +90,26 @@ export default function ScanAndEnter() {
       if (match) found = match;
     }
 
-    // 4. Check Open Food Facts API (Live Global UPC/EAN)
+    // 3. External verified barcode and image lookup
     if (!found) {
       try {
-        const offRes = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`);
-        const offData = await offRes.json();
-        if (offData.status === 1 && offData.product) {
-          const off = offData.product;
-          found = {
-            barcode: code,
-            name: off.product_name || off.generic_name || `Scanned Item (${code})`,
-            brand: off.brands || "Market Goods",
-            category: off.categories_hierarchy?.[0]?.replace(/^en:/, "") || "Groceries",
-            price: "",
-            costPrice: "",
-            stock: "",
-            lowStockThreshold: 5,
-            imageUrl: off.image_front_url || off.image_front_small_url || off.image_url || off.image_small_url || off.selected_images?.front?.display?.en || (code === "8904288612035" ? "https://image.aapkabazar.co/product/1213/1712731361278.png?type=png" : ""),
-            description: off.generic_name || "Auto-fetched product from global barcode registry.",
-          };
+        const ext = await API.get(`/products/external/${encodeURIComponent(code)}`);
+        if (ext.data?.success && ext.data.product?.imageUrl) {
+          found = { ...ext.data.product, price: "", discount: 0, sellingPrice: "", costPrice: "", stock: "", lowStockThreshold: 5, description: "Verified external barcode match." };
         }
-      } catch (_) {}
+      } catch (_) { }
     }
-
     if (!found) { setDetailsFetched(false); setIsLookingUp(false); setMessage({ type: "error", text: "Product not found. Please enter product details and upload its actual image." }); return; }
 
     setProduct({
       name: found.name || "",
       brand: found.brand || "",
       category: found.category || "Beverages",
-      price: Number(found.price) || 0,
+      price: found.price ?? "",
+      discount: Number(found.discount) || 0,
+      sellingPrice: found.price != null ? Number(found.price) - (Number(found.discount) || 0) : "",
       costPrice: Number(found.costPrice) || 0,
-      stock: Number(found.stock) || 0,
+      stock: found.stock ?? "",
       lowStockThreshold: Number(found.lowStockThreshold) || 5,
       imageUrl: found.imageUrl || "",
       description: found.description || "",
@@ -143,7 +132,7 @@ export default function ScanAndEnter() {
     const code = barcodeToSave || activeBarcode;
     const data = productData || product;
 
-    if (!code || !data.name?.trim() || data.price === "" || !Number.isFinite(Number(data.price)) || Number(data.price) <= 0 || data.stock === "" || !Number.isInteger(Number(data.stock)) || Number(data.stock) < 0) {
+    if (!code || !data.name?.trim() || data.price === "" || data.sellingPrice === "" || !Number.isFinite(Number(data.price)) || !Number.isFinite(Number(data.sellingPrice)) || Number(data.price) <= 0 || Number(data.sellingPrice) <= 0 || Number(data.sellingPrice) > Number(data.price) || data.stock === "" || !Number.isInteger(Number(data.stock)) || Number(data.stock) < 0) {
       setMessage({ type: "error", text: "Enter a valid barcode, product name, selling price and whole-number stock before saving." });
       return;
     }
@@ -156,6 +145,7 @@ export default function ScanAndEnter() {
       category: data.category,
       brand: data.brand || "",
       price: Number(data.price),
+      discount: Number(data.price) - Number(data.sellingPrice),
       costPrice: Number(data.costPrice),
       stock: Number(data.stock),
       lowStockThreshold: Number(data.lowStockThreshold) || 5,
@@ -169,11 +159,18 @@ export default function ScanAndEnter() {
 
     // 1. Save to MongoDB Atlas Backend
     try {
-      const res = await API.post("/products", payload);
+      let existingId = null;
+      try {
+        const existingRes = await API.get(`/products/barcode/${encodeURIComponent(code)}`);
+        existingId = existingRes.data?.product?._id || null;
+      } catch (_) { }
+      const res = existingId
+        ? await API.put(`/products/${existingId}`, payload)
+        : await API.post("/products", payload);
       if (res.data?.success || res.status === 201 || res.status === 200) {
         saved = true;
       }
-    } catch (_) {}
+    } catch (_) { }
 
     if (!saved) {
       setIsSaving(false);
@@ -202,7 +199,7 @@ export default function ScanAndEnter() {
         try {
           await scannerRef.current.stop();
           scannerRef.current.clear();
-        } catch (_) {}
+        } catch (_) { }
         scannerRef.current = null;
       }
       setCameraActive(false);
@@ -238,13 +235,13 @@ export default function ScanAndEnter() {
         { facingMode: "environment" },
         { fps: 15, qrbox: { width: 250, height: 160 } },
         (decodedText) => {
-          html5QrCode.stop().catch(() => {});
+          html5QrCode.stop().catch(() => { });
           setCameraActive(false);
           setActiveBarcode(decodedText);
           setBarcodeInput(decodedText);
           lookupBarcode(decodedText, autoRegisterOnScan);
         },
-        () => {}
+        () => { }
       )
       .catch((err) => {
         setCameraActive(false);
@@ -289,7 +286,7 @@ export default function ScanAndEnter() {
   const handleReset = () => {
     setBarcodeInput("");
     setActiveBarcode("");
-    setProduct({ name: "", category: "Groceries", brand: "", price: "", costPrice: "", stock: "", lowStockThreshold: 5, imageUrl: "", description: "" });
+    setProduct({ name: "", category: "Groceries", brand: "", price: "", discount: 0, sellingPrice: "", costPrice: "", stock: "", lowStockThreshold: 5, imageUrl: "", description: "" });
     setDetailsFetched(false);
     setActiveMode("generate");
     setMessage({ type: "", text: "" });
@@ -302,7 +299,7 @@ export default function ScanAndEnter() {
         try {
           scannerRef.current.stop();
           scannerRef.current.clear();
-        } catch (_) {}
+        } catch (_) { }
       }
     };
   }, []);
@@ -558,6 +555,22 @@ export default function ScanAndEnter() {
               )}
             </div>
           </div>
+
+          {/* Editable Store Price and Stock */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: "14px", marginTop: "18px" }}>
+            <div>
+              <label className="se-input-label">MRP (₹)</label>
+              <input type="number" min="0.01" step="0.01" required placeholder="Enter MRP" className="se-text-input" value={product.price} onChange={(e) => setProduct(prev => ({ ...prev, price: e.target.value }))} />
+            </div>
+            <div>
+              <label className="se-input-label">Selling Price (₹)</label>
+              <input type="number" min="0.01" step="0.01" required placeholder="Enter selling price" className="se-text-input" value={product.sellingPrice ?? ""} onChange={(e) => setProduct(prev => ({ ...prev, sellingPrice: e.target.value }))} />
+            </div>
+            <div>
+              <label className="se-input-label">Available Stock</label>
+              <input type="number" min="0" step="1" required placeholder="Enter stock" className="se-text-input" value={product.stock} onChange={(e) => setProduct(prev => ({ ...prev, stock: e.target.value }))} />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -603,6 +616,15 @@ export default function ScanAndEnter() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
 
 
 

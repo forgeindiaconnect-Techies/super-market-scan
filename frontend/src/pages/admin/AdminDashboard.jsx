@@ -23,6 +23,7 @@ import {
   updatePersistentStock,
   mergeApiWithStorage,
 } from "../../utils/realtimeStorage";
+import { printSupermarketReceipt } from "../../utils/receiptGenerator";
 import "./AdminDashboard.css";
 
 let heroBannerImg = "/dashboard-hero-fresh-cart.jpg";
@@ -104,10 +105,22 @@ export default function AdminDashboard() {
         0
       );
 
+      const customerKeys = loadedOrders
+        .map(
+          (o) =>
+            o.customer?.phone ||
+            o.customer?.name ||
+            o.user?._id ||
+            o.user?.email ||
+            o.shippingAddress?.fullName ||
+            o.customerName
+        )
+        .filter(Boolean);
+
       setStats({
         totalSales: computedSales,
         totalOrders: loadedOrders.length,
-        activeCustomers: loadedOrders.length > 0 ? new Set(loadedOrders.map(o => o.user?._id || o.user?.email || o.shippingAddress?.fullName || o.customerName || o.user)).size : 0,
+        activeCustomers: loadedOrders.length > 0 ? new Set(customerKeys).size : 0,
         catalogProducts: loadedProducts.length,
         lowStockCount: loadedProducts.filter(p => Number(p.stock || p.quantity || 0) < 10).length,
       });
@@ -118,7 +131,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 10000);
+    const interval = setInterval(fetchDashboardData, 4000);
     return () => clearInterval(interval);
   }, []);
 
@@ -156,30 +169,67 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // 100% Real-Time Orders from Database
+  // 100% Real-Time Orders from Database with Customer Name, Mobile Number & Address
   const displayOrders = useMemo(() => {
     if (Array.isArray(orders) && orders.length > 0) {
-      return orders.slice(0, 8).map((ord, idx) => {
+      return orders.slice(0, 10).map((ord, idx) => {
         const orderNum = ord.orderNumber || (ord._id ? String(ord._id).slice(-4).toUpperCase() : String(1001 + idx));
         const items = ord.orderItems || ord.items || [];
         const count = items.reduce((sum, it) => sum + (it.quantity || 1), 0);
-        const name = ord.user?.name || ord.shippingAddress?.fullName || ord.customerName || "Customer";
+        const name = (ord.customer?.name || ord.user?.name || ord.shippingAddress?.fullName || ord.customerName || "Customer").trim();
+        const phone = (ord.customer?.phone || ord.user?.phone || ord.shippingAddress?.phone || ord.customerPhone || "").trim();
+        const address = (ord.customer?.address || ord.shippingAddress?.address || "").trim();
         const dateStr = ord.createdAt
-          ? new Date(ord.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " • " + new Date(ord.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+          ? new Date(ord.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }) + " • " + new Date(ord.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })
           : "Recent";
         return {
           orderId: String(orderNum).replace(/^#/, ""),
           customerName: name,
+          customerPhone: phone,
+          customerAddress: address,
           itemsCount: `${count} item${count !== 1 ? "s" : ""}`,
           amount: Number(ord.totalAmount || ord.totalPrice || 0),
-          payment: ord.paymentMethod === "COD" ? "COD" : "Paid",
-          status: ord.orderStatus || ord.status || "Completed",
+          payment: ord.paymentMethod === "Cash" ? "Cash" : (ord.paymentMethod || "UPI"),
+          status: ord.paymentStatus || ord.orderStatus || ord.status || "Completed",
           date: dateStr,
           items: items,
+          rawOrder: ord,
         };
       });
     }
     return [];
+  }, [orders]);
+
+  // Distinct Registered Customers derived live from real-time customer checkouts & activities
+  const registeredCustomers = useMemo(() => {
+    if (!Array.isArray(orders) || orders.length === 0) return [];
+    const map = new Map();
+    orders.forEach((ord) => {
+      const name = (ord.customer?.name || ord.user?.name || ord.customerName || "").trim();
+      const phone = (ord.customer?.phone || ord.user?.phone || "").trim();
+      const address = (ord.customer?.address || "").trim();
+      const key = phone || name.toLowerCase();
+      if (!key) return;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          name: name || "Registered Shopper",
+          phone: phone,
+          address: address,
+          totalOrders: 1,
+          totalSpent: Number(ord.totalAmount || 0),
+          lastOrderDate: ord.createdAt ? new Date(ord.createdAt) : new Date(),
+          orderNumber: ord.orderNumber || ord._id,
+        });
+      } else {
+        const existing = map.get(key);
+        existing.totalOrders += 1;
+        existing.totalSpent += Number(ord.totalAmount || 0);
+        if (address && !existing.address) existing.address = address;
+        if (name && existing.name === "Registered Shopper") existing.name = name;
+      }
+    });
+    return Array.from(map.values()).slice(0, 6);
   }, [orders]);
 
   return (
@@ -359,7 +409,7 @@ export default function AdminDashboard() {
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Customer</th>
+                    <th>Customer Name & Mobile</th>
                     <th>Items</th>
                     <th>Amount</th>
                     <th>Payment</th>
@@ -371,7 +421,7 @@ export default function AdminDashboard() {
                 <tbody>
                   {displayOrders.length === 0 ? (
                     <tr>
-                      <td colSpan="7" style={{ textAlign: "center", padding: "26px", color: "#64748B", fontWeight: 600 }}>
+                      <td colSpan="8" style={{ textAlign: "center", padding: "26px", color: "#64748B", fontWeight: 600 }}>
                         No orders recorded yet. Real-time orders will display here automatically.
                       </td>
                     </tr>
@@ -389,7 +439,23 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td>
-                          <span className="db-customer-name" style={{ fontWeight: 600, color: "#14213D" }}>{ord.customerName}</span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                            <span className="db-customer-name" style={{ fontWeight: 700, color: "#14213D", fontSize: "13px" }}>
+                              👤 {ord.customerName}
+                            </span>
+                            {ord.customerPhone ? (
+                              <span style={{ fontSize: "11px", color: "#2563EB", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                                📱 +91 {ord.customerPhone}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: "10.5px", color: "#94A3B8" }}>No mobile</span>
+                            )}
+                            {ord.customerAddress ? (
+                              <span style={{ fontSize: "10px", color: "#64748B" }} title={ord.customerAddress}>
+                                📍 {ord.customerAddress}
+                              </span>
+                            ) : null}
+                          </div>
                         </td>
                         <td>
                           <span>{ord.itemsCount}</span>
@@ -685,6 +751,99 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+
+          {/* Card 4: Registered Customers (Live Mobile & Web Shoppers) */}
+          <div className="db-card">
+            <div className="db-card-header" style={{ marginBottom: "12px" }}>
+              <div className="db-card-title-group">
+                <div className="db-card-icon-pill green">
+                  <Users size={18} color="#FFFFFF" strokeWidth={2.4} />
+                </div>
+                <div>
+                  <h3 className="db-card-title">Registered Customers</h3>
+                  <p className="db-card-subtitle">Live shopper names & mobile numbers</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="db-card-link"
+                onClick={() => navigate("/admin/customers")}
+              >
+                <span>Directory ({registeredCustomers.length})</span>
+                <ChevronRight size={13} />
+              </button>
+            </div>
+
+            {registeredCustomers.length === 0 ? (
+              <div style={{ padding: "16px", background: "#F8FAFC", borderRadius: "10px", textAlign: "center", color: "#64748B", fontSize: "12px" }}>
+                No registered customers yet. Customer names & mobile numbers entered on checkout will appear here instantly.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {registeredCustomers.map((cust, idx) => (
+                  <div
+                    key={cust.phone || cust.name || idx}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      background: "#F8FAFC",
+                      borderRadius: "10px",
+                      border: "1px solid #E2E8F0",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <div
+                        style={{
+                          width: "36px",
+                          height: "36px",
+                          borderRadius: "18px",
+                          background: "#EFF6FF",
+                          color: "#1D4ED8",
+                          fontWeight: 800,
+                          fontSize: "13px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "1px solid #BFDBFE",
+                        }}
+                      >
+                        {cust.name ? cust.name.charAt(0).toUpperCase() : "C"}
+                      </div>
+                      <div>
+                        <span style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A", display: "block" }}>
+                          {cust.name}
+                        </span>
+                        {cust.phone ? (
+                          <span style={{ fontSize: "11.5px", color: "#2563EB", fontWeight: 700, display: "flex", alignItems: "center", gap: "3px" }}>
+                            📱 +91 {cust.phone}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: "11px", color: "#94A3B8" }}>No mobile</span>
+                        )}
+                        {cust.address ? (
+                          <span style={{ fontSize: "10px", color: "#64748B", display: "block", marginTop: "1px" }} title={cust.address}>
+                            📍 {cust.address}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 800, color: "#0F172A", display: "block" }}>
+                        ₹{Number(cust.totalSpent).toFixed(2)}
+                      </span>
+                      <span style={{ fontSize: "10.5px", color: "#059669", fontWeight: 700 }}>
+                        {cust.totalOrders} {cust.totalOrders === 1 ? "order" : "orders"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -843,11 +1002,21 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <span style={{ fontSize: "10px", fontWeight: "700", color: "#64748B", textTransform: "uppercase" }}>
-                    CUSTOMER
+                    CUSTOMER & CONTACT
                   </span>
-                  <span style={{ fontSize: "12px", fontWeight: "700", color: "#1E293B", display: "block", marginTop: "2px" }}>
-                    {selectedOrder.customerName}
+                  <span style={{ fontSize: "13px", fontWeight: "800", color: "#0F172A", display: "block", marginTop: "2px" }}>
+                    👤 {selectedOrder.customerName}
                   </span>
+                  {selectedOrder.customerPhone ? (
+                    <span style={{ fontSize: "11.5px", fontWeight: "700", color: "#1D4ED8", display: "block", marginTop: "2px" }}>
+                      📱 +91 {selectedOrder.customerPhone}
+                    </span>
+                  ) : null}
+                  {selectedOrder.customerAddress ? (
+                    <span style={{ fontSize: "11px", color: "#64748B", display: "block", marginTop: "2px" }}>
+                      📍 {selectedOrder.customerAddress}
+                    </span>
+                  ) : null}
                 </div>
                 <div>
                   <span style={{ fontSize: "10px", fontWeight: "700", color: "#64748B", textTransform: "uppercase" }}>
@@ -988,7 +1157,7 @@ export default function AdminDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => printSupermarketReceipt(selectedOrder.rawOrder || selectedOrder)}
                 style={{
                   background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)",
                   border: "none",

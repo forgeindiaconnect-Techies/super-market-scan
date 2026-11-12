@@ -11,6 +11,7 @@ import OrdersManagement from "./pages/admin/OrdersManagement";
 import CustomersManagement from "./pages/admin/CustomersManagement";
 import ReportsManagement from "./pages/admin/ReportsManagement";
 import SettingsManagement from "./pages/admin/SettingsManagement";
+import NotificationsManagement from "./pages/admin/NotificationsManagement";
 import CustomerLayout from "./layouts/CustomerLayout";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
 
@@ -32,6 +33,7 @@ function App() {
           <Route path="customers" element={<CustomersManagement />} />
           <Route path="reports" element={<ReportsManagement />} />
           <Route path="analytics" element={<ReportsManagement />} />
+          <Route path="notifications" element={<NotificationsManagement />} />
           <Route path="settings" element={<SettingsManagement />} />
         </Route>
 

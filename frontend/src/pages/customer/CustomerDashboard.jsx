@@ -5,6 +5,7 @@ import {
   Trash2, X, Camera, LoaderCircle
 } from "lucide-react";
 import API from "../../services/api";
+import { printSupermarketReceipt } from "../../utils/receiptGenerator";
 
 export default function CustomerDashboard() {
   const [products, setProducts] = useState([]);
@@ -62,6 +63,16 @@ export default function CustomerDashboard() {
 
       return [...current, { ...product, quantity: 1 }];
     });
+
+    const shopperName = customerName?.trim() || localStorage.getItem("grocerease_customer_name") || "Mobile Shopper";
+    API.post("/orders/cart-activity", {
+      customerName: shopperName,
+      productName: product.name,
+      productId: product._id,
+      quantity: 1,
+      price: product.price,
+      action: "added",
+    }).catch(() => {});
 
     setError("");
   };
@@ -190,8 +201,13 @@ export default function CustomerDashboard() {
   );
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [customerName, setCustomerName] = useState("Aarav Sharma");
-  const [customerPhone, setCustomerPhone] = useState("+91 98765 43210");
+  const [customerName, setCustomerName] = useState(() => {
+    return localStorage.getItem("grocerease_customer_name") || "";
+  });
+  const [customerPhone, setCustomerPhone] = useState(() => {
+    return localStorage.getItem("grocerease_customer_phone") || "";
+  });
+  const [customerAddress, setCustomerAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("UPI");
   const [placingOrder, setPlacingOrder] = useState(false);
   const [completedOrder, setCompletedOrder] = useState(null);
@@ -199,6 +215,13 @@ export default function CustomerDashboard() {
   const handleCheckout = async (e) => {
     e.preventDefault();
     if (cart.length === 0) return;
+
+    if (customerName.trim()) {
+      localStorage.setItem("grocerease_customer_name", customerName.trim());
+    }
+    if (customerPhone.trim()) {
+      localStorage.setItem("grocerease_customer_phone", customerPhone.trim());
+    }
 
     setPlacingOrder(true);
     setError("");
@@ -219,6 +242,7 @@ export default function CustomerDashboard() {
         customer: {
           name: customerName.trim() || "Guest Shopper",
           phone: customerPhone.trim() || "+91 98765 00000",
+          address: customerAddress.trim() || "",
           email: `${(customerName || "guest").toLowerCase().replace(/\s+/g, "")}@customer.com`,
         },
       });
@@ -476,12 +500,30 @@ export default function CustomerDashboard() {
               </label>
 
               <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
-                Phone Number
+                Phone Number (Mandatory)
                 <input
                   type="text"
                   required
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    marginTop: 4,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </label>
+
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
+                Delivery / Billing Address <span style={{ color: "#64748b", fontWeight: 400 }}>(Optional)</span>
+                <input
+                  type="text"
+                  placeholder="Street, Area, Landmark (optional)"
+                  value={customerAddress}
+                  onChange={(e) => setCustomerAddress(e.target.value)}
                   style={{
                     width: "100%",
                     padding: "9px 12px",
@@ -622,31 +664,50 @@ export default function CustomerDashboard() {
                 marginBottom: 16,
               }}
             >
-              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Gate Pass Exit Barcode:</div>
-              <strong style={{ fontSize: 16, letterSpacing: 2, color: "#0f172a" }}>
-                {completedOrder.exitBarcode}
+              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>Transaction ID:</div>
+              <strong style={{ fontSize: 14.5, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 800, color: "#0f172a", letterSpacing: "0.3px" }}>
+                {completedOrder.paymentId || completedOrder.transactionId || `TXN-${(completedOrder.orderNumber || "").replace(/^ORD-/, "")}`}
               </strong>
               <div style={{ marginTop: 8, fontSize: 12, color: "#2563eb", fontWeight: 700 }}>
                 Status: {completedOrder.paymentStatus} ({completedOrder.paymentMethod})
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setCompletedOrder(null)}
-              style={{
-                width: "100%",
-                padding: "10px 16px",
-                borderRadius: 8,
-                border: "none",
-                background: "#2563eb",
-                color: "#ffffff",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              Continue Shopping
-            </button>
+            <div style={{ display: "flex", gap: "10px", flexDirection: "column" }}>
+              <button
+                type="button"
+                onClick={() => printSupermarketReceipt(completedOrder)}
+                style={{
+                  width: "100%",
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "1.5px solid #2563eb",
+                  background: "#eff6ff",
+                  color: "#1d4ed8",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                📄 Print / Download Official Tax Invoice
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCompletedOrder(null)}
+                style={{
+                  width: "100%",
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#2563eb",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Continue Shopping
+              </button>
+            </div>
           </div>
         </div>
       )}

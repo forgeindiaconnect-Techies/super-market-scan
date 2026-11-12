@@ -34,17 +34,10 @@ export default function ProductDetailsScreen() {
   const [isWishlist, setIsWishlist] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
 
-  // Refresh product details on mount and every time screen receives focus
-  useFocusEffect(
-    useCallback(() => {
-      fetchProduct();
-    }, [productId, barcode])
-  );
-
-  const fetchProduct = async () => {
+  const fetchProduct = async (silent = false) => {
     try {
-      setLoading(true);
-      setError("");
+      if (!silent) setLoading(true);
+      if (!silent) setError("");
 
       if (!API_URL) throw new Error("API URL missing in configuration.");
 
@@ -62,31 +55,60 @@ export default function ProductDetailsScreen() {
 
       if (res.ok && data.success && data.product) {
         setProduct(data.product);
-      } else {
+      } else if (!silent) {
         setProduct(null);
         setError(data.message || "Product not found in store database.");
       }
     } catch (err: any) {
-      setProduct(null);
-      setError(err.message || "Failed to load product details.");
+      if (!silent) {
+        setProduct(null);
+        setError(err.message || "Failed to load product details.");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  const rawPrice = Number(product?.price || 0);
-  const dbDiscount = Number(product?.discount || 0);
+  // Refresh product details on mount and every 3 seconds for live real-time sync with Admin Dashboard
+  useFocusEffect(
+    useCallback(() => {
+      fetchProduct();
+      const interval = setInterval(() => {
+        fetchProduct(true);
+      }, 3000);
+      return () => clearInterval(interval);
+    }, [productId, barcode])
+  );
 
-  // Use ONLY exact real-time data entered in Admin Dashboard
-  const hasDiscount = dbDiscount > 0;
-  const finalPrice = hasDiscount ? Math.max(0, rawPrice - dbDiscount) : rawPrice;
-  const originalMrp = rawPrice;
+  const rawPrice = Number(product?.price || 0);
+  const rawCostPrice = Number(product?.costPrice || 0);
+  const explicitDiscount = Number(product?.discount || 0);
+
+  // Derive dual-pricing from Admin Dashboard (Selling Price & Purchase Price)
+  let originalMrp = rawPrice;
+  let finalPrice = rawPrice;
+  let discountAmount = explicitDiscount;
+
+  if (rawCostPrice > 0 && rawCostPrice !== rawPrice) {
+    // If purchase/cost price is configured in Admin Dashboard:
+    // Higher price is Original MRP, lower price is Discounted Offer Price
+    originalMrp = Math.max(rawPrice, rawCostPrice);
+    finalPrice = Math.min(rawPrice, rawCostPrice);
+    discountAmount = Math.max(explicitDiscount, originalMrp - finalPrice);
+  } else if (explicitDiscount > 0) {
+    originalMrp = rawPrice;
+    finalPrice = Math.max(0, rawPrice - explicitDiscount);
+    discountAmount = explicitDiscount;
+  }
+
+  const hasDiscount = discountAmount > 0 && originalMrp > finalPrice;
   const discountPercent =
     hasDiscount && originalMrp > 0
-      ? Math.round((dbDiscount / originalMrp) * 100)
+      ? Math.round((discountAmount / originalMrp) * 100)
       : 0;
 
   const inStock = (product?.stock || 0) > 0;
+  const itemTotalAmount = finalPrice * quantity;
 
   const handleAddToCart = () => {
     if (!product || !inStock) return;
@@ -201,16 +223,22 @@ export default function ProductDetailsScreen() {
               </Text>
             </View>
 
-            {/* Exact Price matching Super Admin (strikethrough & discount shown ONLY if real discount exists) */}
+            {/* Exact Price matching Super Admin (with real-time quantity total & currency formatting) */}
             <View style={styles.priceRow}>
-              <Text style={styles.finalPrice}>₹{finalPrice}</Text>
+              <Text style={styles.finalPrice}>₹{finalPrice.toFixed(2)}</Text>
               {hasDiscount && (
                 <>
-                  <Text style={styles.originalPrice}>₹{originalMrp}</Text>
+                  <Text style={styles.originalPrice}>₹{originalMrp.toFixed(2)}</Text>
                   <View style={styles.discountBadge}>
-                    <Text style={styles.discountBadgeText}>{discountPercent}% OFF</Text>
+                    <Text style={styles.discountBadgeText}>₹{discountAmount.toFixed(2)} OFF ({discountPercent}%)</Text>
                   </View>
                 </>
+              )}
+              {quantity > 1 && (
+                <View style={styles.itemTotalPill}>
+                  <Text style={styles.itemTotalLabel}>Total: </Text>
+                  <Text style={styles.itemTotalValue}>₹{itemTotalAmount.toFixed(2)}</Text>
+                </View>
               )}
             </View>
 
@@ -284,8 +312,8 @@ export default function ProductDetailsScreen() {
                   {!inStock
                     ? "Out of Stock"
                     : addedSuccess
-                    ? "Added to Cart ✓"
-                    : "Add to Cart"}
+                    ? `Added (${quantity}) to Cart ✓`
+                    : `Add to Cart • ₹${itemTotalAmount.toFixed(2)}`}
                 </Text>
               </TouchableOpacity>
 
@@ -436,7 +464,7 @@ const styles = StyleSheet.create({
   },
   priceRow: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
     gap: 10,
     marginBottom: 12,
   },
@@ -463,6 +491,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.3,
+  },
+  itemTotalPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EEF2FF",
+    borderWidth: 1.5,
+    borderColor: "#C7D2FE",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginLeft: "auto",
+  },
+  itemTotalLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4338CA",
+  },
+  itemTotalValue: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#3730A3",
   },
   description: {
     fontSize: 13.5,
@@ -655,3 +704,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+
+

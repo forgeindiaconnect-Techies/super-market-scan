@@ -390,24 +390,61 @@ exports.updateProduct = async (req, res) => {
     const { id } = req.params;
     let query = null;
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query = { _id: id, isActive: true };
+      query = { _id: id };
     } else {
       const candidates = getBarcodeVariants(id);
-      query = { barcode: { $in: candidates }, isActive: true };
+      query = { barcode: { $in: candidates } };
     }
 
-    const product = await Product.findOneAndUpdate(
+    // Ensure all numeric fields are correctly parsed as numbers
+    if (updates.price !== undefined) updates.price = Number(updates.price);
+    if (updates.costPrice !== undefined) updates.costPrice = Number(updates.costPrice) || 0;
+    if (updates.discount !== undefined) updates.discount = Number(updates.discount) || 0;
+    if (updates.stock !== undefined) updates.stock = Number(updates.stock);
+    if (updates.lowStockThreshold !== undefined) updates.lowStockThreshold = Number(updates.lowStockThreshold) || 5;
+    updates.isActive = true;
+
+    let product = await Product.findOneAndUpdate(
       query,
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true }
     );
 
+    // Fallback: check barcode in request body if not matched by id parameter
+    if (!product && req.body.barcode) {
+      const candidates = getBarcodeVariants(req.body.barcode);
+      product = await Product.findOneAndUpdate(
+        { barcode: { $in: candidates } },
+        { $set: updates },
+        { new: true }
+      );
+    }
+
+    // If product does not exist in MongoDB yet (was only in browser storage), upsert/create it now
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
+      const barcodeToUse = req.body.barcode || (id && !id.startsWith("local_") && !id.startsWith("prod_") ? id : undefined);
+      product = await Product.create({
+        name: updates.name || "Product",
+        category: updates.category || "Groceries",
+        brand: updates.brand || "",
+        barcode: barcodeToUse || undefined,
+        price: updates.price || 10,
+        costPrice: updates.costPrice || 0,
+        discount: updates.discount || 0,
+        stock: updates.stock !== undefined ? updates.stock : 10,
+        lowStockThreshold: updates.lowStockThreshold || 5,
+        imageUrl: updates.imageUrl || "",
+        description: updates.description || "",
+        isActive: true,
       });
     }
+
+    try {
+      const io = req.app?.get("io");
+      if (io) {
+        io.emit("product:updated", { product });
+      }
+    } catch (_) {}
 
     return res.status(200).json({
       success: true,
@@ -445,17 +482,27 @@ exports.updateProductStock = async (req, res) => {
     const { id } = req.params;
     let query = null;
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query = { _id: id, isActive: true };
+      query = { _id: id };
     } else {
       const candidates = getBarcodeVariants(id);
-      query = { barcode: { $in: candidates }, isActive: true };
+      query = { barcode: { $in: candidates } };
     }
 
-    const product = await Product.findOneAndUpdate(
+    let product = await Product.findOneAndUpdate(
       query,
       { $set: { stock } },
-      { new: true, runValidators: true }
+      { new: true }
     );
+
+    // Fallback to barcode in body if not matched by id parameter
+    if (!product && req.body?.barcode) {
+      const candidates = getBarcodeVariants(req.body.barcode);
+      product = await Product.findOneAndUpdate(
+        { barcode: { $in: candidates } },
+        { $set: { stock } },
+        { new: true }
+      );
+    }
 
     if (!product) {
       return res.status(404).json({
@@ -467,6 +514,7 @@ exports.updateProductStock = async (req, res) => {
     try {
       const io = req.app?.get("io");
       if (io) {
+        io.emit("product:updated", { product });
         const isLow = product.stock <= (product.lowStockThreshold || 5);
         io.emit("admin:notification", {
           id: "stock-" + Date.now(),
@@ -506,11 +554,20 @@ exports.deleteProduct = async (req, res) => {
       query = { barcode: { $in: candidates }, isActive: true };
     }
 
-    const product = await Product.findOneAndUpdate(
+    let product = await Product.findOneAndUpdate(
       query,
       { $set: { isActive: false } },
       { new: true }
     );
+
+    if (!product && req.body?.barcode) {
+      const candidates = getBarcodeVariants(req.body.barcode);
+      product = await Product.findOneAndUpdate(
+        { barcode: { $in: candidates } },
+        { $set: { isActive: false } },
+        { new: true }
+      );
+    }
 
     if (!product) {
       return res.status(404).json({
@@ -518,6 +575,13 @@ exports.deleteProduct = async (req, res) => {
         message: "Product not found",
       });
     }
+
+    try {
+      const io = req.app?.get("io");
+      if (io) {
+        io.emit("product:deleted", { id, barcode: req.body?.barcode });
+      }
+    } catch (_) {}
 
     return res.status(200).json({
       success: true,
@@ -528,6 +592,80 @@ exports.deleteProduct = async (req, res) => {
       success: false,
       message: "Failed to delete product",
       error: error.message,
+    });
+  }
+};
+
+// External barcode lookup (does not modify inventory)
+exports.lookupExternalProduct = async (req, res) => {
+  const barcode = String(req.params.barcode || "").replace(/\D/g, "");
+
+  if (!/^\d{8,14}$/.test(barcode)) {
+    return res.status(400).json({ success: false, message: "Invalid barcode" });
+  }
+
+  try {
+    // Source 1: Open Food Facts
+    const offResponse = await fetch(
+      `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+
+    if (offResponse.ok) {
+      const data = await offResponse.json();
+      const p = data.product;
+      const returnedCode = String(p?.code || "").replace(/\D/g, "");
+
+      if (data.status === 1 && p && returnedCode === barcode && (p.image_front_url || p.image_url || p.image_front_small_url || p.image_small_url)) {
+        return res.json({
+          success: true,
+          source: "Open Food Facts",
+          product: {
+            barcode,
+            name: p.product_name || p.generic_name || "",
+            brand: p.brands || "",
+            imageUrl: p.image_front_url || p.image_url || "",
+            category: p.categories || "",
+          },
+        });
+      }
+    }
+
+    // Source 2: UPCitemdb trial
+    const upcResponse = await fetch(
+      `https://api.upcitemdb.com/prod/trial/lookup?upc=${barcode}`,
+      { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) }
+    );
+
+    if (upcResponse.ok) {
+      const data = await upcResponse.json();
+      const item = data.items?.find(p =>
+        [p.ean, p.upc].some(v => String(v || "").replace(/\D/g, "") === barcode)
+      );
+
+      if (item && item.images?.[0]) {
+        return res.json({
+          success: true,
+          source: "UPCitemdb",
+          product: {
+            barcode,
+            name: item.title || "",
+            brand: item.brand || "",
+            imageUrl: item.images?.[0] || "",
+            category: item.category || "",
+          },
+        });
+      }
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "No verified product match found. Please upload the actual product photo.",
+    });
+  } catch (error) {
+    return res.status(502).json({
+      success: false,
+      message: "External barcode lookup temporarily unavailable.",
     });
   }
 };

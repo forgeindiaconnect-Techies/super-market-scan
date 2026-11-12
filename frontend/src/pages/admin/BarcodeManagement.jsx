@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Barcode,
   Printer,
@@ -47,18 +47,20 @@ const CATEGORIES = [
 ];
 
 export default function BarcodeManagement() {
+  const [searchParams] = useSearchParams();
   const [products, setProducts] = useState(getPersistentProducts);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [barcodeFilter, setBarcodeFilter] = useState("all"); // "all", "internal", "manufacturer"
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
 
-  // Tester state
-  const [testerOpen, setTesterOpen] = useState(true);
-  const [testInput, setTestInput] = useState("");
-  const [testResult, setTestResult] = useState(null);
-  const [testing, setTesting] = useState(false);
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q !== null) {
+      setSearch(q);
+    }
+  }, [searchParams]);
 
   // Edit/Regenerate modal
   const [editingBarcodeProduct, setEditingBarcodeProduct] = useState(null);
@@ -142,49 +144,6 @@ export default function BarcodeManagement() {
   const manufacturerCount = useMemo(() => {
     return products.filter((p) => p.barcode && !p.barcode.startsWith("200")).length;
   }, [products]);
-
-  // Test Barcode Lookup
-  const handleTestLookup = async (codeToTest) => {
-    const code = (codeToTest || testInput).trim();
-    if (!code) return;
-
-    setTesting(true);
-    setTestResult(null);
-
-    try {
-      // 1. Direct API Lookup
-      const res = await API.get(`/products/barcode/${code}`);
-      if (res.data?.success && res.data.product) {
-        setTestResult({
-          status: "FOUND",
-          product: res.data.product,
-          code,
-        });
-        return;
-      }
-    } catch (err) {
-      // 2. Fallback check local storage
-      const localMatch = products.find(
-        (p) => String(p.barcode).trim() === code
-      );
-      if (localMatch) {
-        setTestResult({
-          status: "FOUND",
-          product: localMatch,
-          code,
-        });
-        return;
-      }
-    } finally {
-      setTesting(false);
-    }
-
-    setTestResult({
-      status: "NOT_FOUND",
-      code,
-      message: `Product Not Found: No product registered for barcode "${code}"`,
-    });
-  };
 
   // Helper to serialize an actual SVG element with real barcode bars for high-resolution scannable printing
   const generateBarcodeSvgString = (code) => {
@@ -646,174 +605,60 @@ export default function BarcodeManagement() {
         </div>
       </section>
 
-      {/* Quick Action Barcode Controls */}
-      <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap", alignItems: "center" }}>
+      {/* Quick Action Barcode Controls (High-contrast, responsive, no text clipping) */}
+      <div style={{ display: "flex", gap: "10px", marginBottom: "18px", flexWrap: "wrap", alignItems: "center", width: "100%", boxSizing: "border-box" }}>
         <button
           type="button"
-          className="action-pill-btn primary"
           onClick={() => handlePrintLabels(filteredProducts, "Batch Barcode Labels Sheet")}
           disabled={filteredProducts.length === 0}
-          style={{ padding: "8px 16px", fontSize: "12.5px" }}
+          style={{
+            padding: "8px 18px",
+            fontSize: "13px",
+            fontWeight: 700,
+            background: "#2563EB",
+            color: "#ffffff",
+            border: "1px solid #1D4ED8",
+            borderRadius: "9999px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "7px",
+            cursor: filteredProducts.length === 0 ? "not-allowed" : "pointer",
+            boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
+            whiteSpace: "nowrap",
+            boxSizing: "border-box",
+            lineHeight: 1.4,
+          }}
         >
-          <Printer size={14} />
+          <Printer size={15} color="#ffffff" />
           <span>Batch Print Sheet ({filteredProducts.length})</span>
         </button>
+
         <button
           type="button"
-          className="action-pill-btn primary"
           onClick={() => handleBatchDownload(filteredProducts)}
           disabled={filteredProducts.length === 0}
-          style={{ padding: "8px 16px", fontSize: "12.5px", background: "#059669", borderColor: "#059669", color: "#ffffff" }}
+          style={{
+            padding: "8px 18px",
+            fontSize: "13px",
+            fontWeight: 700,
+            background: "#059669",
+            color: "#ffffff",
+            border: "1px solid #047857",
+            borderRadius: "9999px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "7px",
+            cursor: filteredProducts.length === 0 ? "not-allowed" : "pointer",
+            boxShadow: "0 2px 8px rgba(5, 150, 105, 0.25)",
+            whiteSpace: "nowrap",
+            boxSizing: "border-box",
+            lineHeight: 1.4,
+          }}
         >
-          <Download size={14} color="#ffffff" />
+          <Download size={15} color="#ffffff" />
           <span>Download PNG Barcodes ({filteredProducts.length})</span>
         </button>
-        <button
-          type="button"
-          className="action-pill-btn refresh"
-          onClick={() => setTesterOpen(!testerOpen)}
-          style={{ padding: "8px 16px", fontSize: "12.5px" }}
-        >
-          <Barcode size={14} />
-          <span>{testerOpen ? "Hide Tester" : "Test Barcode Lookup"}</span>
-        </button>
-        <button
-          type="button"
-          className="action-pill-btn refresh"
-          onClick={fetchProducts}
-          disabled={loading}
-          style={{ padding: "8px 16px", fontSize: "12.5px" }}
-        >
-          <RefreshCw size={13} className={loading ? "spin" : ""} />
-          <span>{loading ? "Refreshing..." : "Refresh"}</span>
-        </button>
       </div>
-
-      {/* ========================================================================= */}
-      {/* 3. INTERACTIVE LIVE BARCODE LOOKUP TESTER (REQUIREMENT #4)                */}
-      {/* ========================================================================= */}
-      {testerOpen && (
-        <div className="bc-tester-card">
-          <div className="bc-tester-header">
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Barcode size={18} color="#2563EB" />
-              <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 800, color: "#0F172A" }}>
-                Live Barcode Lookup Tester (Mobile Camera Scan Verification)
-              </h3>
-            </div>
-            <span style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>
-              Verify barcode lookup before printing shelf tags
-            </span>
-          </div>
-
-          <div className="bc-tester-input-wrap">
-            <input
-              type="text"
-              className="bc-tester-input"
-              value={testInput}
-              onChange={(e) => setTestInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleTestLookup()}
-              placeholder="Enter or scan barcode (e.g. 87654367, 12356, 1234561)..."
-            />
-            <button
-              type="button"
-              className="action-pill-btn primary"
-              onClick={() => handleTestLookup()}
-              disabled={testing || !testInput.trim()}
-              style={{ padding: "0 20px" }}
-            >
-              {testing ? "Checking..." : "Lookup Product"}
-            </button>
-          </div>
-
-          {/* Test Result Feedback */}
-          {testResult && (
-            <div style={{ marginTop: "14px" }}>
-              {testResult.status === "FOUND" ? (
-                <div
-                  style={{
-                    background: "#F0FDF4",
-                    border: "1px solid #BBF7D0",
-                    borderRadius: "12px",
-                    padding: "12px 16px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    gap: "12px",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <div
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "8px",
-                        background: "#DCFCE7",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#16A34A",
-                        fontSize: "20px",
-                      }}
-                    >
-                      ✓
-                    </div>
-                    <div>
-                      <strong style={{ fontSize: "14px", color: "#0F172A", display: "block" }}>
-                        {testResult.product.name} ({testResult.product.brand || "Smart Grocery"})
-                      </strong>
-                      <span style={{ fontSize: "12px", color: "#166534", fontWeight: 600 }}>
-                        Category: {testResult.product.category} &bull; Price: ₹{Number(testResult.product.price).toFixed(2)} &bull; Available Stock: {testResult.product.stock} units
-                      </span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontSize: "11px", background: "#DCFCE7", color: "#166534", padding: "4px 10px", borderRadius: "12px", fontWeight: 700 }}>
-                      Verified Valid Match
-                    </span>
-                    <button
-                      type="button"
-                      className="bc-icon-btn"
-                      onClick={() => handlePrintLabels([testResult.product], `Label_${testResult.product.name}`)}
-                      title="Print scannable shelf sticker"
-                    >
-                      <Printer size={13} /> Print This
-                    </button>
-                    <button
-                      type="button"
-                      className="bc-icon-btn download"
-                      onClick={() => handleDownloadBarcode(testResult.product)}
-                      title="Download high-resolution barcode image (PNG)"
-                    >
-                      <Download size={13} /> Download
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    background: "#FEF2F2",
-                    border: "1px solid #FECACA",
-                    borderRadius: "12px",
-                    padding: "12px 16px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    color: "#991B1B",
-                    fontSize: "13px",
-                    fontWeight: 700,
-                  }}
-                >
-                  <AlertCircle size={18} color="#DC2626" />
-                  <span>{testResult.message}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* 4. SEARCH, FILTERS & VIEW MODE TOOLBAR                                    */}
@@ -1106,121 +951,159 @@ export default function BarcodeManagement() {
       {/* ========================================================================= */}
       {editingBarcodeProduct && (
         <div className="pm-modal-overlay" onClick={() => setEditingBarcodeProduct(null)}>
-          <div className="pm-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
-            <div className="pm-modal-header">
+          <div className="pm-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px", width: "95%" }}>
+            <div className="pm-modal-header" style={{ padding: "18px 24px" }}>
               <h3 className="pm-modal-title">Edit Barcode: {editingBarcodeProduct.name}</h3>
               <button
                 type="button"
                 className="pm-modal-close"
                 onClick={() => setEditingBarcodeProduct(null)}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveBarcode} className="pm-modal-form">
-              {modalError && (
-                <div
-                  style={{
-                    background: "#FEF2F2",
-                    border: "1px solid #FECACA",
-                    color: "#991B1B",
-                    padding: "10px 14px",
-                    borderRadius: "10px",
-                    fontSize: "12.5px",
-                    fontWeight: 600,
-                    marginBottom: "14px",
-                  }}
-                >
-                  {modalError}
-                </div>
-              )}
-
-              <div style={{ marginBottom: "16px" }}>
-                <label className="pm-form-label">Barcode Number (EAN-13 / Code-128)</label>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <input
-                    type="text"
-                    required
-                    value={barcodeFormValue}
-                    onChange={(e) => setBarcodeFormValue(e.target.value)}
-                    className="pm-form-input"
-                    placeholder="Enter manufacturer barcode or auto-generate..."
-                    style={{ fontFamily: "monospace", fontSize: "14px", fontWeight: 700 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleGenerateFreshBarcode}
-                    disabled={isGenerating}
+            <form onSubmit={handleSaveBarcode}>
+              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px", boxSizing: "border-box" }}>
+                {modalError && (
+                  <div
                     style={{
-                      padding: "0 14px",
-                      background: "#EFF6FF",
-                      color: "#2563EB",
-                      border: "1px solid #BFDBFE",
+                      background: "#FEF2F2",
+                      border: "1px solid #FECACA",
+                      color: "#991B1B",
+                      padding: "10px 14px",
                       borderRadius: "10px",
                       fontSize: "12.5px",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      whiteSpace: "nowrap",
+                      fontWeight: 600,
                     }}
                   >
-                    <Sparkles size={14} />
-                    <span>{isGenerating ? "..." : "Auto EAN"}</span>
-                  </button>
+                    {modalError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="pm-form-label" style={{ marginBottom: "8px", display: "block" }}>
+                    Barcode Number (EAN-13 / Code-128)
+                  </label>
+                  <div style={{ display: "flex", gap: "10px", alignItems: "stretch" }}>
+                    <input
+                      type="text"
+                      required
+                      value={barcodeFormValue}
+                      onChange={(e) => setBarcodeFormValue(e.target.value)}
+                      className="pm-form-input"
+                      placeholder="Enter manufacturer barcode or auto-generate..."
+                      style={{
+                        flex: 1,
+                        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                        fontSize: "14px",
+                        fontWeight: 700,
+                        letterSpacing: "0.5px",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateFreshBarcode}
+                      disabled={isGenerating}
+                      style={{
+                        padding: "0 16px",
+                        background: "#EFF6FF",
+                        color: "#2563EB",
+                        border: "1.5px solid #BFDBFE",
+                        borderRadius: "12px",
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <Sparkles size={14} />
+                      <span>{isGenerating ? "..." : "Auto EAN"}</span>
+                    </button>
+                  </div>
+                  <small style={{ color: "#64748B", fontSize: "11px", marginTop: "6px", display: "block" }}>
+                    Valid EAN-13 prefixed with 200 for internal store distribution.
+                  </small>
                 </div>
-                <small style={{ color: "#64748B", fontSize: "11px", marginTop: "4px", display: "block" }}>
-                  Valid EAN-13 prefixed with 200 for internal store distribution.
-                </small>
+
+                {/* Barcode preview */}
+                {barcodeFormValue && (
+                  <div
+                    style={{
+                      background: "#F8FAFC",
+                      border: "1.5px dashed #CBD5E1",
+                      borderRadius: "12px",
+                      padding: "16px 20px",
+                      textAlign: "center",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <span style={{ fontSize: "11px", color: "#64748B", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: "8px" }}>
+                      Scannable Preview
+                    </span>
+                    <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+                      <BarcodeSVG barcode={barcodeFormValue} width={2} height={55} />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Barcode preview */}
-              {barcodeFormValue && (
-                <div
-                  style={{
-                    background: "#F8FAFC",
-                    border: "1.5px dashed #CBD5E1",
-                    borderRadius: "10px",
-                    padding: "14px",
-                    textAlign: "center",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <span style={{ fontSize: "11px", color: "#64748B", fontWeight: 700, textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-                    Scannable Preview
-                  </span>
-                  <BarcodeSVG barcode={barcodeFormValue} width={2} height={55} />
-                </div>
-              )}
-
-              <div className="pm-modal-actions">
+              <div
+                className="pm-modal-actions"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "16px 24px",
+                  borderTop: "1px solid #f1f5f9",
+                  background: "#ffffff",
+                  boxSizing: "border-box",
+                }}
+              >
                 <button
                   type="button"
                   className="pm-btn-cancel"
-                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#059669", borderColor: "#a7f3d0", background: "#f0fdf4" }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    color: "#059669",
+                    borderColor: "#a7f3d0",
+                    background: "#f0fdf4",
+                  }}
                   onClick={() => handleDownloadBarcode({ ...editingBarcodeProduct, barcode: barcodeFormValue })}
                   title="Download barcode image (PNG)"
                 >
                   <Download size={14} />
                   <span>Download Barcode</span>
                 </button>
-                <button
-                  type="button"
-                  className="pm-btn-cancel"
-                  onClick={() => setEditingBarcodeProduct(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="pm-btn-save"
-                  disabled={isSaving}
-                  style={{ minWidth: "150px" }}
-                >
-                  {isSaving ? "Saving..." : "✓ Save Barcode"}
-                </button>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    type="button"
+                    className="pm-btn-cancel"
+                    onClick={() => setEditingBarcodeProduct(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="pm-btn-save"
+                    disabled={isSaving}
+                    style={{ minWidth: "140px" }}
+                  >
+                    {isSaving ? "Saving..." : "✓ Save Barcode"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

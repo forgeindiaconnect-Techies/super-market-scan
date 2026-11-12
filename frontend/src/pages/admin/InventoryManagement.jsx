@@ -186,7 +186,8 @@ export default function InventoryManagement() {
     const target = products.find((p) => p._id === productId || p.barcode === productId);
     if (!target) return;
     const newStock = Math.max(0, Number(target.stock) + delta);
-    const identifier = target._id || target.barcode;
+    const isMongoId = target._id && /^[0-9a-fA-F]{24}$/.test(target._id);
+    const identifier = isMongoId ? target._id : (target.barcode || target._id);
 
     // Immediately persist in local storage & dispatch sync event
     updatePersistentStock(identifier, newStock);
@@ -196,7 +197,7 @@ export default function InventoryManagement() {
     );
 
     try {
-      await API.patch(`/products/${identifier}/stock`, { stock: newStock });
+      await API.patch(`/products/${identifier}/stock`, { stock: newStock, barcode: target.barcode });
     } catch (err) {
       console.warn("Stock update sync queued:", err.message);
     }
@@ -218,7 +219,8 @@ export default function InventoryManagement() {
     const added = Number(restockUnits) || 0;
     const newStock = Math.max(0, (Number(restockProduct.stock) || 0) + added);
     const threshold = Math.max(1, Number(newThreshold) || 5);
-    const identifier = restockProduct._id || restockProduct.barcode;
+    const isMongoId = restockProduct._id && /^[0-9a-fA-F]{24}$/.test(restockProduct._id);
+    const identifier = isMongoId ? restockProduct._id : (restockProduct.barcode || restockProduct._id);
 
     // Immediately persist
     updatePersistentStock(identifier, newStock);
@@ -233,8 +235,8 @@ export default function InventoryManagement() {
 
     try {
       await Promise.allSettled([
-        API.patch(`/products/${identifier}/stock`, { stock: newStock }),
-        API.put(`/products/${identifier}`, { stock: newStock, lowStockThreshold: threshold }),
+        API.patch(`/products/${identifier}/stock`, { stock: newStock, barcode: restockProduct.barcode }),
+        API.put(`/products/${identifier}`, { stock: newStock, lowStockThreshold: threshold, barcode: restockProduct.barcode }),
       ]);
       setToastMessage(`✓ Successfully added +${added} units to "${restockProduct.name}"!`);
       setTimeout(() => setToastMessage(""), 4000);
@@ -468,16 +470,6 @@ export default function InventoryManagement() {
 
           {/* Actions & Valuation badge */}
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <button
-              type="button"
-              className="action-pill-btn refresh"
-              onClick={fetchInventory}
-              disabled={loading}
-              style={{ padding: "6px 14px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "5px" }}
-            >
-              <RefreshCw size={13} className={loading ? "spin" : ""} />
-              <span>{loading ? "Syncing..." : "Sync Stock"}</span>
-            </button>
             <Link
               to="/admin/add-product"
               className="action-pill-btn primary"

@@ -29,6 +29,28 @@ try {
   const currentUploads = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\6fa4a95c-77f9-4a4d-950b-d57336a67a4c\\.user_uploaded";
 
   // Also sync exact high-res banner PNG directly provided by user
+  const currentBrainDir = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\6fa4a95c-77f9-4a4d-950b-d57336a67a4c";
+  const mobileAssetsDir = path.join(__dirname, "../mobile-app/assets/images");
+  if (!fs.existsSync(mobileAssetsDir)) fs.mkdirSync(mobileAssetsDir, { recursive: true });
+
+  const currentBrainDir2026 = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\66da6e68-95f4-42d0-a640-30ba83b6ef48";
+  const celebrationDollImg = path.join(currentBrainDir2026, "payment_success_celebration_1794473637341.jpg");
+
+  const paymentImages = [
+    { src: path.join(currentBrainDir, "payment_pending_1794467892344.jpg"), destName: "payment-pending.jpg" },
+    { src: celebrationDollImg, destName: "payment-approved.jpg" },
+    { src: celebrationDollImg, destName: "payment-celebration.jpg" },
+  ];
+
+  for (const img of paymentImages) {
+    if (fs.existsSync(img.src)) {
+      fs.copyFileSync(img.src, path.join(mobileAssetsDir, img.destName));
+      fs.copyFileSync(img.src, path.join(assetsDir, img.destName));
+      fs.copyFileSync(img.src, path.join(publicDir, img.destName));
+      console.log(`✓ Synced 3D illustration: ${img.destName}`);
+    }
+  }
+
   const bannerPngSrc = path.join(currentUploads, "media_1794380516331_479d7e05.png");
   if (fs.existsSync(bannerPngSrc)) {
     const pngBuf = fs.readFileSync(bannerPngSrc);
@@ -181,6 +203,8 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use("/assets", express.static(path.join(__dirname, "../mobile-app/assets/images")));
+app.use("/brain", express.static("C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\6fa4a95c-77f9-4a4d-950b-d57336a67a4c"));
 
 // Connect to MongoDB Atlas
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;

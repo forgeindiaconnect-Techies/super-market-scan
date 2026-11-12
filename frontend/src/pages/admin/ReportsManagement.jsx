@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
-  BarChart3,
   TrendingUp,
-  Download,
-  Printer,
+  BarChart3,
   Calendar,
   IndianRupee,
   ShoppingBag,
@@ -24,12 +22,33 @@ import {
   Sparkles,
   FileSpreadsheet,
   ShoppingCart,
+  Printer,
+  Copy,
+  Check,
+  X,
+  Search,
+  WifiOff,
+  AlertCircle,
+  TrendingDown,
+  ArrowDownRight,
+  ChevronRight,
+  Filter,
+  ShieldCheck,
+  ExternalLink,
 } from "lucide-react";
+import { io } from "socket.io-client";
 import API from "../../services/api";
 import ErpPageBanner from "../../components/ErpPageBanner";
-import { mergeApiWithStorage, getPersistentProducts } from "../../utils/realtimeStorage";
-import bannerCartImg from "../../assets/banner-cart.png";
-import "./ProductManagement.css";
+import {
+  mergeApiWithStorage,
+  getPersistentProducts,
+  updatePersistentStock,
+} from "../../utils/realtimeStorage";
+import {
+  exportStyledExcelReport,
+  printExecutiveReport,
+} from "../../utils/reportsExportGenerator";
+import "./ReportsManagement.css";
 
 const DATE_PRESETS = [
   { value: "all", label: "All Time" },
@@ -39,54 +58,160 @@ const DATE_PRESETS = [
   { value: "year", label: "This Year" },
 ];
 
-const REPORT_TABS = [
-  { id: "sales", label: "Sales Reports", icon: TrendingUp },
-  { id: "products", label: "Product Performance", icon: Package },
-  { id: "inventory", label: "Inventory Health", icon: Boxes },
-  { id: "orders", label: "Orders Ledger", icon: ShoppingBag },
-  { id: "customers", label: "Customer Insights", icon: Users },
+const WEEKDAYS_ORDER = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
 ];
 
+// Robust Date Helpers for precise local calendar boundary calculations
+const formatDateToISO = (d) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayStr = () => formatDateToISO(new Date());
+
+const getDaysAgoStr = (days) => {
+  const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  return formatDateToISO(d);
+};
+
+const parseLocalDate = (dateStr, isEnd = false) => {
+  if (!dateStr) return null;
+  const parts = String(dateStr).split("-").map(Number);
+  if (parts.length === 3 && parts.every((n) => !Number.isNaN(n))) {
+    const [year, month, day] = parts;
+    if (isEnd) {
+      return new Date(year, month - 1, day, 23, 59, 59, 999);
+    }
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return null;
+  if (isEnd) d.setHours(23, 59, 59, 999);
+  else d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 export default function ReportsManagement() {
+  // Navigation tabs: "sales" | "payments" | "inventory" | "customers"
   const [activeTab, setActiveTab] = useState("sales");
   const [datePreset, setDatePreset] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState(() => getDaysAgoStr(7));
+  const [customEndDate, setCustomEndDate] = useState(() => getTodayStr());
+  const [appliedCustomDates, setAppliedCustomDates] = useState({
+    start: getDaysAgoStr(7),
+    end: getTodayStr(),
+    active: false,
+  });
+
+  const startDateInputRef = useRef(null);
+  const endDateInputRef = useRef(null);
+
+  // Payment ledger specific filters
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("ALL"); // ALL | Successful | Pending | Failed | Network Error
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
+  const [paymentSearch, setPaymentSearch] = useState("");
+
+  // Low stock inventory filter
+  const [stockLevelFilter, setStockLevelFilter] = useState("ALL_LOW"); // ALL_LOW | OUT_OF_STOCK | LOW_STOCK | ALL_PRODUCTS
+  const [stockSearch, setStockSearch] = useState("");
+
+  // Raw data from DB and Socket
   const [orders, setOrders] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(getPersistentProducts);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [copiedId, setCopiedId] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
 
-  const fetchReportData = async (showLoading = false) => {
+  const showToast = (text) => {
+    setToastMessage(text);
+    setTimeout(() => setToastMessage(""), 3500);
+  };
+
+  const handleCopy = (text) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedId(text);
+    setTimeout(() => setCopiedId(""), 2000);
+    showToast("Copied to clipboard");
+  };
+
+  // Fetch report data from API
+  const fetchReportData = async (showSpin = false) => {
+    if (showSpin) setRefreshing(true);
     try {
-      if (showLoading) setLoading(true);
+      const [reportsRes, ordersRes, productsRes] = await Promise.allSettled([
+        API.get("/orders/reports"),
+        API.get("/orders"),
+        API.get("/products"),
+      ]);
 
-      const response = await API.get("/orders/reports");
-
-      if (!response.data?.success) {
-        throw new Error(response.data?.message || "Failed to load reports");
+      let loadedOrders = [];
+      if (
+        reportsRes.status === "fulfilled" &&
+        reportsRes.value.data?.success &&
+        Array.isArray(reportsRes.value.data.orders)
+      ) {
+        loadedOrders = reportsRes.value.data.orders;
+      } else if (
+        ordersRes.status === "fulfilled" &&
+        ordersRes.value.data?.success &&
+        Array.isArray(ordersRes.value.data.orders)
+      ) {
+        loadedOrders = ordersRes.value.data.orders;
       }
 
-      const reportData = response.data;
-      const apiOrders = Array.isArray(reportData.orders) ? reportData.orders : [];
-      const apiProducts = Array.isArray(reportData.products) ? reportData.products : [];
+      let loadedProducts = getPersistentProducts();
+      if (
+        productsRes.status === "fulfilled" &&
+        productsRes.value.data?.success &&
+        Array.isArray(productsRes.value.data.products)
+      ) {
+        loadedProducts = mergeApiWithStorage(productsRes.value.data.products);
+      }
 
-      // Merge backend products with local persistent storage for real-time consistency
-      const mergedProducts = mergeApiWithStorage(apiProducts);
-
-      setOrders(apiOrders);
-      setProducts(mergedProducts);
+      setOrders(loadedOrders);
+      setProducts(loadedProducts);
     } catch (err) {
-      console.error("Reports API error:", err);
+      console.warn("Reports API load note:", err.message);
       setProducts(getPersistentProducts());
     } finally {
-      if (showLoading) setLoading(false);
+      setLoading(false);
+      if (showSpin) setRefreshing(false);
     }
   };
 
+  // Real-time Socket.IO & Auto-Polling
   useEffect(() => {
-    fetchReportData(true);
+    fetchReportData(false);
 
-    const timer = setInterval(() => {
+    const socket = io("http://localhost:5001");
+
+    socket.on("connect", () => setSocketConnected(true));
+    socket.on("disconnect", () => setSocketConnected(false));
+
+    socket.on("new-order", (data) => {
+      if (data?.order) {
+        setOrders((prev) => {
+          if (prev.some((o) => o._id === data.order._id)) return prev;
+          return [data.order, ...prev];
+        });
+        showToast(`⚡ Real-time Order Added: #${data.order.orderNumber}`);
+      }
+    });
+
+    const pollTimer = setInterval(() => {
       fetchReportData(false);
-    }, 3000);
+    }, 4000);
 
     const handleStorageUpdate = () => {
       fetchReportData(false);
@@ -94,78 +219,90 @@ export default function ReportsManagement() {
     window.addEventListener("grocerease_storage_updated", handleStorageUpdate);
 
     return () => {
-      clearInterval(timer);
+      socket.disconnect();
+      clearInterval(pollTimer);
       window.removeEventListener("grocerease_storage_updated", handleStorageUpdate);
     };
   }, []);
 
-  // Filter Orders based on selected Date Preset
+  // Filter Orders based on selected Date Preset or Custom Date Range
   const filteredOrders = useMemo(() => {
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+
+    const sBoundary = datePreset === "custom" && customStartDate ? parseLocalDate(customStartDate, false) : null;
+    const eBoundary = datePreset === "custom" && customEndDate ? parseLocalDate(customEndDate, true) : null;
 
     return orders.filter((o) => {
-      const reportDate =
+      const orderDate = new Date(
         o.paymentStatus === "Completed"
-          ? new Date(o.completedAt || o.createdAt)
-          : new Date(o.createdAt);
+          ? o.completedAt || o.createdAt
+          : o.createdAt || o.completedAt || Date.now()
+      );
 
-      if (Number.isNaN(reportDate.getTime())) return false;
+      if (Number.isNaN(orderDate.getTime())) return false;
 
-      if (datePreset === "today" && reportDate < startOfToday) return false;
-      if (datePreset === "week" && reportDate < sevenDaysAgo) return false;
-      if (datePreset === "month" && reportDate < thirtyDaysAgo) return false;
-      if (datePreset === "year" && reportDate < startOfYear) return false;
+      if (datePreset === "today" && orderDate < startOfToday) return false;
+      if (datePreset === "week" && orderDate < sevenDaysAgo) return false;
+      if (datePreset === "month" && orderDate < thirtyDaysAgo) return false;
+      if (datePreset === "year" && orderDate < startOfYear) return false;
+
+      if (datePreset === "custom") {
+        if (sBoundary && orderDate < sBoundary) return false;
+        if (eBoundary && orderDate > eBoundary) return false;
+      }
 
       return true;
     });
-  }, [orders, datePreset]);
+  }, [orders, datePreset, customStartDate, customEndDate]);
 
-  // Completed Orders (Only verified completed payments count as sales)
-  const completedOrders = useMemo(() => {
-    return filteredOrders.filter((o) => o.paymentStatus === "Completed");
+  // Orders categorized by payment status
+  const successfulOrders = useMemo(() => {
+    return filteredOrders.filter(
+      (o) => o.paymentStatus === "Completed" || o.paymentStatus === "Approved"
+    );
   }, [filteredOrders]);
 
   const pendingOrders = useMemo(() => {
     return filteredOrders.filter((o) => o.paymentStatus === "Pending");
   }, [filteredOrders]);
 
-  const approvedOrders = useMemo(() => {
-    return filteredOrders.filter((o) => o.paymentStatus === "Approved");
-  }, [filteredOrders]);
-
   const failedOrders = useMemo(() => {
     return filteredOrders.filter((o) => o.paymentStatus === "Failed");
   }, [filteredOrders]);
 
-  // Top 5 Executive KPI Calculations (Spec Requirement #1)
-  const totalVerifiedSales = useMemo(() => {
-    return completedOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-  }, [completedOrders]);
+  const networkErrorOrders = useMemo(() => {
+    return filteredOrders.filter((o) => o.paymentStatus === "Network Error");
+  }, [filteredOrders]);
 
-  const totalOrdersCount = filteredOrders.length;
+  // Total Verified Revenue (Only successful payments count!)
+  const totalVerifiedRevenue = useMemo(() => {
+    return successfulOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+  }, [successfulOrders]);
 
-  const totalProductsSold = useMemo(() => {
-    return completedOrders.reduce((sum, o) => {
-      const itemsCount = (o.items || []).reduce((s, it) => s + Number(it.quantity || 1), 0);
-      return sum + (o.totalItems || itemsCount || 1);
-    }, 0);
-  }, [completedOrders]);
+  // Total Failed / Interrupted Amount (Exact lost revenue tracked!)
+  const totalFailedAmount = useMemo(() => {
+    return failedOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+  }, [failedOrders]);
 
-  // Unique Customers count from filtered orders
-  const totalCustomersCount = useMemo(() => {
+  const totalNetworkErrorAmount = useMemo(() => {
+    return networkErrorOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+  }, [networkErrorOrders]);
+
+  // Unique Customers count who successfully completed payments
+  const successfulCustomersCount = useMemo(() => {
     const set = new Set();
-    filteredOrders.forEach((o) => {
+    successfulOrders.forEach((o) => {
       const id = o.customer?.phone || o.customer?.email || o.customer?.name;
       if (id) set.add(id.toLowerCase().trim());
     });
     return set.size;
-  }, [filteredOrders]);
+  }, [successfulOrders]);
 
-  // Low stock products count
+  // Low stock inventory breakdown
   const lowStockProductsList = useMemo(() => {
     return products.filter((p) => {
       const stock = Number(p.stock || 0);
@@ -178,982 +315,1181 @@ export default function ReportsManagement() {
     return products.filter((p) => Number(p.stock || 0) === 0);
   }, [products]);
 
-  // 1. Sales Report Calculations (Payment Method-wise & Trends)
-  const paymentMethodStats = useMemo(() => {
-    const map = {
-      UPI: { count: 0, amount: 0 },
-      Card: { count: 0, amount: 0 },
-      Cash: { count: 0, amount: 0 },
+  const totalInventoryValuation = useMemo(() => {
+    return products.reduce(
+      (sum, p) => sum + Number(p.stock || 0) * Number(p.price || 0),
+      0
+    );
+  }, [products]);
+
+  // =========================================================================
+  // FEATURE 3: WEEKLY SALES ANALYTICS (Monday to Sunday with ₹ on Y-Axis)
+  // =========================================================================
+  const weekdaySalesData = useMemo(() => {
+    const dayBuckets = {
+      Monday: { day: "Monday", sales: 0, ordersCount: 0, dateLabel: "" },
+      Tuesday: { day: "Tuesday", sales: 0, ordersCount: 0, dateLabel: "" },
+      Wednesday: { day: "Wednesday", sales: 0, ordersCount: 0, dateLabel: "" },
+      Thursday: { day: "Thursday", sales: 0, ordersCount: 0, dateLabel: "" },
+      Friday: { day: "Friday", sales: 0, ordersCount: 0, dateLabel: "" },
+      Saturday: { day: "Saturday", sales: 0, ordersCount: 0, dateLabel: "" },
+      Sunday: { day: "Sunday", sales: 0, ordersCount: 0, dateLabel: "" },
     };
 
-    completedOrders.forEach((o) => {
-      const m = o.paymentMethod === "Cash" ? "Cash" : o.paymentMethod === "Card" ? "Card" : "UPI";
-      if (!map[m]) map[m] = { count: 0, amount: 0 };
-      map[m].count += 1;
-      map[m].amount += Number(o.totalAmount || 0);
-    });
-
-    return Object.entries(map).map(([method, data]) => ({
-      method,
-      count: data.count,
-      amount: data.amount,
-      percentage: totalVerifiedSales > 0 ? Math.round((data.amount / totalVerifiedSales) * 100) : 0,
-    }));
-  }, [completedOrders, totalVerifiedSales]);
-
-  // Daily / Periodic Sales Trends for Real-time Chart
-  const salesTrendsData = useMemo(() => {
-    const dayMap = {};
-    const now = new Date();
-
-    if (datePreset === "today") {
-      // 2-hour intervals for Today's live sales
-      const hours = [8, 10, 12, 14, 16, 18, 20, 22];
-      hours.forEach((h) => {
-        const label = `${h > 12 ? h - 12 : h} ${h >= 12 ? "PM" : "AM"}`;
-        dayMap[label] = { label, amount: 0, ordersCount: 0 };
-      });
-
-      completedOrders.forEach((o) => {
-        const d = new Date(o.completedAt || o.createdAt);
-        if (!Number.isNaN(d.getTime())) {
-          const h = d.getHours();
-          const bucket = hours.reduce((prev, curr) => (h >= curr ? curr : prev), hours[0]);
-          const label = `${bucket > 12 ? bucket - 12 : bucket} ${bucket >= 12 ? "PM" : "AM"}`;
-          if (dayMap[label]) {
-            dayMap[label].amount += Number(o.totalAmount || 0);
-            dayMap[label].ordersCount += 1;
-          }
-        }
-      });
-      return Object.values(dayMap);
-    }
-
-    if (datePreset === "week") {
-      // Exact last 7 days calendar timeline
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-        const key = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
-        dayMap[key] = { label: key, amount: 0, ordersCount: 0, time: d.getTime() };
-      }
-
-      completedOrders.forEach((o) => {
-        const d = new Date(o.completedAt || o.createdAt);
-        if (!Number.isNaN(d.getTime())) {
-          const key = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
-          if (dayMap[key]) {
-            dayMap[key].amount += Number(o.totalAmount || 0);
-            dayMap[key].ordersCount += 1;
-          }
-        }
-      });
-      return Object.values(dayMap);
-    }
-
-    // "all", "month", "year":
-    // 1. Initialize recent 7 days baseline
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const key = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
-      dayMap[key] = { label: key, amount: 0, ordersCount: 0, time: d.getTime() };
-    }
-
-    // 2. Incorporate all completed orders so NO real revenue is lost
-    completedOrders.forEach((o) => {
+    successfulOrders.forEach((o) => {
       const d = new Date(o.completedAt || o.createdAt);
       if (!Number.isNaN(d.getTime())) {
-        const key = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
-        if (!dayMap[key]) {
-          dayMap[key] = {
-            label: key,
-            amount: 0,
-            ordersCount: 0,
-            time: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(),
-          };
+        const dayIdx = d.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+        const weekdayName =
+          dayIdx === 0
+            ? "Sunday"
+            : dayIdx === 1
+            ? "Monday"
+            : dayIdx === 2
+            ? "Tuesday"
+            : dayIdx === 3
+            ? "Wednesday"
+            : dayIdx === 4
+            ? "Thursday"
+            : dayIdx === 5
+            ? "Friday"
+            : "Saturday";
+
+        dayBuckets[weekdayName].sales += Number(o.totalAmount || 0);
+        dayBuckets[weekdayName].ordersCount += 1;
+        if (!dayBuckets[weekdayName].dateLabel) {
+          dayBuckets[weekdayName].dateLabel = d.toLocaleDateString("en-IN", {
+            month: "short",
+            day: "numeric",
+          });
         }
-        dayMap[key].amount += Number(o.totalAmount || 0);
-        dayMap[key].ordersCount += 1;
       }
     });
 
-    const sorted = Object.values(dayMap).sort((a, b) => a.time - b.time);
-    return sorted.slice(-8);
-  }, [completedOrders, datePreset]);
+    return WEEKDAYS_ORDER.map((name) => dayBuckets[name]);
+  }, [successfulOrders]);
 
-  const maxTrendAmount = useMemo(() => {
-    const max = Math.max(...salesTrendsData.map((d) => d.amount), 1);
-    return max;
-  }, [salesTrendsData]);
+  // Max sales among weekdays for relative scaling
+  const maxWeekdaySales = useMemo(() => {
+    return Math.max(...weekdaySalesData.map((d) => d.sales), 1);
+  }, [weekdaySalesData]);
 
-  // 2. Product Performance Calculations (Best & Least Selling, Categories)
-  const { productSalesList, categorySalesList } = useMemo(() => {
-    const prodMap = {};
-    const catMap = {};
+  // Average daily sales
+  const avgDailySales = useMemo(() => {
+    const total = weekdaySalesData.reduce((sum, d) => sum + d.sales, 0);
+    return Math.round(total / 7);
+  }, [weekdaySalesData]);
 
-    // Seed from catalog so even 0-sale products appear in least selling
-    products.forEach((p) => {
-      prodMap[p.name] = {
-        name: p.name,
-        brand: p.brand || "",
-        category: p.category || "General",
-        price: Number(p.price || 0),
-        stock: Number(p.stock || 0),
-        unitsSold: 0,
-        revenue: 0,
-      };
-      const cat = p.category || "Other";
-      if (!catMap[cat]) {
-        catMap[cat] = { category: cat, itemsCount: 0, unitsSold: 0, revenue: 0 };
-      }
-      catMap[cat].itemsCount += 1;
+  // Generate 5 Monetary ₹ Y-Axis Labels
+  const yAxisMilestones = useMemo(() => {
+    const max = maxWeekdaySales;
+    const roundedMax = Math.ceil(max / 1000) * 1000 || 5000;
+    return [
+      `₹${roundedMax.toLocaleString("en-IN")}`,
+      `₹${Math.round((roundedMax * 0.75)).toLocaleString("en-IN")}`,
+      `₹${Math.round((roundedMax * 0.5)).toLocaleString("en-IN")}`,
+      `₹${Math.round((roundedMax * 0.25)).toLocaleString("en-IN")}`,
+      "₹0",
+    ];
+  }, [maxWeekdaySales]);
+
+  // =========================================================================
+  // FEATURE 4: LOW AND HIGH PERFORMANCE CHARTS (Calculated from Actual Sales)
+  // =========================================================================
+  const { highPerformanceDays, lowPerformanceDays, peakDay, lowestDay } = useMemo(() => {
+    const sorted = [...weekdaySalesData].sort((a, b) => b.sales - a.sales);
+    const peak = sorted[0] || { day: "N/A", sales: 0, ordersCount: 0 };
+    const lowest = sorted[sorted.length - 1] || { day: "N/A", sales: 0, ordersCount: 0 };
+
+    // Days performing above average
+    const high = weekdaySalesData.filter((d) => d.sales >= avgDailySales && d.sales > 0);
+    // Days performing below average or with lowest dips
+    const low = weekdaySalesData.filter((d) => d.sales < avgDailySales);
+
+    return {
+      highPerformanceDays: high.length > 0 ? high : [peak],
+      lowPerformanceDays: low.length > 0 ? low : [lowest],
+      peakDay: peak,
+      lowestDay: lowest,
+    };
+  }, [weekdaySalesData, avgDailySales]);
+
+  // =========================================================================
+  // FEATURE 5: PAYMENT METHOD ANALYTICS (UPI, Card, Cash, Other)
+  // =========================================================================
+  const paymentMethodAnalytics = useMemo(() => {
+    const map = {
+      UPI: { method: "UPI", count: 0, amount: 0, customerSet: new Set() },
+      Card: { method: "Card", count: 0, amount: 0, customerSet: new Set() },
+      Cash: { method: "Cash", count: 0, amount: 0, customerSet: new Set() },
+      Other: { method: "Other", count: 0, amount: 0, customerSet: new Set() },
+    };
+
+    successfulOrders.forEach((o) => {
+      const rawM = (o.paymentMethod || "UPI").toUpperCase();
+      const m =
+        rawM === "UPI"
+          ? "UPI"
+          : rawM === "CARD"
+          ? "Card"
+          : rawM === "CASH"
+          ? "Cash"
+          : "Other";
+
+      const amt = Number(o.totalAmount || 0);
+      map[m].count += 1;
+      map[m].amount += amt;
+
+      const custKey = o.customer?.phone || o.customer?.name || "Shopper";
+      map[m].customerSet.add(custKey.toLowerCase().trim());
     });
 
-    completedOrders.forEach((order) => {
-      (order.items || []).forEach((item) => {
-        const name = item.name || "Unknown Product";
-        const qty = Number(item.quantity || 1);
-        const rev = Number(item.subtotal || item.price * qty);
+    const totalRev = totalVerifiedRevenue || 1;
 
-        if (!prodMap[name]) {
-          prodMap[name] = {
-            name,
-            brand: item.brand || "",
-            category: item.category || "General",
-            price: Number(item.price || 0),
-            stock: 0,
-            unitsSold: 0,
-            revenue: 0,
-          };
+    return [
+      {
+        ...map.UPI,
+        customersCount: map.UPI.customerSet.size,
+        percentage: Math.round((map.UPI.amount / totalRev) * 100),
+      },
+      {
+        ...map.Card,
+        customersCount: map.Card.customerSet.size,
+        percentage: Math.round((map.Card.amount / totalRev) * 100),
+      },
+      {
+        ...map.Cash,
+        customersCount: map.Cash.customerSet.size,
+        percentage: Math.round((map.Cash.amount / totalRev) * 100),
+      },
+      {
+        ...map.Other,
+        customersCount: map.Other.customerSet.size,
+        percentage: Math.round((map.Other.amount / totalRev) * 100),
+      },
+    ];
+  }, [successfulOrders, totalVerifiedRevenue]);
+
+  // =========================================================================
+  // FEATURE 1: CUSTOMER PAYMENT & NETWORK ERROR LEDGER FILTERING
+  // =========================================================================
+  const filteredPaymentLedger = useMemo(() => {
+    return filteredOrders.filter((o) => {
+      // 1. Status Filter
+      if (paymentStatusFilter === "Successful") {
+        if (o.paymentStatus !== "Completed" && o.paymentStatus !== "Approved") return false;
+      } else if (paymentStatusFilter === "Pending") {
+        if (o.paymentStatus !== "Pending") return false;
+      } else if (paymentStatusFilter === "Failed") {
+        if (o.paymentStatus !== "Failed") return false;
+      } else if (paymentStatusFilter === "Network Error") {
+        if (o.paymentStatus !== "Network Error") return false;
+      }
+
+      // 2. Payment Method Filter
+      if (paymentMethodFilter !== "ALL") {
+        if ((o.paymentMethod || "").toUpperCase() !== paymentMethodFilter.toUpperCase()) {
+          return false;
         }
-        prodMap[name].unitsSold += qty;
-        prodMap[name].revenue += rev;
+      }
 
-        const cat = item.category || prodMap[name].category || "Other";
-        if (!catMap[cat]) {
-          catMap[cat] = { category: cat, itemsCount: 1, unitsSold: 0, revenue: 0 };
+      // 3. Search Keyword
+      if (paymentSearch.trim()) {
+        const q = paymentSearch.toLowerCase().trim();
+        const matchName = o.customer?.name?.toLowerCase().includes(q);
+        const matchPhone = o.customer?.phone?.toLowerCase().includes(q);
+        const matchOrder = o.orderNumber?.toLowerCase().includes(q);
+        const matchAmt = String(o.totalAmount || "").includes(q);
+        const matchReason = o.failureReason?.toLowerCase().includes(q);
+
+        if (!matchName && !matchPhone && !matchOrder && !matchAmt && !matchReason) {
+          return false;
         }
-        catMap[cat].unitsSold += qty;
-        catMap[cat].revenue += rev;
-      });
+      }
+
+      return true;
     });
+  }, [filteredOrders, paymentStatusFilter, paymentMethodFilter, paymentSearch]);
 
-    const sortedProducts = Object.values(prodMap).sort((a, b) => b.unitsSold - a.unitsSold);
-    const sortedCategories = Object.values(catMap).sort((a, b) => b.revenue - a.revenue);
+  // =========================================================================
+  // FEATURE 2: LOW STOCK & REORDER REPORT TABLE FILTERING
+  // =========================================================================
+  const filteredStockReport = useMemo(() => {
+    return products.filter((p) => {
+      const stock = Number(p.stock || 0);
+      const threshold = Number(p.lowStockThreshold || 5);
 
-    return { productSalesList: sortedProducts, categorySalesList: sortedCategories };
-  }, [products, completedOrders]);
+      if (stockLevelFilter === "ALL_LOW" && stock > threshold) return false;
+      if (stockLevelFilter === "OUT_OF_STOCK" && stock > 0) return false;
+      if (stockLevelFilter === "LOW_STOCK" && (stock === 0 || stock > threshold)) return false;
 
-  // Active departments with revenue only
-  const activeCategorySales = useMemo(() => {
-    return (categorySalesList || []).filter((cat) => cat.revenue > 0);
-  }, [categorySalesList]);
+      if (stockSearch.trim()) {
+        const q = stockSearch.toLowerCase().trim();
+        const matchName = p.name?.toLowerCase().includes(q);
+        const matchCat = p.category?.toLowerCase().includes(q);
+        const matchBar = p.barcode?.toLowerCase().includes(q);
 
-  const bestSellingProducts = useMemo(() => {
-    return productSalesList.filter((p) => p.unitsSold > 0).slice(0, 8);
-  }, [productSalesList]);
-
-  const leastSellingProducts = useMemo(() => {
-    return [...productSalesList].sort((a, b) => a.unitsSold - b.unitsSold).slice(0, 8);
-  }, [productSalesList]);
-
-  // 3. Customer Reports Calculations (Top Spenders)
-  const customerRankings = useMemo(() => {
-    const map = {};
-
-    filteredOrders.forEach((o) => {
-      const name = o.customer?.name || "Guest Shopper";
-      const phone = o.customer?.phone || "N/A";
-      const key = phone !== "N/A" ? phone : name;
-
-      if (!map[key]) {
-        map[key] = {
-          name,
-          phone,
-          ordersCount: 0,
-          completedOrdersCount: 0,
-          totalSpent: 0,
-          preferredPayment: o.paymentMethod || "UPI",
-          latestVisit: new Date(o.createdAt || Date.now()),
-        };
+        if (!matchName && !matchCat && !matchBar) return false;
       }
 
-      map[key].ordersCount += 1;
-      if (o.paymentStatus === "Completed") {
-        map[key].completedOrdersCount += 1;
-        map[key].totalSpent += Number(o.totalAmount || 0);
-      }
-      if (new Date(o.createdAt) > map[key].latestVisit) {
-        map[key].latestVisit = new Date(o.createdAt);
-      }
+      return true;
     });
+  }, [products, stockLevelFilter, stockSearch]);
 
-    return Object.values(map).sort((a, b) => b.totalSpent - a.totalSpent);
-  }, [filteredOrders]);
-
-  // Inventory valuation
-  const totalInventoryValuation = useMemo(() => {
-    return products.reduce((sum, p) => sum + Number(p.stock || 0) * Number(p.price || 0), 0);
-  }, [products]);
-
-  const totalShelfUnits = useMemo(() => {
-    return products.reduce((sum, p) => sum + Number(p.stock || 0), 0);
-  }, [products]);
-
-  // Excel / CSV Export
-  const handleExportCSV = () => {
-    let headers = "";
-    let rows = [];
-    const dateTag = datePreset.toUpperCase();
-
-    if (activeTab === "sales") {
-      headers = "Order Number,Date,Customer,Payment Method,Payment Status,Subtotal,Discount,Total Amount\n";
-      rows = filteredOrders.map((o) =>
-        `"${o.orderNumber}","${new Date(o.createdAt).toLocaleString("en-IN")}","${o.customer?.name || "Shopper"}","${o.paymentMethod}","${o.paymentStatus}",${o.subtotalAmount || o.totalAmount},${o.discountAmount || 0},${o.totalAmount}`
-      );
-    } else if (activeTab === "products") {
-      headers = "Rank,Product Name,Category,Unit Price,Units Sold,Total Revenue,Shelf Stock\n";
-      rows = productSalesList.map((p, idx) =>
-        `${idx + 1},"${p.name}","${p.category}",${p.price},${p.unitsSold},${p.revenue},${p.stock}`
-      );
-    } else if (activeTab === "inventory") {
-      headers = "Product Name,Category,Price,Current Stock,Threshold,Stock Health,Total Value\n";
-      rows = products.map((p) => {
-        const stock = Number(p.stock || 0);
-        const thresh = Number(p.lowStockThreshold || 5);
-        const health = stock === 0 ? "OUT OF STOCK" : stock <= thresh ? "LOW STOCK" : "OPTIMAL";
-        return `"${p.name}","${p.category}",${p.price},${stock},${thresh},"${health}",${stock * Number(p.price || 0)}`;
-      });
-    } else if (activeTab === "orders") {
-      headers = "Order ID,Date,Customer,Items Count,Total Amount,Payment Method,Payment Status,Exit Barcode\n";
-      rows = filteredOrders.map((o) =>
-        `"${o.orderNumber}","${new Date(o.createdAt).toLocaleString("en-IN")}","${o.customer?.name || "Shopper"}",${o.totalItems || 1},${o.totalAmount},"${o.paymentMethod}","${o.paymentStatus}","${o.exitBarcode}"`
-      );
-    } else {
-      // customers
-      headers = "Customer Name,Phone,Total Orders,Lifetime Completed Spend,Preferred Payment,Latest Visit\n";
-      rows = customerRankings.map((c) =>
-        `"${c.name}","${c.phone}",${c.ordersCount},${c.totalSpent},"${c.preferredPayment}","${c.latestVisit.toLocaleDateString("en-IN")}"`
-      );
-    }
-
-    const csvContent = "data:text/csv;charset=utf-8," + headers + rows.join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `GrocerEase_Report_${activeTab.toUpperCase()}_${dateTag}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Quick Restock Handler directly from Report
+  const handleQuickRestock = (product, addCount = 10) => {
+    const newStock = Number(product.stock || 0) + addCount;
+    updatePersistentStock(product._id || product.barcode, newStock);
+    showToast(`✓ Restocked +${addCount} units for "${product.name}"`);
+    fetchReportData(false);
   };
 
-  // Official Print Report (PDF)
-  const handlePrintReport = () => {
-    window.print();
+  // Handle preset chip change with auto-initialized dates
+  const handlePresetChange = (presetValue) => {
+    setDatePreset(presetValue);
+    if (presetValue === "custom") {
+      const start = customStartDate || getDaysAgoStr(7);
+      const end = customEndDate || getTodayStr();
+      setCustomStartDate(start);
+      setCustomEndDate(end);
+      setAppliedCustomDates({
+        start,
+        end,
+        active: true,
+      });
+      showToast("Custom range active: pick dates or click Apply");
+    } else {
+      setAppliedCustomDates((prev) => ({ ...prev, active: false }));
+      const label = DATE_PRESETS.find((p) => p.value === presetValue)?.label || presetValue;
+      showToast(`Showing reports for: ${label}`);
+    }
+  };
+
+  // Open native calendar picker safely
+  const triggerPicker = (ref) => {
+    if (!ref?.current) return;
+    try {
+      if (typeof ref.current.showPicker === "function") {
+        ref.current.showPicker();
+      } else {
+        ref.current.focus();
+      }
+    } catch (_) {
+      ref.current.focus();
+    }
+  };
+
+  // Explicit Apply custom date filter
+  const handleApplyCustomRange = () => {
+    if (!customStartDate && !customEndDate) {
+      showToast("Please choose at least a Start Date or End Date.");
+      return;
+    }
+    if (customStartDate && customEndDate && customStartDate > customEndDate) {
+      showToast("⚠️ Start Date cannot be after End Date.");
+      return;
+    }
+    setAppliedCustomDates({
+      start: customStartDate,
+      end: customEndDate,
+      active: true,
+    });
+    showToast(`✓ Filter applied! ${filteredOrders.length} orders found.`);
+  };
+
+  // Reset custom dates
+  const handleResetDateFilter = () => {
+    setDatePreset("all");
+    setCustomStartDate(getDaysAgoStr(7));
+    setCustomEndDate(getTodayStr());
+    setAppliedCustomDates({
+      start: getDaysAgoStr(7),
+      end: getTodayStr(),
+      active: false,
+    });
+    showToast("✓ Date filter reset to All Time.");
+  };
+
+  // Quick preset shortcuts inside Custom Range
+  const setQuickRange = (type) => {
+    const today = getTodayStr();
+    if (type === "today") {
+      setCustomStartDate(today);
+      setCustomEndDate(today);
+      setAppliedCustomDates({ start: today, end: today, active: true });
+      showToast("Range set to Today");
+    } else if (type === "yesterday") {
+      const yest = getDaysAgoStr(1);
+      setCustomStartDate(yest);
+      setCustomEndDate(yest);
+      setAppliedCustomDates({ start: yest, end: yest, active: true });
+      showToast("Range set to Yesterday");
+    } else if (type === "7days") {
+      const seven = getDaysAgoStr(7);
+      setCustomStartDate(seven);
+      setCustomEndDate(today);
+      setAppliedCustomDates({ start: seven, end: today, active: true });
+      showToast("Range set to Last 7 Days");
+    } else if (type === "30days") {
+      const thirty = getDaysAgoStr(30);
+      setCustomStartDate(thirty);
+      setCustomEndDate(today);
+      setAppliedCustomDates({ start: thirty, end: today, active: true });
+      showToast("Range set to Last 30 Days");
+    }
+  };
+
+  // Real-Time Styled Excel Workbook Export (.xls) with Colored Header & Genuine Transaction Data
+  const handleExportExcel = () => {
+    const exportOrders = filteredOrders.length > 0 ? filteredOrders : orders;
+    const exportProducts = filteredStockReport.length > 0 ? filteredStockReport : products;
+
+    exportStyledExcelReport({
+      orders: exportOrders,
+      products: exportProducts,
+      activeTab,
+      datePreset,
+      customStartDate,
+      customEndDate,
+    });
+    showToast(`✓ Excel report downloaded with styled colored headers & ${exportOrders.length} real transactions!`);
+  };
+
+  // Official Audit Printable Report (PDF & Print Preview)
+  const handlePrintAuditReport = () => {
+    const printOrders = filteredOrders.length > 0 ? filteredOrders : orders;
+    const printProducts = filteredStockReport.length > 0 ? filteredStockReport : products;
+
+    printExecutiveReport({
+      orders: printOrders,
+      products: printProducts,
+      activeTab,
+      datePreset,
+      customStartDate,
+      customEndDate,
+    });
+    showToast("✓ Opening official printable audit report...");
   };
 
   return (
-    <div className="grocer-page-container">
-      {/* ========================================================================= */}
-      {/* 1. TOP HERO BANNER - EXACT MATCH TO REGISTER NEW PRODUCT                  */}
-      {/* ========================================================================= */}
+    <div className="reports-page-container">
+      {/* Toast Banner */}
+      {toastMessage && (
+        <div className="notif-toast-pill success">
+          <Sparkles size={16} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* 1. Page Banner */}
       <ErpPageBanner
-        title="Reports & Analytics"
-        subtitle="Real-time supermarket sales trends, inventory turnover & customer insights"
-        badges={["Live Sales Tracking", "Revenue Analytics", "Export CSV & Print"]}
-        icon={<BarChart3 size={22} color="#ffffff" strokeWidth={2.4} />}
+        title="Supermarket Reports & Business Analytics"
+        subtitle="Real-time financial reconciliation, customer payment verification, inventory reorder analytics & weekday revenue trends"
+        badges={[
+          "Real-Time Database Sync",
+          "Automated Failure Tracking",
+          "Weekday Monetary Visuals",
+          "Inventory Restock Forecaster",
+        ]}
+        icon={<BarChart3 size={24} color="#FFFFFF" strokeWidth={2.4} />}
       />
 
-      {/* ========================================================================= */}
-      {/* 2. FIVE HORIZONTAL EXECUTIVE KPI CARDS                                    */}
-      {/* ========================================================================= */}
-      <section className="rm-kpi-grid-5">
-        {/* Card 1: Total Sales */}
-        <div className="pm-kpi-card green-theme">
-          <div className="pm-kpi-icon-pill green">
-            <IndianRupee size={20} color="#059669" strokeWidth={2.4} />
+      {/* 2. Top Controls & Date Filter Ribbon */}
+      <div className="rm-controls-bar">
+        <div className="rm-controls-left">
+          <div className="rm-live-badge">
+            <span className="rm-pulse-dot" />
+            <span>{socketConnected ? "Live Database Sync" : "Auto-Polling Sync (4s)"}</span>
           </div>
-          <div className="pm-kpi-content">
-            <h3 className="pm-kpi-number">₹{totalVerifiedSales.toLocaleString("en-IN")}</h3>
-            <span className="pm-kpi-label">Total Sales</span>
-            <div className="pm-kpi-trend green">
-              <span>{completedOrders.length} completed</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Card 2: Total Orders */}
-        <div className="pm-kpi-card blue-theme">
-          <div className="pm-kpi-icon-pill blue">
-            <ShoppingCart size={20} color="#2563EB" strokeWidth={2.4} />
-          </div>
-          <div className="pm-kpi-content">
-            <h3 className="pm-kpi-number">{totalOrdersCount}</h3>
-            <span className="pm-kpi-label">Total Orders</span>
-            <div className="pm-kpi-trend green">
-              <span>All order records</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Products Sold */}
-        <div className="pm-kpi-card purple-theme">
-          <div className="pm-kpi-icon-pill purple">
-            <Package size={20} color="#7C3AED" strokeWidth={2.4} />
-          </div>
-          <div className="pm-kpi-content">
-            <h3 className="pm-kpi-number">{totalProductsSold}</h3>
-            <span className="pm-kpi-label">Items Sold</span>
-            <div className="pm-kpi-trend green">
-              <span>Units checked out</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Total Customers */}
-        <div className="pm-kpi-card yellow-theme">
-          <div className="pm-kpi-icon-pill yellow">
-            <Users size={20} color="#D97706" strokeWidth={2.4} />
-          </div>
-          <div className="pm-kpi-content">
-            <h3 className="pm-kpi-number">{totalCustomersCount}</h3>
-            <span className="pm-kpi-label">Customers</span>
-            <div className="pm-kpi-trend green">
-              <span>Unique shoppers</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 5: Low-Stock Products */}
-        <div className="pm-kpi-card" style={{ borderLeft: "4px solid #EF4444" }}>
-          <div className="pm-kpi-icon-pill" style={{ background: "#FEF2F2" }}>
-            <AlertTriangle size={20} color="#DC2626" strokeWidth={2.4} />
-          </div>
-          <div className="pm-kpi-content">
-            <h3 className="pm-kpi-number" style={{ color: lowStockProductsList.length > 0 ? "#DC2626" : "#0F172A" }}>
-              {lowStockProductsList.length}
-            </h3>
-            <span className="pm-kpi-label">Low Stock Items</span>
-            <div className="pm-kpi-trend" style={{ color: "#DC2626" }}>
-              <span>{outOfStockProductsList.length} out of stock</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 3. DATE RANGE PRESETS & REPORT CATEGORY TABS STRIP                         */}
-      {/* ========================================================================= */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
-        {/* 5 Report Category Tabs */}
-        <div className="rm-tabs-strip" style={{ marginBottom: 0 }}>
-          {REPORT_TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                className={`rm-tab-btn ${isActive ? "active" : ""}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <Icon size={15} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Date Preset Buttons & Action Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-          <div className="rm-date-filters">
-            <Calendar size={16} color="#64748B" />
+          {/* Date Range Presets */}
+          <div className="rm-date-presets">
             {DATE_PRESETS.map((dp) => (
               <button
                 key={dp.value}
                 type="button"
-                onClick={() => setDatePreset(dp.value)}
-                className={`rm-date-filter-btn ${
-                  datePreset === dp.value ? "active" : ""
-                }`}
+                className={`rm-date-chip ${datePreset === dp.value ? "active" : ""}`}
+                onClick={() => handlePresetChange(dp.value)}
               >
                 {dp.label}
               </button>
             ))}
           </div>
+        </div>
 
+        <div className="rm-controls-right">
           <button
             type="button"
-            className="pm-action-btn primary"
-            onClick={handleExportCSV}
+            className="rm-btn primary"
+            onClick={handleExportExcel}
+            title="Download formatted Excel workbook with colored headers & genuine records"
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "5px",
-              padding: "6px 12px",
-              borderRadius: "8px",
-              fontSize: "12px",
-              fontWeight: 700,
               background: "#1D4ED8",
               color: "#FFFFFF",
-              border: "none",
-              cursor: "pointer",
+              fontWeight: 800,
+              boxShadow: "0 2px 8px rgba(29, 78, 216, 0.25)",
             }}
           >
-            <FileSpreadsheet size={13} />
-            <span>Export CSV</span>
+            <FileSpreadsheet size={15} />
+            <span>Export Excel (.xls)</span>
           </button>
 
           <button
             type="button"
-            className="pm-action-btn"
-            onClick={handlePrintReport}
+            className="rm-btn secondary"
+            onClick={handlePrintAuditReport}
+            title="Print or Save official executive audit report as PDF"
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "5px",
-              padding: "6px 12px",
-              borderRadius: "8px",
-              fontSize: "12px",
-              fontWeight: 700,
-              background: "#F1F5F9",
-              color: "#1E293B",
-              border: "1px solid #CBD5E1",
-              cursor: "pointer",
+              fontWeight: 800,
             }}
           >
-            <Printer size={13} />
-            <span>Print</span>
-          </button>
-
-          <button
-            type="button"
-            className="pm-action-btn"
-            onClick={() => fetchReportData(true)}
-            disabled={loading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "5px",
-              padding: "6px 12px",
-              borderRadius: "8px",
-              fontSize: "12px",
-              fontWeight: 700,
-              background: "#F1F5F9",
-              color: "#1E293B",
-              border: "1px solid #CBD5E1",
-              cursor: "pointer",
-            }}
-          >
-            <RefreshCw size={13} className={loading ? "spin" : ""} />
-            <span>{loading ? "Refreshing..." : "Refresh"}</span>
+            <Printer size={15} />
+            <span>Print Audit Report (PDF)</span>
           </button>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 4. VISUAL SALES OVERVIEW CHARTS & PERFORMANCE DISTRIBUTION                 */}
-      {/* ========================================================================= */}
-      <section className="rm-chart-grid-2">
-        {/* Chart A: Sales Trend Bar Chart */}
-        <div className="rm-chart-card">
-          <div className="rm-chart-header">
-            <h3 className="rm-chart-title">
-              <TrendingUp size={18} color="#2563EB" />
-              <span>Sales Trend & Volume</span>
-            </h3>
-            <span style={{ fontSize: "11px", color: "#64748B", fontWeight: 700 }}>
-              Completed Revenue
-            </span>
-          </div>
-
-          <div className="rm-bar-group">
-            {salesTrendsData.map((d, idx) => {
-              const heightPct =
-                d.amount > 0
-                  ? Math.max(10, Math.round((d.amount / maxTrendAmount) * 100))
-                  : 0;
-              return (
-                <div key={idx} className="rm-bar-col">
-                  {d.amount > 0 ? (
-                    <span className="rm-bar-val">
-                      ₹{d.amount > 999 ? `${(d.amount / 1000).toFixed(1)}k` : d.amount}
-                    </span>
-                  ) : (
-                    <span className="rm-bar-val-empty">-</span>
-                  )}
-                  <div
-                    className={`rm-bar-fill ${d.amount === 0 ? "empty" : ""}`}
-                    style={{ height: `${heightPct}%` }}
-                    title={`${d.label}: ₹${d.amount} (${d.ordersCount} orders)`}
-                  />
-                  <span className="rm-bar-label">{d.label}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "14px", fontSize: "12px", color: "#64748B" }}>
-            <span>Total Sales: <strong>₹{totalVerifiedSales.toLocaleString("en-IN")}</strong></span>
-            <span>Average Order: <strong>₹{completedOrders.length > 0 ? Math.round(totalVerifiedSales / completedOrders.length).toLocaleString("en-IN") : 0}</strong></span>
-          </div>
-        </div>
-
-        {/* Chart B: Category Performance & Payment Methods Share */}
-        <div className="rm-chart-card">
-          <div className="rm-chart-header">
-            <h3 className="rm-chart-title">
-              <PieChart size={18} color="#7C3AED" />
-              <span>Department Sales & Payment Share</span>
-            </h3>
-          </div>
-
-          {/* Category Progress Bars */}
-          <div className="rm-progress-list">
-            {activeCategorySales.length === 0 ? (
-              <div style={{ padding: "24px", textAlign: "center", color: "#64748B", fontSize: "13px" }}>
-                No department sales in this period.
-              </div>
-            ) : (
-              activeCategorySales.slice(0, 5).map((cat) => {
-                const pct = totalVerifiedSales > 0 ? Math.round((cat.revenue / totalVerifiedSales) * 100) : 0;
-                return (
-                  <div key={cat.category} className="rm-progress-item">
-                    <div className="rm-progress-meta">
-                      <span style={{ color: "#0F172A", fontWeight: 600 }}>{cat.category}</span>
-                      <span style={{ color: "#2563EB", fontWeight: 700 }}>₹{cat.revenue.toLocaleString("en-IN")} ({pct}%)</span>
-                    </div>
-                    <div className="rm-progress-track">
-                      <div
-                        className="rm-progress-bar"
-                        style={{
-                          width: `${pct}%`,
-                          background: "linear-gradient(90deg, #3B82F6 0%, #1D4ED8 100%)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Payment Method Distribution Strip */}
-          <div style={{ marginTop: "18px", paddingTop: "14px", borderTop: "1px dashed #E2E8F0" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-              Payment Methods
-            </span>
-            <div style={{ display: "flex", gap: "8px" }}>
-              {paymentMethodStats.map((pm) => (
-                <div
-                  key={pm.method}
-                  style={{
-                    flex: 1,
-                    background: "#F8FAFC",
-                    border: "1px solid #E2E8F0",
-                    borderRadius: "8px",
-                    padding: "8px 10px",
-                    textAlign: "center",
-                  }}
-                >
-                  <span style={{ fontSize: "11px", color: "#64748B", display: "block" }}>{pm.method}</span>
-                  <strong style={{ fontSize: "13px", color: "#0F172A" }}>{pm.percentage}%</strong>
-                  <span style={{ fontSize: "10.5px", color: "#2563EB", display: "block" }}>₹{pm.amount.toLocaleString("en-IN")}</span>
-                </div>
-              ))}
+      {/* 3. Executive 6-KPI Metric Grid */}
+      <div className="rm-kpi-grid-6">
+        {/* KPI 1: Total Revenue */}
+        <div className="rm-kpi-tile">
+          <div className="rm-kpi-top">
+            <span className="rm-kpi-label">Total Revenue</span>
+            <div className="rm-kpi-icon-pill green">
+              <IndianRupee size={16} />
             </div>
           </div>
+          <div>
+            <h3 className="rm-kpi-value">₹{totalVerifiedRevenue.toLocaleString("en-IN")}</h3>
+            <span className="rm-kpi-sub green">Verified Completed Sales</span>
+          </div>
         </div>
-      </section>
 
-      {/* ========================================================================= */}
-      {/* 5. REPORT CATEGORY DETAILS & DATA TABLES                                  */}
-      {/* ========================================================================= */}
+        {/* KPI 2: Successful Payments */}
+        <div className="rm-kpi-tile">
+          <div className="rm-kpi-top">
+            <span className="rm-kpi-label">Successful Payments</span>
+            <div className="rm-kpi-icon-pill blue">
+              <CheckCircle2 size={16} />
+            </div>
+          </div>
+          <div>
+            <h3 className="rm-kpi-value">{successfulOrders.length}</h3>
+            <span className="rm-kpi-sub">
+              {successfulCustomersCount} unique customers
+            </span>
+          </div>
+        </div>
 
-      {/* ------------------------------------------------------------------------- */}
-      {/* TAB 1: SALES REPORTS                                                      */}
-      {/* ------------------------------------------------------------------------- */}
+        {/* KPI 3: Pending Payments */}
+        <div className="rm-kpi-tile">
+          <div className="rm-kpi-top">
+            <span className="rm-kpi-label">Pending Verification</span>
+            <div className="rm-kpi-icon-pill amber">
+              <Clock size={16} />
+            </div>
+          </div>
+          <div>
+            <h3 className="rm-kpi-value">{pendingOrders.length}</h3>
+            <span className="rm-kpi-sub amber">Awaiting cashier action</span>
+          </div>
+        </div>
+
+        {/* KPI 4: Failed Payments */}
+        <div className="rm-kpi-tile">
+          <div className="rm-kpi-top">
+            <span className="rm-kpi-label">Failed Payments</span>
+            <div className="rm-kpi-icon-pill red">
+              <AlertCircle size={16} />
+            </div>
+          </div>
+          <div>
+            <h3 className="rm-kpi-value">{failedOrders.length}</h3>
+            <span className="rm-kpi-sub red">
+              ₹{totalFailedAmount.toLocaleString("en-IN")} uncollected
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 5: Network Error Transactions */}
+        <div className="rm-kpi-tile">
+          <div className="rm-kpi-top">
+            <span className="rm-kpi-label">Network Interrupted</span>
+            <div className="rm-kpi-icon-pill crimson">
+              <WifiOff size={16} />
+            </div>
+          </div>
+          <div>
+            <h3 className="rm-kpi-value">{networkErrorOrders.length}</h3>
+            <span className="rm-kpi-sub red">
+              ₹{totalNetworkErrorAmount.toLocaleString("en-IN")} lost/interrupted
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 6: Low Stock Products */}
+        <div className="rm-kpi-tile">
+          <div className="rm-kpi-top">
+            <span className="rm-kpi-label">Low Stock Alerts</span>
+            <div className="rm-kpi-icon-pill purple">
+              <Boxes size={16} />
+            </div>
+          </div>
+          <div>
+            <h3 className="rm-kpi-value">{lowStockProductsList.length}</h3>
+            <span className="rm-kpi-sub">
+              {outOfStockProductsList.length} completely out
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Primary Module Navigation Tabs */}
+      <div className="rm-nav-tabs-bar">
+        <button
+          type="button"
+          className={`rm-nav-tab ${activeTab === "sales" ? "active" : ""}`}
+          onClick={() => setActiveTab("sales")}
+        >
+          <TrendingUp size={15} />
+          <span>Weekly Sales & Performance</span>
+        </button>
+
+        <button
+          type="button"
+          className={`rm-nav-tab ${activeTab === "payments" ? "active" : ""}`}
+          onClick={() => setActiveTab("payments")}
+        >
+          <CreditCard size={15} />
+          <span>Customer Payment Reports & Failures</span>
+        </button>
+
+        <button
+          type="button"
+          className={`rm-nav-tab ${activeTab === "inventory" ? "active" : ""}`}
+          onClick={() => setActiveTab("inventory")}
+        >
+          <Boxes size={15} />
+          <span>Low Stock & Reorder Reports</span>
+        </button>
+
+        <button
+          type="button"
+          className={`rm-nav-tab ${activeTab === "customers" ? "active" : ""}`}
+          onClick={() => setActiveTab("customers")}
+        >
+          <Users size={15} />
+          <span>Customer Spend Insights</span>
+        </button>
+      </div>
+
+      {/* =========================================================================
+          TAB 1: WEEKLY SALES ANALYTICS & HIGH/LOW PERFORMANCE CHARTS
+          ========================================================================= */}
       {activeTab === "sales" && (
-        <div className="pm-catalog-card">
-          <div className="pm-catalog-header">
-            <div className="pm-catalog-title-group">
-              <div className="pm-catalog-icon-box">
-                <TrendingUp size={18} color="#FFFFFF" />
-              </div>
-              <h3 className="pm-catalog-heading">
-                Sales Reports ({completedOrders.length} Completed Orders)
-              </h3>
-            </div>
-          </div>
-
-          <div className="pm-table-wrapper">
-            <table className="pm-products-table">
-              <thead>
-                <tr>
-                  <th>ORDER ID</th>
-                  <th>DATE & TIME</th>
-                  <th>CUSTOMER</th>
-                  <th>PAYMENT METHOD</th>
-                  <th>SUBTOTAL</th>
-                  <th>DISCOUNT</th>
-                  <th>TOTAL AMOUNT</th>
-                  <th>STATUS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {completedOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} style={{ textAlign: "center", padding: "32px", color: "#64748B" }}>
-                      No completed orders recorded in this period.
-                    </td>
-                  </tr>
-                ) : (
-                  completedOrders.map((o) => (
-                    <tr key={o._id}>
-                      <td>
-                        <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#1D4ED8", background: "#EFF6FF", padding: "3px 8px", borderRadius: "6px" }}>
-                          {o.orderNumber}
-                        </span>
-                      </td>
-                      <td>{new Date(o.createdAt).toLocaleString("en-IN")}</td>
-                      <td><strong>{o.customer?.name || "Shopper"}</strong></td>
-                      <td><span className="om-method-tag upi">{o.paymentMethod}</span></td>
-                      <td>₹{Number(o.subtotalAmount || o.totalAmount).toFixed(2)}</td>
-                      <td style={{ color: "#059669" }}>-₹{Number(o.discountAmount || 0).toFixed(2)}</td>
-                      <td><span className="pm-price-bold">₹{Number(o.totalAmount).toFixed(2)}</span></td>
-                      <td><span className="om-status-pill completed">Completed</span></td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------------- */}
-      {/* TAB 2: PRODUCT REPORTS                                                    */}
-      {/* ------------------------------------------------------------------------- */}
-      {activeTab === "products" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
-          {/* Best Selling Products */}
-          <div className="pm-catalog-card">
-            <div className="pm-catalog-header">
-              <div className="pm-catalog-title-group">
-                <div className="pm-catalog-icon-box" style={{ background: "#059669" }}>
-                  <Package size={18} color="#FFFFFF" />
+        <div className="rm-charts-container">
+          {/* A. Weekly Sales Graph (Monday to Sunday with ₹ on Y-Axis) */}
+          <div className="rm-weekly-chart-card">
+            <div className="rm-card-header">
+              <div className="rm-card-title-wrap">
+                <TrendingUp size={18} color="#1455D9" />
+                <div>
+                  <h3>Weekly Sales Revenue Analytics (Monday – Sunday)</h3>
+                  <p>Displaying exact verified monetary amounts (₹) collected each weekday</p>
                 </div>
-                <h3 className="pm-catalog-heading">
-                  Best-Selling Products
-                </h3>
+              </div>
+              <span className="rm-chart-meta-pill">
+                Daily Benchmark Avg: ₹{avgDailySales.toLocaleString("en-IN")}
+              </span>
+            </div>
+
+            {/* Weekday Visual Graph Area */}
+            <div className="rm-weekday-graph-wrapper">
+              {/* Y-Axis Monetary Labels */}
+              <div className="rm-yaxis-labels">
+                {yAxisMilestones.map((label, idx) => (
+                  <span key={idx}>{label}</span>
+                ))}
+              </div>
+
+              {/* 7 Columns for Monday to Sunday */}
+              <div className="rm-bars-track-area">
+                {weekdaySalesData.map((d) => {
+                  const heightPct =
+                    d.sales > 0
+                      ? Math.min(100, Math.max(12, Math.round((d.sales / maxWeekdaySales) * 100)))
+                      : 0;
+                  const isPeak = d.sales === peakDay.sales && d.sales > 0;
+                  const isLow = d.sales === lowestDay.sales && d.sales > 0;
+
+                  return (
+                    <div
+                      key={d.day}
+                      className="rm-weekday-col"
+                      title={`${d.day}: ₹${d.sales.toLocaleString("en-IN")} (${d.ordersCount} orders)`}
+                    >
+                      <span className={`rm-col-amount-label ${d.sales === 0 ? "empty" : ""}`}>
+                        {d.sales > 0 ? `₹${d.sales.toLocaleString("en-IN")}` : "₹0"}
+                      </span>
+
+                      <div
+                        className={`rm-col-bar ${
+                          isPeak ? "peak" : isLow ? "low" : d.sales === 0 ? "empty" : ""
+                        }`}
+                        style={{ height: `${heightPct}%` }}
+                      />
+
+                      <span className="rm-col-day-name">{d.day.slice(0, 3)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="pm-table-wrapper">
-              <table className="pm-products-table">
-                <thead>
-                  <tr>
-                    <th>RANK</th>
-                    <th>PRODUCT NAME</th>
-                    <th>CATEGORY</th>
-                    <th>PRICE</th>
-                    <th style={{ textAlign: "center" }}>UNITS SOLD</th>
-                    <th>TOTAL REVENUE</th>
-                    <th>CURRENT STOCK</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bestSellingProducts.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: "center", padding: "32px", color: "#64748B" }}>
-                        No product sales recorded yet in this date range.
-                      </td>
-                    </tr>
-                  ) : (
-                    bestSellingProducts.map((p, idx) => (
-                      <tr key={p.name}>
-                        <td>
-                          <span style={{ fontWeight: 800, color: idx === 0 ? "#D97706" : "#2563EB" }}>
-                            #{idx + 1}
-                          </span>
-                        </td>
-                        <td><strong>{p.name}</strong> {p.brand && <span style={{ color: "#64748B", fontSize: "11px" }}>({p.brand})</span>}</td>
-                        <td><span className="pm-category-text">{p.category}</span></td>
-                        <td>₹{Number(p.price).toFixed(2)}</td>
-                        <td style={{ textAlign: "center" }}>
-                          <span style={{ background: "#EFF6FF", color: "#1D4ED8", padding: "3px 8px", borderRadius: "6px", fontWeight: 800 }}>
-                            {p.unitsSold}
-                          </span>
-                        </td>
-                        <td><span className="pm-price-bold">₹{p.revenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></td>
-                        <td><strong>{p.stock}</strong></td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Least Selling / Slow Moving Products */}
-          <div className="pm-catalog-card">
-            <div className="pm-catalog-header">
-              <div className="pm-catalog-title-group">
-                <div className="pm-catalog-icon-box" style={{ background: "#D97706" }}>
-                  <Clock size={18} color="#FFFFFF" />
-                </div>
-                <h3 className="pm-catalog-heading">
-                  Slow-Moving Stock
-                </h3>
-              </div>
-            </div>
-
-            <div className="pm-table-wrapper">
-              <table className="pm-products-table">
-                <thead>
-                  <tr>
-                    <th>PRODUCT NAME</th>
-                    <th>CATEGORY</th>
-                    <th>PRICE</th>
-                    <th style={{ textAlign: "center" }}>UNITS SOLD</th>
-                    <th>REVENUE</th>
-                    <th>CURRENT STOCK</th>
-                    <th>STOCK VALUE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leastSellingProducts.map((p) => (
-                    <tr key={p.name}>
-                      <td><strong>{p.name}</strong></td>
-                      <td><span className="pm-category-text">{p.category}</span></td>
-                      <td>₹{Number(p.price).toFixed(2)}</td>
-                      <td style={{ textAlign: "center" }}>
-                        <span style={{ color: p.unitsSold === 0 ? "#DC2626" : "#475569", fontWeight: 700 }}>
-                          {p.unitsSold}
-                        </span>
-                      </td>
-                      <td>₹{p.revenue.toFixed(2)}</td>
-                      <td>{p.stock}</td>
-                      <td><strong>₹{(p.stock * p.price).toFixed(2)}</strong></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------------- */}
-      {/* TAB 3: INVENTORY REPORTS                                                  */}
-      {/* ------------------------------------------------------------------------- */}
-      {activeTab === "inventory" && (
-        <div className="pm-catalog-card">
-          <div className="pm-catalog-header">
-            <div className="pm-catalog-title-group">
-              <div className="pm-catalog-icon-box" style={{ background: "#2563EB" }}>
-                <Boxes size={18} color="#FFFFFF" />
-              </div>
-              <h3 className="pm-catalog-heading">
-                Inventory Health & Valuation ({products.length} Products)
-              </h3>
-            </div>
-            <div style={{ display: "flex", gap: "10px" }}>
-              <span className="inv-valuation-badge">
-                Total Inventory Value: ₹{totalInventoryValuation.toLocaleString("en-IN")}
+            <div className="rm-chart-footer-stats">
+              <span>
+                Peak Weekday: <strong>{peakDay.day}</strong> (₹{peakDay.sales.toLocaleString("en-IN")})
+              </span>
+              <span>
+                Lowest Weekday: <strong>{lowestDay.day}</strong> (₹{lowestDay.sales.toLocaleString("en-IN")})
+              </span>
+              <span>
+                Total Orders Across Week: <strong>{successfulOrders.length}</strong>
               </span>
             </div>
           </div>
 
-          <div className="pm-table-wrapper">
-            <table className="pm-products-table">
-              <thead>
-                <tr>
-                  <th>PRODUCT DETAILS</th>
-                  <th>CATEGORY</th>
-                  <th>CURRENT STOCK</th>
-                  <th>MIN THRESHOLD</th>
-                  <th>STOCK STATUS</th>
-                  <th>UNIT PRICE</th>
-                  <th>TOTAL VALUE</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => {
-                  const stock = Number(p.stock || 0);
-                  const threshold = Number(p.lowStockThreshold || 5);
-                  const isOut = stock === 0;
-                  const isLow = stock <= threshold && !isOut;
-
-                  return (
-                    <tr key={p._id || p.name}>
-                      <td>
-                        <strong>{p.name}</strong>
-                        {p.brand && <span style={{ color: "#64748B", fontSize: "11px", display: "block" }}>{p.brand}</span>}
-                      </td>
-                      <td><span className="pm-category-text">{p.category}</span></td>
-                      <td><strong>{stock}</strong></td>
-                      <td>{threshold}</td>
-                      <td>
-                        {isOut ? (
-                          <span className="om-status-pill failed">Out of Stock</span>
-                        ) : isLow ? (
-                          <span className="om-status-pill pending">Low Stock</span>
-                        ) : (
-                          <span className="om-status-pill completed">In Stock</span>
-                        )}
-                      </td>
-                      <td>₹{Number(p.price || 0).toFixed(2)}</td>
-                      <td><span className="pm-price-bold">₹{(stock * Number(p.price || 0)).toFixed(2)}</span></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------------- */}
-      {/* TAB 4: ORDER REPORTS                                                      */}
-      {/* ------------------------------------------------------------------------- */}
-      {activeTab === "orders" && (
-        <div className="pm-catalog-card">
-          <div className="pm-catalog-header">
-            <div className="pm-catalog-title-group">
-              <div className="pm-catalog-icon-box" style={{ background: "#7C3AED" }}>
-                <ShoppingBag size={18} color="#FFFFFF" />
+          {/* B. Low and High Performance Comparative Charts */}
+          <div className="rm-perf-split-grid">
+            {/* Chart 1: High-Performance Days */}
+            <div className="rm-perf-card high">
+              <div className="rm-perf-header">
+                <div>
+                  <span className="rm-perf-badge high">
+                    <TrendingUp size={13} /> High-Performance Sales Periods
+                  </span>
+                  <h4 className="rm-perf-main-val">₹{peakDay.sales.toLocaleString("en-IN")}</h4>
+                  <small style={{ color: "#059669" }}>Peak Day: {peakDay.day}</small>
+                </div>
               </div>
-              <h3 className="pm-catalog-heading">
-                Order Status History ({filteredOrders.length} Orders)
-              </h3>
-            </div>
-          </div>
 
-          {/* Quick Order Status Strips */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", padding: "16px 20px 0" }}>
-            <div className="rm-stat-box">
-              <span className="title">Completed</span>
-              <span className="num" style={{ color: "#16A34A" }}>{completedOrders.length}</span>
-            </div>
-            <div className="rm-stat-box">
-              <span className="title">Pending</span>
-              <span className="num" style={{ color: "#D97706" }}>{pendingOrders.length}</span>
-            </div>
-            <div className="rm-stat-box">
-              <span className="title">Approved</span>
-              <span className="num" style={{ color: "#4F46E5" }}>{approvedOrders.length}</span>
-            </div>
-            <div className="rm-stat-box">
-              <span className="title">Failed</span>
-              <span className="num" style={{ color: "#DC2626" }}>{failedOrders.length}</span>
-            </div>
-          </div>
-
-          <div className="pm-table-wrapper" style={{ marginTop: "12px" }}>
-            <table className="pm-products-table">
-              <thead>
-                <tr>
-                  <th>ORDER ID</th>
-                  <th>DATE & TIME</th>
-                  <th>CUSTOMER</th>
-                  <th>ITEMS</th>
-                  <th>AMOUNT</th>
-                  <th>PAYMENT METHOD</th>
-                  <th>STATUS</th>
-                  <th>EXIT BARCODE</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.map((o) => (
-                  <tr key={o._id}>
-                    <td>
-                      <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#1D4ED8" }}>
-                        {o.orderNumber}
-                      </span>
-                    </td>
-                    <td>{new Date(o.createdAt).toLocaleString("en-IN")}</td>
-                    <td><strong>{o.customer?.name || "Shopper"}</strong></td>
-                    <td>{o.totalItems || 1} items</td>
-                    <td><span className="pm-price-bold">₹{Number(o.totalAmount).toFixed(2)}</span></td>
-                    <td><span className="om-method-tag upi">{o.paymentMethod}</span></td>
-                    <td>
-                      <span
-                        className={`om-status-pill ${
-                          o.paymentStatus === "Completed"
-                            ? "completed"
-                            : o.paymentStatus === "Approved"
-                            ? "approved"
-                            : "pending"
-                        }`}
-                      >
-                        {o.paymentStatus}
-                      </span>
-                    </td>
-                    <td><span style={{ fontFamily: "monospace", fontSize: "11px" }}>{o.exitBarcode}</span></td>
-                  </tr>
+              <div className="rm-perf-days-list">
+                {highPerformanceDays.map((d) => (
+                  <div key={d.day} className="rm-perf-day-row">
+                    <span>{d.day}</span>
+                    <strong style={{ color: "#059669" }}>
+                      ₹{d.sales.toLocaleString("en-IN")} ({d.ordersCount} orders)
+                    </strong>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+
+              <div className="rm-perf-advice high">
+                <strong>Peak Demand Insight:</strong> Sales volume surges on {peakDay.day}. Ensure shelf restocking is completed by Friday evening to capture weekend footfall.
+              </div>
+            </div>
+
+            {/* Chart 2: Low-Performance Days */}
+            <div className="rm-perf-card low">
+              <div className="rm-perf-header">
+                <div>
+                  <span className="rm-perf-badge low">
+                    <TrendingDown size={13} /> Low-Performance Sales Periods
+                  </span>
+                  <h4 className="rm-perf-main-val">₹{lowestDay.sales.toLocaleString("en-IN")}</h4>
+                  <small style={{ color: "#b45309" }}>Lowest Day: {lowestDay.day}</small>
+                </div>
+              </div>
+
+              <div className="rm-perf-days-list">
+                {lowPerformanceDays.map((d) => (
+                  <div key={d.day} className="rm-perf-day-row">
+                    <span>{d.day}</span>
+                    <strong style={{ color: "#d97706" }}>
+                      ₹{d.sales.toLocaleString("en-IN")} ({d.ordersCount} orders)
+                    </strong>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rm-perf-advice low">
+                <strong>Revenue Lift Strategy:</strong> {lowestDay.day} experiences dip in basket sizes. Introduce promotional offers, bundle discounts, or mobile app push notifications.
+              </div>
+            </div>
+          </div>
+
+          {/* C. Payment Method Analytics (UPI, Card, Cash, Other) */}
+          <div className="rm-payment-analytics-card">
+            <div className="rm-card-header">
+              <div className="rm-card-title-wrap">
+                <CreditCard size={18} color="#7C3AED" />
+                <div>
+                  <h3>Payment Method Analytics & Revenue Breakdown</h3>
+                  <p>Customer counts, successful transaction totals, and payment channel share</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rm-pm-cards-grid">
+              {paymentMethodAnalytics.map((pm) => (
+                <div key={pm.method} className={`rm-pm-box ${pm.method.toLowerCase()}`}>
+                  <div className="rm-pm-head">
+                    <span className="rm-pm-title">{pm.method} Payments</span>
+                    <span className="rm-pm-pct-tag">{pm.percentage}%</span>
+                  </div>
+                  <span className="rm-pm-amt">₹{pm.amount.toLocaleString("en-IN")}</span>
+                  <div className="rm-pm-meta">
+                    <span>{pm.count} Transactions</span>
+                    <span>{pm.customersCount} Customers</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Segmented Distribution Bar */}
+            <div className="rm-pm-segmented-bar">
+              {paymentMethodAnalytics.map((pm) => (
+                <div
+                  key={pm.method}
+                  className={`rm-segment ${pm.method.toLowerCase()}`}
+                  style={{ width: `${pm.percentage}%` }}
+                  title={`${pm.method}: ₹${pm.amount} (${pm.percentage}%)`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* ------------------------------------------------------------------------- */}
-      {/* TAB 5: CUSTOMER REPORTS                                                   */}
-      {/* ------------------------------------------------------------------------- */}
-      {activeTab === "customers" && (
-        <div className="pm-catalog-card">
-          <div className="pm-catalog-header">
-            <div className="pm-catalog-title-group">
-              <div className="pm-catalog-icon-box" style={{ background: "#2563EB" }}>
-                <Users size={18} color="#FFFFFF" />
-              </div>
-              <h3 className="pm-catalog-heading">
-                Customer Insights & Rankings
-              </h3>
+      {/* =========================================================================
+          TAB 2: CUSTOMER PAYMENT REPORTS & NETWORK ERROR TRACKER
+          ========================================================================= */}
+      {activeTab === "payments" && (
+        <div className="rm-table-section-card">
+          <div className="rm-table-toolbar">
+            {/* Filter Buttons */}
+            <div className="rm-table-filters">
+              <button
+                type="button"
+                className={`rm-filter-btn ${paymentStatusFilter === "ALL" ? "active" : ""}`}
+                onClick={() => setPaymentStatusFilter("ALL")}
+              >
+                All Payments ({filteredOrders.length})
+              </button>
+
+              <button
+                type="button"
+                className={`rm-filter-btn ${paymentStatusFilter === "Successful" ? "active" : ""}`}
+                onClick={() => setPaymentStatusFilter("Successful")}
+              >
+                <CheckCircle2 size={13} />
+                Successful ({successfulOrders.length})
+              </button>
+
+              <button
+                type="button"
+                className={`rm-filter-btn warning ${paymentStatusFilter === "Pending" ? "active" : ""}`}
+                onClick={() => setPaymentStatusFilter("Pending")}
+              >
+                <Clock size={13} />
+                Pending ({pendingOrders.length})
+              </button>
+
+              <button
+                type="button"
+                className={`rm-filter-btn alert ${paymentStatusFilter === "Failed" ? "active" : ""}`}
+                onClick={() => setPaymentStatusFilter("Failed")}
+              >
+                <AlertCircle size={13} />
+                Failed ({failedOrders.length})
+              </button>
+
+              <button
+                type="button"
+                className={`rm-filter-btn alert ${paymentStatusFilter === "Network Error" ? "active" : ""}`}
+                onClick={() => setPaymentStatusFilter("Network Error")}
+              >
+                <WifiOff size={13} />
+                Network Errors ({networkErrorOrders.length})
+              </button>
+            </div>
+
+            {/* Search Box */}
+            <div className="rm-search-box">
+              <Search size={14} color="#64748B" />
+              <input
+                type="text"
+                placeholder="Search customer, phone, order ID, amount..."
+                value={paymentSearch}
+                onChange={(e) => setPaymentSearch(e.target.value)}
+              />
             </div>
           </div>
 
-          <div className="pm-table-wrapper">
-            <table className="pm-products-table">
+          {/* Payment Ledger Table */}
+          <div className="rm-table-responsive">
+            <table className="rm-data-table">
               <thead>
                 <tr>
-                  <th>CUSTOMER NAME</th>
-                  <th>MOBILE</th>
-                  <th style={{ textAlign: "center" }}>ORDERS</th>
-                  <th>TOTAL SPENT</th>
-                  <th>AVG ORDER</th>
-                  <th>PAYMENT METHOD</th>
-                  <th>LAST VISIT</th>
+                  <th>Order #</th>
+                  <th>Customer Name & Phone</th>
+                  <th>Payment Method</th>
+                  <th>Payment Status</th>
+                  <th>Transaction Amount</th>
+                  <th>Transaction Date & Time</th>
+                  <th>Failure Reason / Resolution Note</th>
                 </tr>
               </thead>
               <tbody>
-                {customerRankings.length === 0 ? (
+                {filteredPaymentLedger.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: "center", padding: "32px", color: "#64748B" }}>
-                      No customer transactions found for this period.
+                    <td colSpan="7" style={{ textAlign: "center", padding: "32px", color: "#64748B" }}>
+                      No transaction records match the selected filter.
                     </td>
                   </tr>
                 ) : (
-                  customerRankings.map((c) => {
-                    const aov = c.completedOrdersCount > 0 ? Math.round(c.totalSpent / c.completedOrdersCount) : 0;
+                  filteredPaymentLedger.map((ord) => {
+                    const isSuccess =
+                      ord.paymentStatus === "Completed" || ord.paymentStatus === "Approved";
+                    const isPending = ord.paymentStatus === "Pending";
+                    const isFailed = ord.paymentStatus === "Failed";
+                    const isNetwork = ord.paymentStatus === "Network Error";
+
                     return (
-                      <tr key={c.phone + c.name}>
-                        <td><strong>{c.name}</strong></td>
-                        <td>{c.phone}</td>
-                        <td style={{ textAlign: "center" }}>
-                          <span style={{ background: "#F1F5F9", padding: "3px 8px", borderRadius: "6px", fontWeight: 800 }}>
-                            {c.ordersCount}
+                      <tr key={ord._id || ord.orderNumber}>
+                        <td>
+                          <strong>{ord.orderNumber}</strong>
+                          <button
+                            type="button"
+                            className="rm-copy-inline-btn"
+                            onClick={() => handleCopy(ord.orderNumber)}
+                            title="Copy Order ID"
+                          >
+                            <Copy size={11} />
+                            <span>{copiedId === ord.orderNumber ? "Copied" : "Copy"}</span>
+                          </button>
+                        </td>
+
+                        <td>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                            <strong style={{ color: "#0F172A" }}>
+                              {ord.customer?.name || "Mobile Shopper"}
+                            </strong>
+                            <small style={{ color: "#64748B" }}>
+                              {ord.customer?.phone || "No phone provided"}
+                            </small>
+                          </div>
+                        </td>
+
+                        <td>
+                          <span
+                            className={`rm-payment-pill ${(
+                              ord.paymentMethod || "UPI"
+                            ).toLowerCase()}`}
+                          >
+                            {ord.paymentMethod || "UPI"}
                           </span>
                         </td>
-                        <td><span className="pm-price-bold">₹{c.totalSpent.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></td>
-                        <td>₹{aov}</td>
-                        <td><span className="om-method-tag card">{c.preferredPayment}</span></td>
-                        <td>{c.latestVisit.toLocaleDateString("en-IN")}</td>
+
+                        <td>
+                          <span
+                            className={`rm-status-badge ${
+                              isSuccess
+                                ? "successful"
+                                : isPending
+                                ? "pending"
+                                : isNetwork
+                                ? "network-error"
+                                : "failed"
+                            }`}
+                          >
+                            {isSuccess && <CheckCircle2 size={12} />}
+                            {isPending && <Clock size={12} />}
+                            {isFailed && <AlertCircle size={12} />}
+                            {isNetwork && <WifiOff size={12} />}
+                            {ord.paymentStatus}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span
+                            className={`rm-amount-tag ${
+                              isSuccess ? "green" : isPending ? "amber" : "red"
+                            }`}
+                          >
+                            ₹{Number(ord.totalAmount || 0).toFixed(2)}
+                            {(isFailed || isNetwork) && (
+                              <small style={{ display: "block", fontSize: "10px", fontWeight: "normal" }}>
+                                (Interrupted)
+                              </small>
+                            )}
+                          </span>
+                        </td>
+
+                        <td>
+                          <small>
+                            {ord.createdAt
+                              ? new Date(ord.createdAt).toLocaleString("en-IN", {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                })
+                              : "Recently placed"}
+                          </small>
+                        </td>
+
+                        <td>
+                          {isNetwork ? (
+                            <span style={{ color: "#BE123C", fontWeight: 600 }}>
+                              ⚠️ Network timeout during gateway callback. Transaction interrupted.
+                            </span>
+                          ) : isFailed ? (
+                            <span style={{ color: "#DC2626", fontWeight: 600 }}>
+                              {ord.failureReason || "Payment declined by customer bank."}
+                            </span>
+                          ) : isSuccess ? (
+                            <span style={{ color: "#059669" }}>
+                              ✓ Payment verified. Exit turnstile code generated.
+                            </span>
+                          ) : (
+                            <span style={{ color: "#D97706" }}>
+                              Awaiting cashier / POS payment confirmation.
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })
                 )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 3: LOW STOCK & REORDER INVENTORY REPORT
+          ========================================================================= */}
+      {activeTab === "inventory" && (
+        <div className="rm-table-section-card">
+          <div className="rm-table-toolbar">
+            <div className="rm-table-filters">
+              <button
+                type="button"
+                className={`rm-filter-btn ${stockLevelFilter === "ALL_LOW" ? "active" : ""}`}
+                onClick={() => setStockLevelFilter("ALL_LOW")}
+              >
+                All Low Stock ({lowStockProductsList.length})
+              </button>
+
+              <button
+                type="button"
+                className={`rm-filter-btn alert ${stockLevelFilter === "OUT_OF_STOCK" ? "active" : ""}`}
+                onClick={() => setStockLevelFilter("OUT_OF_STOCK")}
+              >
+                Out of Stock ({outOfStockProductsList.length})
+              </button>
+
+              <button
+                type="button"
+                className={`rm-filter-btn ${stockLevelFilter === "ALL_PRODUCTS" ? "active" : ""}`}
+                onClick={() => setStockLevelFilter("ALL_PRODUCTS")}
+              >
+                Entire Catalog ({products.length})
+              </button>
+            </div>
+
+            <div className="rm-search-box">
+              <Search size={14} color="#64748B" />
+              <input
+                type="text"
+                placeholder="Search product, category, barcode..."
+                value={stockSearch}
+                onChange={(e) => setStockSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="rm-table-responsive">
+            <table className="rm-data-table">
+              <thead>
+                <tr>
+                  <th>Product Name & Barcode</th>
+                  <th>Category</th>
+                  <th>Available Shelf Stock</th>
+                  <th>Min Threshold</th>
+                  <th>Required Reorder Qty</th>
+                  <th>Inventory Status</th>
+                  <th>Selling Price / Unit</th>
+                  <th>Est. Reorder Cost</th>
+                  <th style={{ textAlign: "right" }}>Instant Restock</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStockReport.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" style={{ textAlign: "center", padding: "32px", color: "#64748B" }}>
+                      No inventory items match the current stock filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStockReport.map((prod) => {
+                    const stock = Number(prod.stock || 0);
+                    const threshold = Number(prod.lowStockThreshold || 5);
+                    const isOutOfStock = stock === 0;
+                    const isLow = stock <= threshold;
+
+                    // Required reorder formula: Bring to 2x threshold with a minimum of 10 units
+                    const requiredReorder = Math.max(10, threshold * 2 - stock);
+                    const costPrice = Number(prod.costPrice || prod.price * 0.8 || 0);
+                    const estCost = requiredReorder * costPrice;
+
+                    return (
+                      <tr key={prod._id || prod.barcode}>
+                        <td>
+                          <strong>{prod.name}</strong>
+                          <small style={{ display: "block", color: "#64748B" }}>
+                            Barcode: {prod.barcode || "N/A"}
+                          </small>
+                        </td>
+
+                        <td>
+                          <span className="rm-payment-pill">{prod.category || "General"}</span>
+                        </td>
+
+                        <td>
+                          <strong style={{ color: isOutOfStock ? "#DC2626" : isLow ? "#D97706" : "#059669" }}>
+                            {stock} Units
+                          </strong>
+                        </td>
+
+                        <td>{threshold} Units</td>
+
+                        <td>
+                          <span className="rm-reorder-tag">+{requiredReorder} Units</span>
+                        </td>
+
+                        <td>
+                          <span
+                            className={`rm-status-badge ${
+                              isOutOfStock ? "failed" : isLow ? "pending" : "completed"
+                            }`}
+                          >
+                            {isOutOfStock ? "Out of Stock" : isLow ? "Low Stock" : "Optimal"}
+                          </span>
+                        </td>
+
+                        <td>₹{Number(prod.price || 0).toFixed(2)}</td>
+
+                        <td>
+                          <strong>₹{estCost.toFixed(2)}</strong>
+                        </td>
+
+                        <td style={{ textAlign: "right" }}>
+                          <button
+                            type="button"
+                            className="rm-mini-restock-btn"
+                            onClick={() => handleQuickRestock(prod, 10)}
+                            title="Directly add 10 units to database"
+                          >
+                            <Boxes size={12} />
+                            <span>+10 Restock</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 4: CUSTOMER SPEND RANKINGS
+          ========================================================================= */}
+      {activeTab === "customers" && (
+        <div className="rm-table-section-card">
+          <div className="rm-table-responsive">
+            <table className="rm-data-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Customer Name</th>
+                  <th>Phone Number</th>
+                  <th>Total Orders Placed</th>
+                  <th>Completed Orders</th>
+                  <th>Lifetime Spend (₹)</th>
+                  <th>Average Ticket Value</th>
+                  <th>Latest Purchase Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const map = {};
+                  filteredOrders.forEach((o) => {
+                    const name = o.customer?.name || "Guest Shopper";
+                    const phone = o.customer?.phone || "N/A";
+                    const key = phone !== "N/A" ? phone : name;
+
+                    if (!map[key]) {
+                      map[key] = {
+                        name,
+                        phone,
+                        ordersCount: 0,
+                        completedCount: 0,
+                        totalSpent: 0,
+                        latestDate: new Date(o.createdAt || Date.now()),
+                      };
+                    }
+                    map[key].ordersCount += 1;
+                    if (o.paymentStatus === "Completed" || o.paymentStatus === "Approved") {
+                      map[key].completedCount += 1;
+                      map[key].totalSpent += Number(o.totalAmount || 0);
+                    }
+                    if (new Date(o.createdAt) > map[key].latestDate) {
+                      map[key].latestDate = new Date(o.createdAt);
+                    }
+                  });
+
+                  const sorted = Object.values(map).sort((a, b) => b.totalSpent - a.totalSpent);
+
+                  if (sorted.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan="8" style={{ textAlign: "center", padding: "32px", color: "#64748B" }}>
+                          No customer transactions recorded yet.
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return sorted.map((cust, idx) => (
+                    <tr key={cust.phone + idx}>
+                      <td>#{idx + 1}</td>
+                      <td>
+                        <strong>{cust.name}</strong>
+                      </td>
+                      <td>{cust.phone}</td>
+                      <td>{cust.ordersCount}</td>
+                      <td>
+                        <strong style={{ color: "#059669" }}>{cust.completedCount}</strong>
+                      </td>
+                      <td>
+                        <strong style={{ color: "#1455D9", fontSize: "13px" }}>
+                          ₹{cust.totalSpent.toLocaleString("en-IN")}
+                        </strong>
+                      </td>
+                      <td>
+                        ₹
+                        {cust.completedCount > 0
+                          ? Math.round(cust.totalSpent / cust.completedCount).toLocaleString("en-IN")
+                          : 0}
+                      </td>
+                      <td>{cust.latestDate.toLocaleDateString("en-IN")}</td>
+                    </tr>
+                  ));
+                })()}
               </tbody>
             </table>
           </div>

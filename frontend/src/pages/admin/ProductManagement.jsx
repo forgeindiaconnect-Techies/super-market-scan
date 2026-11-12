@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Package,
   Plus,
@@ -51,11 +51,20 @@ const CATEGORIES = [
 
 export default function ProductManagement() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Initialize immediately from persistent storage so changes never vanish on F5/refresh
   const [products, setProducts] = useState(getPersistentProducts);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
+
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q !== null) {
+      setSearch(q);
+    }
+  }, [searchParams]);
+
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
   const [stockFilter, setStockFilter] = useState("all");
   const [stats, setStats] = useState({
@@ -177,7 +186,8 @@ export default function ProductManagement() {
   // Adjust stock quantity live (+1 or -1) with instant persistence & backend sync
   const handleQuickStock = async (product, change) => {
     const newStock = Math.max(0, Number(product.stock) + change);
-    const identifier = product._id || product.barcode;
+    const isMongoId = product._id && /^[0-9a-fA-F]{24}$/.test(product._id);
+    const identifier = isMongoId ? product._id : (product.barcode || product._id);
 
     // 1. Immediately update persistent localStorage so refresh NEVER loses the stock
     updatePersistentStock(identifier, newStock);
@@ -193,7 +203,7 @@ export default function ProductManagement() {
 
     // 3. Sync with MongoDB Atlas backend
     try {
-      await API.patch(`/products/${identifier}/stock`, { stock: newStock });
+      await API.patch(`/products/${identifier}/stock`, { stock: newStock, barcode: product.barcode });
     } catch (err) {
       console.warn("Backend stock sync queued in local storage:", err.message);
     }
@@ -220,16 +230,25 @@ export default function ProductManagement() {
     e.preventDefault();
     setSavingEdit(true);
     try {
-      const identifier = editingProduct._id || editingProduct.barcode;
+      const isMongoId = editingProduct._id && /^[0-9a-fA-F]{24}$/.test(editingProduct._id);
+      const identifier = isMongoId ? editingProduct._id : (editingProduct.barcode || editingProduct._id);
       let updatedProduct = { ...editingProduct, ...editForm };
 
       try {
-        const res = await API.put(`/products/${identifier}`, editForm);
+        const res = await API.put(`/products/${identifier}`, {
+          ...editForm,
+          price: Number(editForm.price),
+          costPrice: Number(editForm.costPrice) || 0,
+          discount: Number(editForm.discount) || 0,
+          stock: Number(editForm.stock),
+          barcode: editForm.barcode || editingProduct.barcode,
+        });
         if (res.data?.success && res.data.product) {
           updatedProduct = res.data.product;
         }
       } catch (err) {
-        console.warn("Backend product update fallback to local:", err.message);
+        console.error("Backend product update error:", err.response?.data || err.message);
+        alert("Warning: Backend sync error: " + (err.response?.data?.message || err.message));
       }
 
       // Save to persistent storage & state
@@ -259,8 +278,11 @@ export default function ProductManagement() {
 
     setProducts((prev) => prev.filter((p) => p._id !== id && p.barcode !== barcode));
 
+    const isMongoId = id && /^[0-9a-fA-F]{24}$/.test(id);
+    const identifier = isMongoId ? id : (barcode || id);
+
     try {
-      await API.delete(`/products/${id}`);
+      await API.delete(`/products/${identifier}`, { data: { barcode } });
     } catch (err) {
       console.warn("Backend delete sync:", err.message);
     }

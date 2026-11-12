@@ -12,6 +12,7 @@ const {
   updateProduct,
   updateProductStock,
   deleteProduct,
+  lookupExternalProduct,
 } = require("../controllers/productController");
 
 // Auto-generate unique barcode
@@ -28,6 +29,9 @@ router.get("/barcode/:barcode", getProductByBarcode);
 
 // Find product using Supermarket QR code ID
 router.get("/qr/:id", getProductByQr);
+
+// External product lookup by barcode
+router.get('/external/:barcode', lookupExternalProduct);
 
 // Find product using MongoDB ID or barcode
 router.get("/:id", getProductById);

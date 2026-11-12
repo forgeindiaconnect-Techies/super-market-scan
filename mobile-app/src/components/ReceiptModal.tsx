@@ -51,6 +51,7 @@ export default function ReceiptModal({ visible, order, onClose }: ReceiptModalPr
   const exitBarcode = order.exitBarcode || "EXIT-" + Date.now().toString().slice(-8);
   const customerName = (order as any).customer?.name || "Customer Shopper";
   const customerPhone = (order as any).customer?.phone || "";
+  const customerAddress = (order as any).customer?.address || "";
 
   const totalQty = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
   const taxableAmount = totalAmount / 1.05;
@@ -83,7 +84,7 @@ export default function ReceiptModal({ visible, order, onClose }: ReceiptModalPr
           <View style={styles.modalHeader}>
             <View>
               <Text style={styles.modalHeaderTitle}>Supermarket Tax Invoice</Text>
-              <Text style={styles.modalHeaderSub}>Official Cash Memo & Exit Pass</Text>
+              <Text style={styles.modalHeaderSub}>Official Retail Cash Memo</Text>
             </View>
             <TouchableOpacity
               style={styles.closeBtn}
@@ -104,13 +105,13 @@ export default function ReceiptModal({ visible, order, onClose }: ReceiptModalPr
               {/* Top Serration / Decorative Header */}
               <View style={styles.storeBranding}>
                 <Text style={styles.storeIcon}>🛒</Text>
-                <Text style={styles.storeName}>GrocerEase</Text>
-                <Text style={styles.storeTagline}>Smart Autonomous Supermarket</Text>
+                <Text style={styles.storeName}>GROCEREASE SUPERMARKET</Text>
+                <Text style={styles.storeTagline}>Smart Autonomous Retail & Self-Checkout</Text>
                 <Text style={styles.storeAddress}>
                   Store #001 • 100 Feet Road, Indiranagar, Bengaluru
                 </Text>
                 <Text style={styles.storeLegal}>
-                  GSTIN: 29AAAAA0000A1Z5 | FSSAI: 11223344556677
+                  GSTIN: 29AABCU9603R1ZM | FSSAI: 11223344556677
                 </Text>
               </View>
 
@@ -118,12 +119,34 @@ export default function ReceiptModal({ visible, order, onClose }: ReceiptModalPr
 
               {/* Title & Metadata */}
               <View style={styles.memoTitleBox}>
-                <Text style={styles.memoTitle}>RETAIL TAX INVOICE</Text>
+                <Text style={styles.memoTitle}>RETAIL TAX INVOICE / CASH MEMO</Text>
               </View>
 
               <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Customer Name:</Text>
+                <Text style={styles.metaValue}>{customerName}</Text>
+              </View>
+              {customerPhone ? (
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Mobile Number:</Text>
+                  <Text style={styles.metaValue}>+91 {customerPhone}</Text>
+                </View>
+              ) : null}
+              {customerAddress ? (
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Delivery Address:</Text>
+                  <Text style={styles.metaValue}>{customerAddress}</Text>
+                </View>
+              ) : null}
+              <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Invoice No:</Text>
                 <Text style={styles.metaValueMono}>{order.orderNumber || "ORD-2026"}</Text>
+              </View>
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Transaction ID:</Text>
+                <Text style={styles.metaValueMono}>
+                  {(order as any).paymentId || (order as any).transactionId || `TXN-${(order.orderNumber || "").replace(/^ORD-/, "")}`}
+                </Text>
               </View>
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Date & Time:</Text>
@@ -131,20 +154,14 @@ export default function ReceiptModal({ visible, order, onClose }: ReceiptModalPr
               </View>
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Terminal:</Text>
-                <Text style={styles.metaValue}>Lane #04 (Self-Checkout)</Text>
-              </View>
-              <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Customer:</Text>
-                <Text style={styles.metaValue}>
-                  {customerName} {customerPhone ? `(${customerPhone})` : ""}
-                </Text>
+                <Text style={styles.metaValue}>Register #01 (Self-Checkout)</Text>
               </View>
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Payment Mode:</Text>
                 <Text style={styles.metaValue}>{payMethod === "Cash" ? "Cash at Exit" : payMethod}</Text>
               </View>
               <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Status:</Text>
+                <Text style={styles.metaLabel}>Payment Status:</Text>
                 <View style={styles.statusPill}>
                   <Text style={styles.statusPillText}>{payStatus}</Text>
                 </View>
@@ -229,41 +246,13 @@ export default function ReceiptModal({ visible, order, onClose }: ReceiptModalPr
                 </View>
               )}
 
-              {/* Exit Gate Pass Section */}
-              <View style={styles.exitPassSection}>
-                <Text style={styles.exitPassTitle}>=== EXIT TURNSTILE GATE PASS ===</Text>
-                <View style={styles.barcodeVisualBox}>
-                  {/* Real barcode visual bars */}
-                  <View style={styles.barcodeBarsRow}>
-                    {exitBarcode.split("").map((ch, i) => {
-                      const code = ch.charCodeAt(0);
-                      const w1 = (code % 3) + 1.2;
-                      const s1 = ((code >> 1) % 2) + 1.5;
-                      const w2 = ((code >> 2) % 3) + 1.2;
-                      return (
-                        <React.Fragment key={i}>
-                          <View style={[styles.barcodeBar, { width: w1 }]} />
-                          <View style={{ width: s1 }} />
-                          <View style={[styles.barcodeBar, { width: w2 }]} />
-                          <View style={{ width: 1.5 }} />
-                        </React.Fragment>
-                      );
-                    })}
-                  </View>
-                  <Text style={styles.barcodeText}>{exitBarcode}</Text>
-                </View>
-                <Text style={styles.exitPassNote}>
-                  Present this barcode to Turnstile 1–4 to open the automated exit gate.
-                </Text>
-              </View>
-
-              {/* Footer */}
+              {/* Footer (NO BARCODES) */}
               <View style={styles.footerNoteBox}>
                 <Text style={styles.footerNote}>
                   Goods once sold can be returned within 7 days with original tax invoice.
                 </Text>
                 <Text style={styles.footerThanks}>
-                  *** THANK YOU FOR SHOPPING AT GROCEREASE! ***
+                  *** THANK YOU FOR SHOPPING AT GROCEREASE! PLEASE VISIT AGAIN ***
                 </Text>
               </View>
             </View>
@@ -450,7 +439,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#0F172A",
     fontWeight: "700",
-    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    letterSpacing: 0.3,
   },
   statusPill: {
     backgroundColor: "#DCFCE7",

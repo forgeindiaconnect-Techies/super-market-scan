@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ShoppingCart,
   Search,
@@ -35,6 +36,8 @@ import API from "../../services/api";
 import BarcodeSVG from "../../components/BarcodeSVG";
 import ErpPageBanner from "../../components/ErpPageBanner";
 import bannerCartImg from "../../assets/banner-cart.png";
+import { printSupermarketReceipt } from "../../utils/receiptGenerator";
+import { exportStyledExcelReport } from "../../utils/reportsExportGenerator";
 import "./ProductManagement.css";
 
 const PAYMENT_METHODS = [
@@ -52,13 +55,23 @@ const DATE_PERIODS = [
 ];
 
 export default function OrdersManagement() {
+  const [searchParams] = useSearchParams();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") || "");
+
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q !== null) {
+      setSearch(q);
+    }
+  }, [searchParams]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [activeTab, setActiveTab] = useState("ALL");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("All Payment Methods");
   const [dateFilter, setDateFilter] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [showTopProductsModal, setShowTopProductsModal] = useState(false);
 
   // Async action tracking
@@ -201,6 +214,18 @@ export default function OrdersManagement() {
         if (dateFilter === "today" && orderDate < startOfToday) return false;
         if (dateFilter === "week" && orderDate < sevenDaysAgo) return false;
         if (dateFilter === "month" && orderDate < thirtyDaysAgo) return false;
+        if (dateFilter === "custom") {
+          if (customStartDate) {
+            const [sY, sM, sD] = customStartDate.split("-").map(Number);
+            const sDate = new Date(sY, sM - 1, sD, 0, 0, 0, 0);
+            if (orderDate < sDate) return false;
+          }
+          if (customEndDate) {
+            const [eY, eM, eD] = customEndDate.split("-").map(Number);
+            const eDate = new Date(eY, eM - 1, eD, 23, 59, 59, 999);
+            if (orderDate > eDate) return false;
+          }
+        }
       }
 
       // 4. Search query
@@ -219,7 +244,7 @@ export default function OrdersManagement() {
 
       return true;
     });
-  }, [orders, activeTab, paymentMethodFilter, dateFilter, search]);
+  }, [orders, activeTab, paymentMethodFilter, dateFilter, customStartDate, customEndDate, search]);
 
   // Executive KPI Metrics
   const totalOrdersCount = orders.length;
@@ -336,169 +361,27 @@ export default function OrdersManagement() {
     return Object.values(map).sort((a, b) => b.unitsSold - a.unitsSold);
   }, [completedOrders]);
 
-  // Export Filtered Orders to CSV
+  // Export Filtered Orders to Styled Excel (.xls) with Colored Headers
   const handleExportCSV = () => {
     if (filteredOrders.length === 0) {
       alert("No orders available to export for the selected filter.");
       return;
     }
 
-    const headers = [
-      "Order Number",
-      "Date & Time",
-      "Customer Name",
-      "Customer Phone",
-      "Items Count",
-      "Subtotal (INR)",
-      "Discount (INR)",
-      "Final Amount (INR)",
-      "Payment Method",
-      "Payment Status",
-      "Exit Barcode",
-    ];
-
-    const rows = filteredOrders.map((o) => [
-      `"${o.orderNumber || ""}"`,
-      `"${new Date(o.createdAt || Date.now()).toLocaleString("en-IN")}"`,
-      `"${o.customer?.name || "Guest Shopper"}"`,
-      `"${o.customer?.phone || ""}"`,
-      o.totalItems || o.items?.length || 0,
-      Number(o.subtotalAmount || o.totalAmount || 0).toFixed(2),
-      Number(o.discountAmount || 0).toFixed(2),
-      Number(o.totalAmount || 0).toFixed(2),
-      `"${o.paymentMethod || "UPI"}"`,
-      `"${o.paymentStatus || "Pending"}"`,
-      `"${o.exitBarcode || ""}"`,
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `supermarket_orders_${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportStyledExcelReport({
+      orders: filteredOrders,
+      activeTab: "sales",
+      datePreset: dateFilter,
+      customStartDate,
+      customEndDate,
+    });
+    setActionMessage(`✓ Exported ${filteredOrders.length} orders into formatted Excel with colored headers!`);
+    setTimeout(() => setActionMessage(""), 4000);
   };
 
-  // Official Tax Invoice / Receipt Printing
+  // Official Tax Invoice / Receipt Printing (Identical to Customer Mobile Receipt)
   const handlePrintTaxInvoice = (order) => {
-    const printWindow = window.open("", "_blank", "width=850,height=900");
-    if (!printWindow) {
-      alert("Please allow pop-ups to print the official tax invoice.");
-      return;
-    }
-
-    const itemsRows = (order.items || [])
-      .map(
-        (it) => `
-        <tr>
-          <td style="padding: 6px 0; border-bottom: 1px dashed #e2e8f0;">${it.name} ${it.brand ? `(${it.brand})` : ""}</td>
-          <td style="padding: 6px 0; border-bottom: 1px dashed #e2e8f0; text-align: center;">&#8377;${Number(it.price).toFixed(2)}</td>
-          <td style="padding: 6px 0; border-bottom: 1px dashed #e2e8f0; text-align: center;">${it.quantity}</td>
-          <td style="padding: 6px 0; border-bottom: 1px dashed #e2e8f0; text-align: right; font-weight: bold;">&#8377;${Number(it.subtotal).toFixed(2)}</td>
-        </tr>
-      `
-      )
-      .join("");
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Tax Invoice - ${order.orderNumber}</title>
-          <style>
-            @page { size: A4 portrait; margin: 15mm; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; padding: 20px; color: #0F172A; }
-            .receipt-wrap { max-width: 500px; margin: 0 auto; border: 1px solid #CBD5E1; border-radius: 12px; padding: 24px; }
-            .store-header { text-align: center; border-bottom: 2px solid #2563EB; padding-bottom: 12px; margin-bottom: 16px; }
-            .store-name { font-size: 20px; font-weight: 900; color: #2563EB; letter-spacing: 1px; }
-            .store-sub { font-size: 11px; color: #64748B; margin-top: 3px; }
-            .invoice-meta { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
-            .items-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12.5px; }
-            .items-table th { border-bottom: 1.5px solid #0F172A; padding: 8px 0; text-align: left; font-size: 11px; text-transform: uppercase; }
-            .total-section { border-top: 2px dashed #94A3B8; border-bottom: 2px dashed #94A3B8; padding: 12px 0; margin: 16px 0; }
-            .total-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
-            .grand-total { font-size: 18px; font-weight: 900; color: #0F172A; display: flex; justify-content: space-between; padding-top: 6px; }
-            .barcode-box { text-align: center; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 8px; padding: 12px; margin-top: 16px; }
-            .footer-note { text-align: center; font-size: 11px; color: #64748B; margin-top: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="receipt-wrap">
-            <div class="store-header">
-              <div class="store-name">SMART SUPERMARKET</div>
-              <div class="store-sub">GrocerEase Smart Self-Checkout & Autonomous Retail System</div>
-              <div class="store-sub">GSTIN: 29AABCU9603R1ZM &bull; Cash Register #01</div>
-            </div>
-
-            <div class="invoice-meta">
-              <span><strong>Invoice / Order:</strong> ${order.orderNumber}</span>
-              <span><strong>Date:</strong> ${new Date(order.createdAt || Date.now()).toLocaleDateString("en-IN")}</span>
-            </div>
-            <div class="invoice-meta">
-              <span><strong>Customer:</strong> ${order.customer?.name || "Guest Shopper"}</span>
-              <span><strong>Payment:</strong> ${order.paymentMethod} (${order.paymentStatus})</span>
-            </div>
-
-            <table class="items-table">
-              <thead>
-                <tr>
-                  <th>Item Details</th>
-                  <th style="text-align: center;">Price</th>
-                  <th style="text-align: center;">Qty</th>
-                  <th style="text-align: right;">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemsRows}
-              </tbody>
-            </table>
-
-            <div class="total-section">
-              <div class="total-row">
-                <span>Gross Subtotal:</span>
-                <span>&#8377;${Number(order.subtotalAmount || order.totalAmount).toFixed(2)}</span>
-              </div>
-              <div class="total-row" style="color: #059669;">
-                <span>Discounts Applied:</span>
-                <span>-&#8377;${Number(order.discountAmount || 0).toFixed(2)}</span>
-              </div>
-              <div class="total-row">
-                <span>CGST / SGST (Included):</span>
-                <span>&#8377;0.00</span>
-              </div>
-              <div class="grand-total">
-                <span>NET FINAL AMOUNT:</span>
-                <span>&#8377;${Number(order.totalAmount).toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div class="barcode-box">
-              <div style="font-size: 10px; font-weight: 800; color: #2563EB; letter-spacing: 1px; margin-bottom: 4px;">EXIT TURNSTILE GATE BARCODE</div>
-              <div style="font-family: monospace; font-size: 16px; font-weight: bold; letter-spacing: 2px;">${order.exitBarcode}</div>
-              <div style="font-size: 10px; color: #64748B; margin-top: 4px;">Scan at exit reader to verify verified purchase.</div>
-            </div>
-
-            <div class="footer-note">
-              Thank you for shopping with GrocerEase! Have a wonderful day.
-            </div>
-          </div>
-          <script>
-            window.onload = function() {
-              setTimeout(function() { window.print(); }, 400);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    printSupermarketReceipt(order);
   };
 
   return (
@@ -713,7 +596,17 @@ export default function OrdersManagement() {
           <div className="pm-select-pill-wrap">
             <select
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setDateFilter(val);
+                if (val === "custom" && !customStartDate && !customEndDate) {
+                  const now = new Date();
+                  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                  const format = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  setCustomStartDate(format(sevenDaysAgo));
+                  setCustomEndDate(format(now));
+                }
+              }}
               className="pm-select-pill"
             >
               {DATE_PERIODS.map((dp) => (
@@ -872,12 +765,13 @@ export default function OrdersManagement() {
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                             <span
                               style={{
-                                fontFamily: "monospace",
-                                fontSize: "12.5px",
+                                fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                                fontSize: "13px",
                                 fontWeight: 800,
+                                letterSpacing: "0.2px",
                                 color: "#1D4ED8",
                                 background: "#EFF6FF",
-                                padding: "3px 8px",
+                                padding: "4px 9px",
                                 borderRadius: "6px",
                                 border: "1px solid #DBEAFE",
                                 whiteSpace: "nowrap",
@@ -916,7 +810,12 @@ export default function OrdersManagement() {
                           </strong>
                           {ord.customer?.phone && (
                             <span style={{ fontSize: "11px", color: "#64748B", display: "flex", alignItems: "center", gap: "4px", whiteSpace: "nowrap" }}>
-                              <Phone size={11} /> {ord.customer.phone}
+                              <Phone size={11} /> +91 {ord.customer.phone}
+                            </span>
+                          )}
+                          {ord.customer?.address && (
+                            <span style={{ fontSize: "10.5px", color: "#94A3B8", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={ord.customer.address}>
+                              📍 {ord.customer.address}
                             </span>
                           )}
                         </div>
@@ -1003,11 +902,11 @@ export default function OrdersManagement() {
                         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                           <span
                             style={{
-                              fontFamily: "monospace",
-                              fontSize: "12px",
+                              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                              fontSize: "12.5px",
                               fontWeight: 700,
                               color: "#0F172A",
-                              letterSpacing: "0.5px",
+                              letterSpacing: "0.4px",
                               whiteSpace: "nowrap",
                             }}
                           >
@@ -1128,15 +1027,37 @@ export default function OrdersManagement() {
             <div className="om-receipt-container">
               {/* Store Header */}
               <div className="om-receipt-header">
-                <h3>SMART SUPERMARKET &bull; GROCEREASE</h3>
-                <p>Autonomous Retail Management & Self-Checkout System</p>
+                <h3>🛒 GROCEREASE SUPERMARKET</h3>
+                <p>Smart Autonomous Retail & Self-Checkout System</p>
                 <p>Register #01 &bull; GSTIN: 29AABCU9603R1ZM</p>
               </div>
 
               {/* Order Meta */}
               <div className="om-receipt-row">
-                <span>Order Number:</span>
+                <span>Customer Name:</span>
+                <strong>{selectedOrder.customer?.name || "Guest Shopper"}</strong>
+              </div>
+              {selectedOrder.customer?.phone && (
+                <div className="om-receipt-row">
+                  <span>Mobile Number:</span>
+                  <span>+91 {String(selectedOrder.customer.phone).replace(/\D/g, "")}</span>
+                </div>
+              )}
+              {selectedOrder.customer?.address && (
+                <div className="om-receipt-row">
+                  <span>Delivery Address:</span>
+                  <span style={{ maxWidth: "260px", textAlign: "right" }}>{selectedOrder.customer.address}</span>
+                </div>
+              )}
+              <div className="om-receipt-row">
+                <span>Invoice Number:</span>
                 <strong>{selectedOrder.orderNumber}</strong>
+              </div>
+              <div className="om-receipt-row">
+                <span>Transaction ID:</span>
+                <strong>
+                  {selectedOrder.paymentId || selectedOrder.transactionId || `TXN-${(selectedOrder.orderNumber || "").replace(/^ORD-/, "")}`}
+                </strong>
               </div>
               <div className="om-receipt-row">
                 <span>Date & Time:</span>
@@ -1146,18 +1067,12 @@ export default function OrdersManagement() {
                 </span>
               </div>
               <div className="om-receipt-row">
-                <span>Customer Name:</span>
-                <strong>{selectedOrder.customer?.name || "Guest Shopper"}</strong>
+                <span>Terminal:</span>
+                <span>Register #01 (Self-Checkout)</span>
               </div>
-              {selectedOrder.customer?.phone && (
-                <div className="om-receipt-row">
-                  <span>Phone Number:</span>
-                  <span>{selectedOrder.customer.phone}</span>
-                </div>
-              )}
               <div className="om-receipt-row">
                 <span>Payment Method:</span>
-                <strong>{selectedOrder.paymentMethod}</strong>
+                <strong>{selectedOrder.paymentMethod === "Cash" ? "Cash at Exit" : selectedOrder.paymentMethod}</strong>
               </div>
               <div className="om-receipt-row">
                 <span>Payment Status:</span>
@@ -1180,8 +1095,9 @@ export default function OrdersManagement() {
               <table className="om-receipt-table">
                 <thead>
                   <tr>
-                    <th>ITEM</th>
-                    <th style={{ textAlign: "center" }}>PRICE</th>
+                    <th style={{ width: "24px", textAlign: "center" }}>#</th>
+                    <th>ITEM DESCRIPTION</th>
+                    <th style={{ textAlign: "center" }}>RATE</th>
                     <th style={{ textAlign: "center" }}>QTY</th>
                     <th style={{ textAlign: "right" }}>AMOUNT</th>
                   </tr>
@@ -1189,6 +1105,7 @@ export default function OrdersManagement() {
                 <tbody>
                   {(selectedOrder.items || []).map((it, idx) => (
                     <tr key={idx}>
+                      <td style={{ textAlign: "center", color: "#64748B", fontSize: "11px" }}>{idx + 1}</td>
                       <td>
                         <strong>{it.name}</strong>
                         {it.brand && (
@@ -1200,7 +1117,7 @@ export default function OrdersManagement() {
                       <td style={{ textAlign: "center" }}>₹{Number(it.price).toFixed(2)}</td>
                       <td style={{ textAlign: "center" }}>{it.quantity}</td>
                       <td style={{ textAlign: "right", fontWeight: 700 }}>
-                        ₹{Number(it.subtotal).toFixed(2)}
+                        ₹{Number(it.subtotal || it.price * it.quantity).toFixed(2)}
                       </td>
                     </tr>
                   ))}
@@ -1210,53 +1127,73 @@ export default function OrdersManagement() {
               {/* Totals Box */}
               <div className="om-receipt-total-box">
                 <div className="om-receipt-row">
+                  <span>Total Items Count:</span>
+                  <span>{(selectedOrder.items || []).length} items ({(selectedOrder.items || []).reduce((s, i) => s + (i.quantity || 1), 0)} units)</span>
+                </div>
+                <div className="om-receipt-row">
                   <span>Gross Subtotal:</span>
                   <span>₹{Number(selectedOrder.subtotalAmount || selectedOrder.totalAmount).toFixed(2)}</span>
                 </div>
                 {selectedOrder.discountAmount > 0 && (
-                  <div className="om-receipt-row" style={{ color: "#059669" }}>
-                    <span>Discounts Applied:</span>
+                  <div className="om-receipt-row" style={{ color: "#059669", fontWeight: 700 }}>
+                    <span>Supermarket Promotional Savings:</span>
                     <span>-₹{Number(selectedOrder.discountAmount).toFixed(2)}</span>
                   </div>
                 )}
-                <div className="om-receipt-row">
-                  <span>Taxes (CGST/SGST Included):</span>
-                  <span>₹0.00</span>
-                </div>
+                {(() => {
+                  const total = Number(selectedOrder.totalAmount || 0);
+                  const taxable = total / 1.05;
+                  const gst = total - taxable;
+                  const cgst = (gst / 2).toFixed(2);
+                  const sgst = (gst / 2).toFixed(2);
+                  return (
+                    <div className="om-receipt-row" style={{ fontSize: "11px", color: "#64748B" }}>
+                      <span>Taxes (CGST 2.5% + SGST 2.5% Included):</span>
+                      <span>₹{cgst} + ₹{sgst}</span>
+                    </div>
+                  );
+                })()}
                 <div className="om-receipt-grand-total">
-                  <span>FINAL NET AMOUNT:</span>
-                  <span style={{ color: "#2563EB" }}>
+                  <span>NET AMOUNT PAID:</span>
+                  <span style={{ color: "#15803D" }}>
                     ₹{Number(selectedOrder.totalAmount).toFixed(2)}
                   </span>
                 </div>
               </div>
 
-              {/* Exit Turnstile Gate Pass Barcode */}
-              <div className="om-barcode-box">
-                <span
+              {selectedOrder.discountAmount > 0 && (
+                <div
                   style={{
-                    fontSize: "10.5px",
+                    background: "#ECFDF5",
+                    border: "1px dashed #10B981",
+                    borderRadius: "8px",
+                    padding: "8px 12px",
+                    textAlign: "center",
+                    color: "#047857",
                     fontWeight: 800,
-                    letterSpacing: "1px",
-                    color: selectedOrder.paymentStatus === "Completed" ? "#2563EB" : "#D97706",
-                    display: "block",
-                    marginBottom: "6px",
+                    fontSize: "12px",
+                    margin: "12px 0 6px",
                   }}
                 >
-                  {selectedOrder.paymentStatus === "Completed"
-                    ? "EXIT TURNSTILE GATE PASS BARCODE"
-                    : "TURNSTILE CASH PASS (PAY CASH AT EXIT)"}
-                </span>
-
-                <div style={{ maxWidth: "260px", margin: "0 auto" }}>
-                  <BarcodeSVG barcode={selectedOrder.exitBarcode} width={1.6} height={48} />
+                  ★ YOU SAVED ₹{Number(selectedOrder.discountAmount).toFixed(2)} ON THIS ORDER ★
                 </div>
+              )}
 
-                <small style={{ color: "#64748B", fontSize: "11px", marginTop: "4px", display: "block" }}>
-                  {selectedOrder.paymentStatus === "Completed"
-                    ? "Present this barcode to the turnstile scanner to open the exit gate."
-                    : "Present this barcode to staff at the exit counter to pay cash."}
-                </small>
+              {/* Legal Terms & Footer (NO BARCODES) */}
+              <div
+                style={{
+                  textAlign: "center",
+                  borderTop: "1px dashed #CBD5E1",
+                  paddingTop: "12px",
+                  marginTop: "12px",
+                  fontSize: "11px",
+                  color: "#64748B",
+                  lineHeight: 1.5,
+                }}
+              >
+                Goods once sold can be returned within 7 days with original tax invoice.<br />
+                Paperless Autonomous Self-Checkout System &bull; Computer Generated Tax Invoice<br />
+                <strong>*** THANK YOU FOR SHOPPING AT GROCEREASE! PLEASE VISIT AGAIN ***</strong>
               </div>
 
               {/* Action Buttons in Modal */}

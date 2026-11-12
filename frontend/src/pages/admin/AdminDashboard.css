@@ -1717,3 +1717,124 @@
   border-radius: 12px !important;
   mix-blend-mode: normal !important;
 }
+
+/* ===================================================================
+   ADMIN DASHBOARD COMPREHENSIVE RESPONSIVE STYLES
+   - Tablets & Foldables (<= 1024px, <= 768px)
+   - Smartphones (<= 480px, Galaxy Z Fold 6, iPhone 16, Pixel 9, Galaxy A55)
+   - Ultra-compact phones (<= 360px, iPhone SE)
+   =================================================================== */
+
+@media (max-width: 1024px) {
+  .db-kpi-container,
+  .db-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .db-main-grid,
+  .db-content-columns {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .db-hero-banner {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    padding: 12px 14px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    border-radius: 14px !important;
+    gap: 10px !important;
+  }
+
+  .db-hero-left {
+    max-width: 100% !important;
+    width: 100% !important;
+    gap: 10px !important;
+    align-items: center !important;
+  }
+
+  .db-storefront-3d-wrap {
+    width: 48px !important;
+    height: 48px !important;
+    padding: 3px !important;
+    border-radius: 12px !important;
+  }
+
+  .db-hero-title {
+    font-size: 16px !important;
+    line-height: 1.25 !important;
+  }
+
+  .db-hero-subtitle {
+    font-size: 11px !important;
+  }
+
+  .db-hero-panoramic-bg,
+  .db-hero-script-badge,
+  .db-hero-thought-center {
+    display: none !important;
+  }
+
+  .db-kpi-container,
+  .db-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .db-kpi-card {
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    gap: 8px !important;
+  }
+
+  .db-kpi-value {
+    font-size: 18px !important;
+  }
+
+  .db-kpi-label {
+    font-size: 10.5px !important;
+  }
+
+  .db-main-grid,
+  .db-content-columns {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .db-table-wrapper,
+  .db-orders-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+  }
+
+  .db-orders-table {
+    min-width: 580px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .db-hero-title {
+    font-size: 15px !important;
+  }
+
+  .db-kpi-card {
+    padding: 8px 10px !important;
+  }
+
+  .db-kpi-value {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 320px) {
+  .db-kpi-container,
+  .db-kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

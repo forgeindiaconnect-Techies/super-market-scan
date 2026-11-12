@@ -20,70 +20,6 @@ import { API_URL, safeFetch } from "../constants/api";
 import { generateAndShareReceipt } from "../utils/receiptGenerator";
 import ReceiptModal from "../components/ReceiptModal";
 
-// Sample mock orders matching Screen 8 reference image if DB has no historical orders
-const MOCK_ORDERS_REFERENCE: OrderRecord[] = [
-  {
-    _id: "ref-order-1",
-    orderNumber: "SSM20250430",
-    totalAmount: 280,
-    totalItems: 3,
-    paymentStatus: "Completed",
-    paymentMethod: "UPI",
-    exitBarcode: "EXIT-2025-0430-8821",
-    createdAt: "2025-04-30T09:45:00.000Z",
-    items: [
-      {
-        _id: "p1",
-        name: "Cadbury Dairy Milk Chocolate",
-        quantity: 1,
-        price: 80,
-        effectivePrice: 80,
-        stock: 20,
-        imageUrl: "",
-      },
-      {
-        _id: "p2",
-        name: "Amul Butter",
-        quantity: 1,
-        price: 120,
-        effectivePrice: 120,
-        stock: 15,
-        imageUrl: "",
-      },
-      {
-        _id: "p3",
-        name: "Fresh Apple",
-        quantity: 2,
-        price: 60,
-        effectivePrice: 60,
-        stock: 30,
-        imageUrl: "",
-      },
-    ],
-  },
-  {
-    _id: "ref-order-2",
-    orderNumber: "SSM20250429",
-    totalAmount: 150,
-    totalItems: 1,
-    paymentStatus: "Pending",
-    paymentMethod: "Cash",
-    exitBarcode: "EXIT-2025-0429-4102",
-    createdAt: "2025-04-29T18:20:00.000Z",
-    items: [
-      {
-        _id: "p4",
-        name: "Mango Nectar Drink",
-        quantity: 1,
-        price: 150,
-        effectivePrice: 150,
-        stock: 10,
-        imageUrl: "",
-      },
-    ],
-  },
-];
-
 export default function MyOrdersScreen() {
   const router = useRouter();
   const { recentOrders } = useCart();
@@ -106,19 +42,15 @@ export default function MyOrdersScreen() {
         }
       }
 
-      // Combine real orders from DB and local context with mock reference orders
+      // Combine real orders from DB and local context (no fake mock orders)
       const combined = [...recentOrders, ...dbOrders];
       const uniqueOrders = Array.from(
         new Map(combined.map((o) => [o._id || o.orderNumber, o])).values()
       );
 
-      if (uniqueOrders.length > 0) {
-        setOrders(uniqueOrders);
-      } else {
-        setOrders(MOCK_ORDERS_REFERENCE);
-      }
+      setOrders(uniqueOrders);
     } catch (_) {
-      setOrders(recentOrders.length > 0 ? recentOrders : MOCK_ORDERS_REFERENCE);
+      setOrders(recentOrders.length > 0 ? recentOrders : []);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -336,8 +268,10 @@ export default function MyOrdersScreen() {
             <Text style={styles.modalSub}>{formatDate(selectedOrder?.createdAt)}</Text>
 
             <View style={styles.gateCodeBox}>
-              <Text style={styles.gateCodeLabel}>Turnstile Gate Exit Barcode:</Text>
-              <Text style={styles.gateCodeValue}>{selectedOrder?.exitBarcode || "EXIT-GATE-PASS"}</Text>
+              <Text style={styles.gateCodeLabel}>Transaction Ref & Status:</Text>
+              <Text style={styles.gateCodeValue}>
+                {(selectedOrder as any)?.paymentId || `TXN-${(selectedOrder?.orderNumber || "").replace(/^ORD-/, "")}`} ({selectedOrder?.paymentStatus})
+              </Text>
             </View>
 
             <ScrollView style={{ maxHeight: 180, marginVertical: 12 }}>

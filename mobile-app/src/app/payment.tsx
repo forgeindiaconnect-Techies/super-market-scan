@@ -71,17 +71,56 @@ function RenderUpiQrCode({ value }: { value: string }) {
 
 export default function SecurePaymentScreen() {
   const router = useRouter();
-  const { method = "UPI" } = useLocalSearchParams<{ method?: string }>();
-  const { cart, totalAmount, clearCart, addRecentOrder } = useCart();
+  const {
+    method = "UPI",
+    customerName,
+    customerPhone,
+    customerAddress,
+  } = useLocalSearchParams<{
+    method?: string;
+    customerName?: string;
+    customerPhone?: string;
+    customerAddress?: string;
+  }>();
+  const { cart, totalAmount, clearCart, addRecentOrder, customerInfo } = useCart();
+
+  // Resolved Customer Details (checking route params and CartContext)
+  const effectiveName = (customerName || customerInfo?.name || "").trim();
+  const effectivePhone = (customerPhone || customerInfo?.phone || "").replace(/\D/g, "");
+  const effectiveAddress = (customerAddress || customerInfo?.address || "").trim();
 
   const [secondsLeft, setSecondsLeft] = useState(300); // 5 minutes countdown
   const [processing, setProcessing] = useState(false);
 
   // Card form state
-  const [cardHolder, setCardHolder] = useState("Rahul Kumar");
+  const [cardHolder, setCardHolder] = useState(effectiveName || "");
   const [cardNumber, setCardNumber] = useState("4532 •••• •••• 8821");
   const [expiry, setExpiry] = useState("08/28");
   const [cvv, setCvv] = useState("•••");
+
+  // Constant Rule: Payment page MUST NOT open until Name & 10-digit Phone are provided
+  useEffect(() => {
+    if (!effectiveName || effectivePhone.length !== 10) {
+      Alert.alert(
+        "Customer Details Required",
+        "Please fill in your Customer Name and a valid 10-digit Mobile Number before opening the payment page.",
+        [
+          {
+            text: "Enter Details",
+            onPress: () =>
+              router.replace({
+                pathname: "/customer-details",
+                params: { method },
+              }),
+          },
+        ]
+      );
+      router.replace({
+        pathname: "/customer-details",
+        params: { method },
+      });
+    }
+  }, [effectiveName, effectivePhone]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -102,6 +141,18 @@ export default function SecurePaymentScreen() {
       return;
     }
 
+    if (!effectiveName || effectivePhone.length !== 10) {
+      Alert.alert(
+        "Customer Details Required",
+        "Customer Name and 10-digit Mobile Number must be filled before proceeding."
+      );
+      router.replace({
+        pathname: "/customer-details",
+        params: { method },
+      });
+      return;
+    }
+
     setProcessing(true);
 
     try {
@@ -115,7 +166,9 @@ export default function SecurePaymentScreen() {
         })),
         paymentMethod: method === "Card" ? "Card" : "UPI",
         customer: {
-          name: method === "Card" ? cardHolder : "Mobile Shopper",
+          name: effectiveName,
+          phone: effectivePhone,
+          address: effectiveAddress,
         },
       };
 
@@ -147,6 +200,18 @@ export default function SecurePaymentScreen() {
     }
   };
 
+  // Guard: if customer details are incomplete, block opening payment page
+  if (!effectiveName || effectivePhone.length !== 10) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center", padding: 24 }]}>
+        <ActivityIndicator size="large" color="#3B0764" />
+        <Text style={{ marginTop: 14, fontSize: 15, fontWeight: "700", color: "#1E1B4B", textAlign: "center" }}>
+          Checking customer details...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -176,6 +241,41 @@ export default function SecurePaymentScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Verified Customer Summary Banner */}
+        <View style={styles.customerPillBox}>
+          <View style={styles.customerPillLeft}>
+            <View style={styles.customerAvatarCircle}>
+              <Text style={{ fontSize: 14 }}>👤</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={styles.customerPillName}>{effectiveName}</Text>
+                <View style={styles.verifiedCheckBadge}>
+                  <Text style={styles.verifiedCheckText}>✓ Verified</Text>
+                </View>
+              </View>
+              <Text style={styles.customerPillPhone}>📱 +91 {effectivePhone}</Text>
+              {effectiveAddress ? (
+                <Text style={styles.customerPillAddress} numberOfLines={1}>
+                  📍 {effectiveAddress}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.customerPillChangeBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/customer-details",
+                params: { method },
+              })
+            }
+            activeOpacity={0.7}
+          >
+            <Text style={styles.customerPillChangeText}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+
         {method === "Card" ? (
           /* Card Payment Layout */
           <View style={styles.cardSection}>
@@ -565,5 +665,74 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.7,
+  },
+  customerPillBox: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FAF5FF",
+    borderWidth: 1.5,
+    borderColor: "#E9D8FD",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 18,
+  },
+  customerPillLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  customerAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F3E8FF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E9D8FD",
+  },
+  customerPillName: {
+    fontSize: 13.5,
+    fontWeight: "800",
+    color: "#1E1B4B",
+  },
+  verifiedCheckBadge: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  verifiedCheckText: {
+    color: "#166534",
+    fontSize: 9.5,
+    fontWeight: "800",
+  },
+  customerPillPhone: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
+    marginTop: 1,
+  },
+  customerPillAddress: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "500",
+    marginTop: 1,
+  },
+  customerPillChangeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+  },
+  customerPillChangeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#3B0764",
   },
 });

@@ -6,7 +6,6 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,7 +13,6 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCart } from "../context/CartContext";
 import { Theme } from "../constants/colors";
-import { API_URL, safeFetch } from "../constants/api";
 
 const PAYMENT_METHODS = [
   {
@@ -29,81 +27,29 @@ const PAYMENT_METHODS = [
     icon: "💳",
     iconBg: "#0284C7",
   },
-  {
-    id: "Cash",
-    label: "Cash on Delivery",
-    icon: "💵",
-    iconBg: "#16A34A",
-  },
 ];
 
 export default function CheckoutScreen() {
   const router = useRouter();
-  const { cart, grossAmount, totalSavings, totalAmount, clearCart, addRecentOrder } = useCart();
+  const { cart, grossAmount, totalSavings, totalAmount } = useCart();
   const [selectedMethod, setSelectedMethod] = useState("UPI");
-  const [submittingCash, setSubmittingCash] = useState(false);
 
   // Exact real-time price & savings from database (NEVER fake 15% discount)
   const displayDiscount = totalSavings;
   const displayTotal = totalAmount;
 
-  const handleProceed = async () => {
+  const handleProceed = () => {
     if (cart.length === 0) {
       Alert.alert("Empty Cart", "Please scan items before proceeding to checkout.");
       return;
     }
 
-    if (selectedMethod === "Cash") {
-      // Direct Cash checkout flow
-      setSubmittingCash(true);
-      try {
-        if (!API_URL) throw new Error("API URL missing in configuration.");
-
-        const payload = {
-          items: cart.map((it) => ({
-            productId: it._id,
-            quantity: it.quantity,
-            name: it.name,
-          })),
-          paymentMethod: "Cash",
-          customer: {
-            name: "Mobile Shopper",
-          },
-        };
-
-        const res = await safeFetch(`${API_URL}/orders/checkout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }, 8000);
-
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || "Failed to submit cash checkout order.");
-        }
-
-        // Save order and clear cart
-        addRecentOrder(data.order);
-        clearCart();
-
-        // Navigate to payment confirmation screen with Cash state
-        router.replace({
-          pathname: "/payment-success",
-          params: { orderId: data.order._id, method: "Cash" },
-        });
-      } catch (err: any) {
-        Alert.alert("Checkout Error", err.message || "Could not complete cash order.");
-      } finally {
-        setSubmittingCash(false);
-      }
-    } else {
-      // Navigate to Secure Payment screen for UPI or Card
-      router.push({
-        pathname: "/payment",
-        params: { method: selectedMethod },
-      });
-    }
+    // Always navigate to the Customer Details page when clicking Pay Now
+    // Payment page cannot and will not open until Name & Mobile are provided
+    router.push({
+      pathname: "/customer-details",
+      params: { method: selectedMethod },
+    });
   };
 
   return (
@@ -162,13 +108,13 @@ export default function CheckoutScreen() {
                     {item.name}
                   </Text>
                   <Text style={styles.itemQtyPrice}>
-                    ₹{item.effectivePrice}   x{item.quantity}
+                    ₹{Number(item.effectivePrice || 0).toFixed(2)}   x{item.quantity}
                   </Text>
                 </View>
 
                 {/* Row Total */}
                 <Text style={styles.itemTotal}>
-                  ₹{item.effectivePrice * item.quantity}
+                  ₹{Number(item.effectivePrice * item.quantity || 0).toFixed(2)}
                 </Text>
               </View>
             ))}
@@ -178,19 +124,19 @@ export default function CheckoutScreen() {
           <View style={styles.breakdownBox}>
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Subtotal</Text>
-              <Text style={styles.breakdownValue}>₹{grossAmount}</Text>
+              <Text style={styles.breakdownValue}>₹{Number(grossAmount || 0).toFixed(2)}</Text>
             </View>
 
             {displayDiscount > 0 && (
               <View style={styles.breakdownRow}>
                 <Text style={styles.discountLabel}>Discount</Text>
-                <Text style={styles.discountValue}>−₹{displayDiscount}</Text>
+                <Text style={styles.discountValue}>−₹{Number(displayDiscount || 0).toFixed(2)}</Text>
               </View>
             )}
 
             <View style={styles.breakdownRowTotal}>
               <Text style={styles.totalLabel}>Total Amount</Text>
-              <Text style={styles.totalValue}>₹{displayTotal}</Text>
+              <Text style={styles.totalValue}>₹{Number(displayTotal || 0).toFixed(2)}</Text>
             </View>
           </View>
 
@@ -251,21 +197,16 @@ export default function CheckoutScreen() {
 
           {/* Pay Now Button with White Padlock matching Screen 5 */}
           <TouchableOpacity
-            style={[styles.payNowBtn, submittingCash && styles.btnDisabled]}
+            style={styles.payNowBtn}
             onPress={handleProceed}
-            disabled={submittingCash}
             activeOpacity={0.88}
           >
-            {submittingCash ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <View style={styles.payBtnContent}>
-                <Text style={styles.lockIcon}>🔒</Text>
-                <Text style={styles.payNowText}>
-                  Pay Now ₹{displayTotal}
-                </Text>
-              </View>
-            )}
+            <View style={styles.payBtnContent}>
+              <Text style={styles.lockIcon}>🔒</Text>
+              <Text style={styles.payNowText}>
+                Pay Now ₹{Number(displayTotal || 0).toFixed(2)}
+              </Text>
+            </View>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -505,6 +446,136 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 6,
+  },
+  customerPreviewCard: {
+    backgroundColor: "#FAF5FF",
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "#E9D8FD",
+    padding: 16,
+    marginBottom: 24,
+  },
+  customerPreviewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  customerPreviewLabel: {
+    fontSize: 10.5,
+    fontWeight: "900",
+    color: "#7C3AED",
+    letterSpacing: 0.6,
+  },
+  readyBadge: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  readyBadgeText: {
+    color: "#166534",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  customerPreviewName: {
+    fontSize: 14.5,
+    fontWeight: "800",
+    color: "#1E293B",
+    marginBottom: 2,
+  },
+  customerPreviewPhone: {
+    fontSize: 13,
+    color: "#475569",
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  customerPreviewAddress: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  editDetailsBtn: {
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  editDetailsText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#3B0764",
+  },
+  detailsPromptCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FAF5FF",
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "#D8B4FE",
+    borderStyle: "dashed",
+    padding: 14,
+    marginBottom: 24,
+    gap: 12,
+  },
+  promptIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E9D8FD",
+  },
+  promptIcon: {
+    fontSize: 22,
+  },
+  promptHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  promptTitle: {
+    fontSize: 13.5,
+    fontWeight: "800",
+    color: "#1E1B4B",
+  },
+  promptRequiredBadge: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  promptRequiredText: {
+    fontSize: 9.5,
+    fontWeight: "800",
+    color: "#DC2626",
+  },
+  promptSubtitle: {
+    fontSize: 11.5,
+    color: "#64748B",
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  promptActionLink: {
+    fontSize: 11.5,
+    color: "#7C3AED",
+    fontWeight: "800",
   },
   payBtnContent: {
     flexDirection: "row",

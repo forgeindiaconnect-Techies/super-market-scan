@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
+  Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useCart, OrderRecord } from "../context/CartContext";
 import { API_URL, safeFetch } from "../constants/api";
@@ -19,64 +21,8 @@ import ReceiptModal from "../components/ReceiptModal";
 
 const { width } = Dimensions.get("window");
 
-// Generates authentic high-density 1D barcode stripes from any code string
-function ExitBarcodeView({ code }: { code: string }) {
-  const bars = useMemo(() => {
-    const list: { width: number; isBlack: boolean }[] = [];
-    // Start guard bars
-    list.push({ width: 3, isBlack: true });
-    list.push({ width: 1.5, isBlack: false });
-    list.push({ width: 2, isBlack: true });
-    list.push({ width: 2, isBlack: false });
-
-    let toggle = true;
-    for (let i = 0; i < code.length; i++) {
-      const c = code.charCodeAt(i);
-      const seq = [
-        ((c % 3) + 1) * 1.6,
-        (((c >> 1) % 2) + 1) * 1.5,
-        (((c >> 2) % 3) + 1) * 1.6,
-        (((c >> 3) % 2) + 1) * 1.5,
-      ];
-      for (const w of seq) {
-        list.push({ width: Math.round(w), isBlack: toggle });
-        toggle = !toggle;
-      }
-    }
-    // End guard bars
-    list.push({ width: 2, isBlack: true });
-    list.push({ width: 1.5, isBlack: false });
-    list.push({ width: 3, isBlack: true });
-    return list;
-  }, [code]);
-
-  return (
-    <View style={styles.barcodeCardWrapper}>
-      {/* 4 Viewfinder Corner Brackets */}
-      <View style={[styles.cornerBracket, styles.cornerTL]} />
-      <View style={[styles.cornerBracket, styles.cornerTR]} />
-      <View style={[styles.cornerBracket, styles.cornerBL]} />
-      <View style={[styles.cornerBracket, styles.cornerBR]} />
-
-      {/* Realistic 1D Barcode Stripes */}
-      <View style={styles.barcodeStripesRow}>
-        {bars.map((bar, idx) => (
-          <View
-            key={idx}
-            style={{
-              width: bar.width,
-              height: 56,
-              backgroundColor: bar.isBlack ? "#0F172A" : "transparent",
-            }}
-          />
-        ))}
-      </View>
-
-      {/* Formatted Monospace Exit Pass String */}
-      <Text style={styles.barcodeDigitsText}>{code}</Text>
-    </View>
-  );
-}
+const PENDING_IMG = require("@/assets/images/payment-pending.jpg");
+const APPROVED_IMG = require("@/assets/images/payment-approved.jpg");
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();
@@ -84,12 +30,13 @@ export default function PaymentSuccessScreen() {
     orderId?: string;
     method?: string;
   }>();
-  const { recentOrders, updateRecentOrder } = useCart();
+  const { recentOrders, updateRecentOrder, customerInfo } = useCart();
 
   const [order, setOrder] = useState<OrderRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
 
   // Pulse animation for live sync status
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -150,7 +97,7 @@ export default function PaymentSuccessScreen() {
       }
 
       try {
-        const res = await safeFetch(`${API_URL}/orders/${targetId}`, {}, 4000);
+        const res = await safeFetch(`${API_URL}/orders/${targetId}?_t=${Date.now()}`, {}, 4000);
         const data = await res.json();
         if (isMounted && data?.success && data?.order) {
           setOrder(data.order);
@@ -175,237 +122,396 @@ export default function PaymentSuccessScreen() {
     };
   }, [orderId]);
 
+  const handleManualRefresh = async () => {
+    const targetId = orderId || (recentOrders.length > 0 ? recentOrders[0]._id : null);
+    if (!targetId || !API_URL) return;
+    setManualRefreshing(true);
+    try {
+      const res = await safeFetch(`${API_URL}/orders/${targetId}?_t=${Date.now()}`, {}, 4000);
+      const data = await res.json();
+      if (data?.success && data?.order) {
+        setOrder(data.order);
+        updateRecentOrder(data.order);
+      }
+    } catch (_) {
+    } finally {
+      setTimeout(() => setManualRefreshing(false), 500);
+    }
+  };
+
   const currentStatus = order?.paymentStatus || (method === "Cash" ? "Pending" : "Pending");
 
   const isPending = currentStatus === "Pending";
-  const isApproved = currentStatus === "Approved";
-  const isCompleted = currentStatus === "Completed";
+  const isApproved = currentStatus === "Approved" || currentStatus === "Completed";
 
-  const orderNum = order?.orderNumber || "#SSM20250430";
+  const orderNum = order?.orderNumber || (orderId ? `ORD-${orderId.slice(-6)}` : "#SSM20250430");
   const amount = Number(order?.totalAmount || 140);
   const payMethod = order?.paymentMethod || method || "Card";
   const exitBarcode = order?.exitBarcode || "EXIT-78239718";
   const itemCount = order?.items?.length || 1;
+  const customerName = (order as any)?.customer?.name || customerInfo?.name || "";
+  const customerPhone = (order as any)?.customer?.phone || customerInfo?.phone || "";
+  const customerAddress = (order as any)?.customer?.address || customerInfo?.address || "";
 
   const handleDownloadReceipt = () => {
     if (!order) return;
     setShowReceiptModal(true);
-    try {
-      generateAndShareReceipt(order);
-    } catch (_) {}
   };
 
   return (
     <View style={styles.safeArea}>
       <StatusBar style="light" />
 
-      {/* Modern Curved Gradient Top Header */}
-      <View style={styles.topCurvedHeader}>
-        <View style={styles.topHeaderGlow} />
+      {/* Top Header matching App Design */}
+      <View style={styles.purpleHeader}>
+        <SafeAreaView edges={["top"]} style={styles.purpleHeaderSafe}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => router.replace("/orders")}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.headerBackArrow}>‹</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.headerTitle}>
+              {isPending ? "Payment Verification" : "Payment Successful"}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={handleDownloadReceipt}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.receiptIcon}>🧾</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* ========================================================================= */}
-        {/* 1. HERO VERIFICATION BADGE & ANIMATED HALO                                */}
-        {/* ========================================================================= */}
-        <View style={styles.heroVerificationSection}>
-          <Animated.View
-            style={[
-              styles.shieldHaloPulse,
-              {
-                transform: [{ scale: haloAnim }],
-                backgroundColor: isApproved
-                  ? "rgba(16, 185, 129, 0.22)"
-                  : isPending
-                  ? "rgba(245, 158, 11, 0.2)"
-                  : "rgba(16, 185, 129, 0.25)",
-              },
-            ]}
-          />
+      {/* Main Curved White Container Sheet matching App Theme */}
+      <View style={styles.whiteSheet}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+        {isPending ? (
+          /* ========================================================================= */
+          /* 1. PAYMENT PENDING STATE: HARMONIZED MOBILE APP PURPLE THEME             */
+          /* ========================================================================= */
+          <>
+            {/* Hero Card */}
+            <View style={styles.heroCard}>
+              <View style={styles.heroImageContainerPending}>
+                <Image
+                  source={PENDING_IMG}
+                  style={styles.hero3DImage}
+                  resizeMode="contain"
+                />
+              </View>
 
-          <View
-            style={[
-              styles.shieldIconCircle,
-              {
-                backgroundColor: isApproved ? "#10B981" : isPending ? "#F59E0B" : "#10B981",
-                shadowColor: isApproved ? "#10B981" : isPending ? "#F59E0B" : "#10B981",
-              },
-            ]}
-          >
-            <Text style={styles.shieldSymbol}>
-              {isApproved ? "🛡️" : isPending ? "⏳" : "✓"}
-            </Text>
-          </View>
+              <Text style={styles.heroTitlePending}>Payment Under Verification</Text>
 
-          <Text style={styles.heroMainTitle}>
-            {isApproved ? "Payment Approved!" : isPending ? "Payment Pending" : "Payment Successful!"}
-          </Text>
-
-          <View
-            style={[
-              styles.statusPillBadge,
-              {
-                backgroundColor: isApproved ? "#ECFDF5" : isPending ? "#FEF3C7" : "#ECFDF5",
-                borderColor: isApproved ? "#A7F3D0" : isPending ? "#FDE68A" : "#A7F3D0",
-              },
-            ]}
-          >
-            <Animated.View
-              style={[
-                styles.statusLiveDot,
-                {
-                  opacity: pulseAnim,
-                  backgroundColor: isApproved ? "#10B981" : isPending ? "#D97706" : "#10B981",
-                },
-              ]}
-            />
-            <Text
-              style={[
-                styles.statusPillText,
-                { color: isApproved ? "#047857" : isPending ? "#B45309" : "#047857" },
-              ]}
-            >
-              {isApproved
-                ? "Verified & Cleared by Super Admin"
-                : isPending
-                ? "Awaiting Cashier Clearance at Exit"
-                : "Transaction Completed Successfully"}
-            </Text>
-          </View>
-        </View>
-
-        {/* ========================================================================= */}
-        {/* 2. UNIQUE DIGITAL SMART TURNSTILE BOARDING PASS CARD                      */}
-        {/* ========================================================================= */}
-        <View style={styles.smartTicketCard}>
-          {/* Ticket Header */}
-          <View style={styles.ticketHeaderRow}>
-            <View style={styles.ticketBrandBox}>
-              <Text style={styles.ticketStoreIcon}>🛒</Text>
-              <View>
-                <Text style={styles.ticketBrandName}>GROCEREASE</Text>
-                <Text style={styles.ticketSubTitle}>SMART TURNSTILE PASS</Text>
+              <View style={styles.statusPillPending}>
+                <Animated.View
+                  style={[styles.statusLiveDotPurple, { opacity: pulseAnim }]}
+                />
+                <Text style={styles.statusPillTextPending}>
+                  Awaiting Super Admin Clearance
+                </Text>
               </View>
             </View>
 
-            <View
-              style={[
-                styles.gateUnlockedBadge,
-                {
-                  backgroundColor: isApproved ? "#ECFDF5" : isPending ? "#FEF3C7" : "#ECFDF5",
-                  borderColor: isApproved ? "#86EFAC" : isPending ? "#FCD34D" : "#86EFAC",
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.gateUnlockedText,
-                  { color: isApproved ? "#15803D" : isPending ? "#B45309" : "#15803D" },
-                ]}
+            {/* Step-by-Step Verification Stepper Card */}
+            <View style={styles.stepperCard}>
+              <Text style={styles.stepperCardTitle}>Verification Progress</Text>
+              <View style={styles.stepperRow}>
+                {/* Step 1: Placed */}
+                <View style={styles.stepItem}>
+                  <View style={[styles.stepCircle, styles.stepCircleDone]}>
+                    <Text style={styles.stepDoneCheck}>✓</Text>
+                  </View>
+                  <Text style={styles.stepLabelDone}>Order Placed</Text>
+                </View>
+
+                {/* Line 1 */}
+                <View style={[styles.stepLine, styles.stepLineActive]} />
+
+                {/* Step 2: Store Approval */}
+                <View style={styles.stepItem}>
+                  <Animated.View
+                    style={[
+                      styles.stepCircle,
+                      styles.stepCirclePending,
+                      { opacity: pulseAnim },
+                    ]}
+                  >
+                    <Text style={styles.stepPendingIcon}>⏳</Text>
+                  </Animated.View>
+                  <Text style={styles.stepLabelPending}>Admin Approval</Text>
+                </View>
+
+                {/* Line 2 */}
+                <View style={[styles.stepLine, styles.stepLineInactive]} />
+
+                {/* Step 3: Turnstile Exit */}
+                <View style={styles.stepItem}>
+                  <View style={[styles.stepCircle, styles.stepCircleInactive]}>
+                    <Text style={styles.stepInactiveIcon}>🚪</Text>
+                  </View>
+                  <Text style={styles.stepLabelInactive}>Gate Unlocks</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Store Clearance Instructions Card (Purple & Soft Lavender Theme) */}
+            <View style={styles.noticeCardPending}>
+              <View style={styles.noticeHeaderRow}>
+                <Text style={styles.noticeIcon}>🔔</Text>
+                <Text style={styles.noticeTitle}>Store Clearance Notice</Text>
+              </View>
+              <Text style={styles.noticeBody}>
+                {payMethod === "Cash"
+                  ? `Please present ₹${amount.toFixed(2)} in Cash at the supermarket cashier counter. Staff will approve your order and release your turnstile pass in real-time.`
+                  : `Your ${payMethod} payment of ₹${amount.toFixed(2)} is pending approval. Super Admin is verifying the transaction.`}
+              </Text>
+              <View style={styles.autoUpdatePill}>
+                <Text style={styles.autoUpdateFlash}>⚡</Text>
+                <Text style={styles.autoUpdateText}>
+                  This screen updates automatically once approved
+                </Text>
+              </View>
+            </View>
+
+            {/* Order Details Breakdown Card */}
+            <View style={styles.orderSummaryCard}>
+              <View style={styles.orderSummaryTopRow}>
+                <View>
+                  <Text style={styles.orderNumberTitle}>Order {orderNum}</Text>
+                  <Text style={styles.orderItemCountText}>{itemCount} Item(s) in Cart</Text>
+                </View>
+                <Text style={styles.orderGrandTotalAmountPending}>
+                  ₹{amount.toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.orderInfoGrid}>
+                <View style={styles.orderGridItem}>
+                  <Text style={styles.gridItemLabel}>Payment Method</Text>
+                  <Text style={styles.gridItemValue}>
+                    {payMethod === "Cash" ? "💵 Cash at Exit" : (payMethod === "Card" ? "💳 Card" : "⚡ UPI")} (Pending)
+                  </Text>
+                </View>
+                <View style={styles.orderGridItem}>
+                  <Text style={styles.gridItemLabel}>Live Verification</Text>
+                  <Text style={styles.gridItemValue}>⏳ Checking with Admin...</Text>
+                </View>
+              </View>
+
+              {customerName ? (
+                <View style={styles.customerDetailCard}>
+                  <View style={styles.customerDetailHeader}>
+                    <Text style={styles.customerDetailLabel}>REGISTERED SHOPPER</Text>
+                    <View style={styles.verifiedShopperBadge}>
+                      <Text style={styles.verifiedShopperText}>✓ Verified</Text>
+                    </View>
+                  </View>
+                  <View style={styles.customerDetailRow}>
+                    <View style={styles.customerAvatarSmall}>
+                      <Text style={{ fontSize: 13 }}>👤</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.customerNameBold}>{customerName}</Text>
+                      {customerPhone ? (
+                        <Text style={styles.customerPhoneBold}>📱 +91 {customerPhone}</Text>
+                      ) : null}
+                      {customerAddress ? (
+                        <Text style={styles.customerAddressText} numberOfLines={2}>
+                          📍 {customerAddress}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Action Buttons in Mobile App Purple Theme */}
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity
+                style={styles.refreshStatusBtn}
+                onPress={handleManualRefresh}
+                disabled={manualRefreshing}
+                activeOpacity={0.82}
               >
-                {isApproved ? "GATE UNLOCKED" : isPending ? "GATE STANDBY" : "GATE CLEARED"}
+                {manualRefreshing ? (
+                  <ActivityIndicator size="small" color="#3B0764" />
+                ) : (
+                  <>
+                    <Text style={styles.refreshIcon}>🔄</Text>
+                    <Text style={styles.refreshBtnText}>Check Status Now</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.viewOrdersSecondaryBtn}
+                onPress={() => router.replace("/orders")}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.viewOrdersSecondaryBtnText}>View in My Orders →</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          /* ========================================================================= */
+          /* 2. PAYMENT APPROVED STATE: PROPER, COMPLETE & APP-BRANDED DESIGN         */
+          /* ========================================================================= */
+          <>
+            {/* Celebratory Hero Card */}
+            <View style={styles.heroSuccessCard}>
+              <View style={styles.heroImageContainerApproved}>
+                <Image
+                  source={APPROVED_IMG}
+                  style={styles.hero3DImage}
+                  resizeMode="contain"
+                />
+              </View>
+
+              <Text style={styles.heroTitleApproved}>Turnstile Gate Unlocked!</Text>
+
+              <View style={styles.statusPillApproved}>
+                <Text style={styles.statusLiveDotGreen}>✓</Text>
+                <Text style={styles.statusPillTextApproved}>
+                  Payment Approved by Super Admin
+                </Text>
+              </View>
+            </View>
+
+            {/* Amount Paid Showcase Card */}
+            <View style={styles.paidAmountCard}>
+              <Text style={styles.paidAmountLabel}>TOTAL AMOUNT PAID</Text>
+              <Text style={styles.paidAmountValue}>₹{amount.toFixed(2)}</Text>
+              {Number(order?.discountAmount || 0) > 0 && (
+                <View style={styles.savingsTagSuccess}>
+                  <Text style={styles.savingsTagText}>
+                    ★ You Saved ₹{Number(order?.discountAmount).toFixed(2)} on this order
+                  </Text>
+                </View>
+              )}
+              {customerName ? (
+                <Text style={styles.paidByText}>
+                  Paid by {customerName} • {payMethod === "Cash" ? "Cash at Exit" : payMethod}
+                </Text>
+              ) : (
+                <Text style={styles.paidByText}>
+                  Paid via {payMethod === "Cash" ? "Cash at Exit" : payMethod}
+                </Text>
+              )}
+            </View>
+
+            {/* Smart Turnstile Exit Pass Card */}
+            <View style={styles.smartPassCard}>
+              <View style={styles.passHeaderRow}>
+                <View style={styles.passBrandGroup}>
+                  <Text style={styles.passBrandIcon}>🛒</Text>
+                  <View>
+                    <Text style={styles.passStoreName}>GROCEREASE SUPERMARKET</Text>
+                    <Text style={styles.passSubtitle}>SMART TURNSTILE EXIT PASS</Text>
+                  </View>
+                </View>
+                <View style={styles.gateUnlockedBadge}>
+                  <Text style={styles.gateUnlockedText}>GATE 1–4 UNLOCKED</Text>
+                </View>
+              </View>
+
+              <View style={styles.passBody}>
+                <Text style={styles.passInstructions}>
+                  Super Admin has verified and approved your {payMethod} payment. You can now walk to Exit Turnstiles 1–4 to complete your exit.
+                </Text>
+
+                <View style={styles.passBadgesRow}>
+                  <View style={styles.passTag}>
+                    <Text style={styles.passTagText}>📍 Exit Turnstile 1–4</Text>
+                  </View>
+                  <View style={styles.passTag}>
+                    <Text style={styles.passTagText}>⚡ Auto-Sensor Active</Text>
+                  </View>
+                </View>
+
+                {customerName ? (
+                  <View style={styles.passCustomerCard}>
+                    <View style={styles.passCustomerHeader}>
+                      <Text style={styles.passCustomerLabel}>VERIFIED SHOPPER</Text>
+                      <View style={styles.verifiedShopperBadge}>
+                        <Text style={styles.verifiedShopperText}>✓ Exit Authorized</Text>
+                      </View>
+                    </View>
+                    <View style={styles.customerDetailRow}>
+                      <View style={styles.customerAvatarSmall}>
+                        <Text style={{ fontSize: 13 }}>👤</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.customerNameBold}>{customerName}</Text>
+                        {customerPhone ? (
+                          <Text style={styles.customerPhoneBold}>📱 +91 {customerPhone}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+
+                <View style={styles.passOrderMetaRow}>
+                  <Text style={styles.passMetaText}>Order: {orderNum}</Text>
+                  <Text style={styles.passMetaText}>
+                    {(order as any)?.paymentId || (order as any)?.transactionId || `TXN-${orderNum.replace(/^ORD-/, "")}`}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Warm Supermarket Closing Message */}
+            <View style={styles.thankYouCard}>
+              <Text style={styles.thankYouIcon}>🛍️</Text>
+              <Text style={styles.thankYouTitle}>Thank You! Visit Again</Text>
+              <Text style={styles.thankYouSubText}>
+                We hope you enjoyed autonomous shopping at GrocerEase Supermarket.
+              </Text>
+              <Text style={styles.thankYouPolicyText}>
+                Original tax invoice is available in your orders anytime.
               </Text>
             </View>
-          </View>
 
-          {/* Ticket Body: Turnstile clearance info */}
-          <View style={styles.ticketInstructionsBox}>
-            <Text style={styles.ticketGateNotice}>
-              {isApproved
-                ? "Super Admin has verified and approved your Card payment. You can now scan your pass at the turnstile gate."
-                : isPending
-                ? "Please present this barcode at Exit Turnstile 1–4 to complete payment and release gate."
-                : "Your exit pass has been authorized. Walk through Exit Turnstile 1–4."}
-            </Text>
-            <View style={styles.ticketTurnstileTagRow}>
-              <Text style={styles.turnstilePill}>📍 Exit Turnstile 1 – 4</Text>
-              <Text style={styles.turnstilePill}>⚡ Auto-Sensor Active</Text>
+            {/* Action Buttons */}
+            <View style={styles.successActionsContainer}>
+              <TouchableOpacity
+                style={styles.viewTaxInvoicePrimaryBtn}
+                onPress={handleDownloadReceipt}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.receiptActionIcon}>🧾</Text>
+                <Text style={styles.viewTaxInvoiceBtnText}>View / Print Tax Receipt</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.continueShoppingBtn}
+                onPress={() => router.replace("/scanner")}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.continueShoppingBtnText}>Continue Shopping 🛒</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.viewMyOrdersBtn}
+                onPress={() => router.replace("/orders")}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.viewMyOrdersBtnText}>View in My Orders →</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-
-          {/* Perforated Divider with Left/Right Notch Cutouts */}
-          <View style={styles.perforatedRow}>
-            <View style={[styles.ticketNotch, styles.notchLeft]} />
-            <View style={styles.dashedDividerLine} />
-            <View style={[styles.ticketNotch, styles.notchRight]} />
-          </View>
-
-          {/* Scannable Barcode & Viewfinder */}
-          <View style={styles.ticketBarcodeSection}>
-            <Text style={styles.ticketBarcodeHeaderLabel}>
-              SCAN TO OPEN TURNSTILE
-            </Text>
-
-            <ExitBarcodeView code={exitBarcode} />
-
-            <View style={styles.ticketScanInstructionPill}>
-              <Text style={styles.ticketScanIcon}>📱</Text>
-              <Text style={styles.ticketScanHintText}>
-                Hold phone screen against the turnstile scanner glass
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ========================================================================= */}
-        {/* 3. MODERN ORDER BREAKDOWN CARD                                            */}
-        {/* ========================================================================= */}
-        <View style={styles.orderSummaryCard}>
-          <View style={styles.orderSummaryTopRow}>
-            <View>
-              <Text style={styles.orderNumberTitle}>Order {orderNum}</Text>
-              <Text style={styles.orderItemCountText}>{itemCount} Item(s) Purchased</Text>
-            </View>
-            <Text style={styles.orderGrandTotalAmount}>₹{amount.toFixed(2)}</Text>
-          </View>
-
-          <View style={styles.orderInfoGrid}>
-            <View style={styles.orderGridItem}>
-              <Text style={styles.gridItemLabel}>Payment Method</Text>
-              <Text style={styles.gridItemValue}>{payMethod} (Approved)</Text>
-            </View>
-
-            <View style={styles.orderGridItem}>
-              <Text style={styles.gridItemLabel}>Security</Text>
-              <Text style={styles.gridItemValue}>✓ 256-Bit Verified</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ========================================================================= */}
-        {/* 4. INTERACTIVE ACTION BUTTONS                                             */}
-        {/* ========================================================================= */}
-        <View style={styles.actionButtonsContainer}>
-          {/* Download Official Tax Invoice */}
-          <TouchableOpacity
-            style={styles.downloadTaxReceiptBtn}
-            onPress={handleDownloadReceipt}
-            disabled={downloading}
-            activeOpacity={0.82}
-          >
-            {downloading ? (
-              <ActivityIndicator size="small" color="#1E1B4B" />
-            ) : (
-              <>
-                <Text style={styles.downloadBtnIcon}>↓</Text>
-                <Text style={styles.downloadBtnText}>Download Receipt</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* View in My Orders Button */}
-          <TouchableOpacity
-            style={styles.viewOrdersPrimaryBtn}
-            onPress={() => router.replace("/orders")}
-            activeOpacity={0.88}
-          >
-            <Text style={styles.viewOrdersBtnText}>View in My Orders →</Text>
-          </TouchableOpacity>
-        </View>
+          </>
+        )}
       </ScrollView>
+    </View>
 
       {/* Interactive In-App Real-Time Tax Receipt Modal */}
       <ReceiptModal
@@ -420,308 +526,277 @@ export default function PaymentSuccessScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#2E0854", // Consistent deep purple matching all screens
   },
-  topCurvedHeader: {
-    position: "absolute",
-    top: -50,
-    left: -40,
-    right: -40,
-    height: 230,
+  purpleHeader: {
     backgroundColor: "#2E0854",
-    borderBottomLeftRadius: 280,
-    borderBottomRightRadius: 280,
+    paddingBottom: 22,
+  },
+  purpleHeaderSafe: {
+    backgroundColor: "#2E0854",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "android" ? 10 : 6,
+  },
+  headerBtn: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  headerBackArrow: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontWeight: "400",
+    marginTop: -2,
+  },
+  headerTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  receiptIcon: {
+    fontSize: 18,
+  },
+  whiteSheet: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -16,
     overflow: "hidden",
   },
-  topHeaderGlow: {
-    position: "absolute",
-    top: 30,
-    left: width * 0.25,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "rgba(99, 102, 241, 0.25)",
-  },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingHorizontal: 18,
+    paddingTop: 20,
     paddingBottom: 40,
     alignItems: "center",
   },
 
-  /* Hero Section */
-  heroVerificationSection: {
-    alignItems: "center",
-    marginBottom: 18,
-    position: "relative",
+  /* ========================================================================= */
+  /* PAYMENT VERIFICATION (PENDING) STYLES - APP PURPLE THEME                  */
+  /* ========================================================================= */
+  heroCard: {
     width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingTop: 22,
+    paddingBottom: 20,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#2E0854",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "#E9D8FD",
   },
-  shieldHaloPulse: {
-    position: "absolute",
-    top: -6,
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-  },
-  shieldIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  heroImageContainerPending: {
+    width: 175,
+    height: 175,
+    borderRadius: 24,
+    backgroundColor: "#FAF5FF", // Soft lavender matching app design
     alignItems: "center",
     justifyContent: "center",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-    marginBottom: 14,
-    borderWidth: 3,
-    borderColor: "#FFFFFF",
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: "#E9D8FD",
+    overflow: "hidden",
+    shadowColor: "#3B0764",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  shieldSymbol: {
-    fontSize: 34,
+  hero3DImage: {
+    width: "100%",
+    height: "100%",
   },
-  heroMainTitle: {
-    fontSize: 24,
+  heroTitlePending: {
+    fontSize: 22,
     fontWeight: "900",
-    color: "#4338CA",
+    color: "#2E0854", // App brand deep purple
     textAlign: "center",
     letterSpacing: -0.3,
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  statusPillBadge: {
+  statusPillPending: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 999,
-    borderWidth: 1,
+    backgroundColor: "#FAF5FF",
+    borderWidth: 1.5,
+    borderColor: "#E9D8FD",
     gap: 7,
   },
-  statusLiveDot: {
-    width: 7,
-    height: 7,
+  statusLiveDotPurple: {
+    width: 8,
+    height: 8,
     borderRadius: 4,
+    backgroundColor: "#7C3AED",
   },
-  statusPillText: {
+  statusPillTextPending: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
+    color: "#581C87",
   },
 
-  /* Unique Boarding Pass / Turnstile Smart Ticket Card */
-  smartTicketCard: {
+  /* Stepper Card */
+  stepperCard: {
     width: "100%",
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: "#E2E8F0",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 6,
+    padding: 16,
     marginBottom: 16,
-    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E9D8FD",
+    shadowColor: "#2E0854",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  ticketHeaderRow: {
+  stepperCardTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#7C3AED",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 14,
+    textAlign: "center",
+  },
+  stepperRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 12,
-    backgroundColor: "#F8FAFC",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    paddingHorizontal: 4,
   },
-  ticketBrandBox: {
-    flexDirection: "row",
+  stepItem: {
     alignItems: "center",
-    gap: 8,
+    width: 78,
   },
-  ticketStoreIcon: {
-    fontSize: 22,
+  stepCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
   },
-  ticketBrandName: {
-    fontSize: 13,
+  stepCircleDone: {
+    backgroundColor: "#ECFDF5",
+    borderWidth: 2,
+    borderColor: "#10B981",
+  },
+  stepDoneCheck: {
+    fontSize: 16,
     fontWeight: "900",
-    color: "#1E293B",
-    letterSpacing: 0.5,
+    color: "#059669",
   },
-  ticketSubTitle: {
-    fontSize: 9.5,
+  stepCirclePending: {
+    backgroundColor: "#FAF5FF",
+    borderWidth: 2,
+    borderColor: "#7C3AED",
+  },
+  stepPendingIcon: {
+    fontSize: 15,
+  },
+  stepCircleInactive: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+  },
+  stepInactiveIcon: {
+    fontSize: 15,
+  },
+  stepLine: {
+    flex: 1,
+    height: 2.5,
+    marginBottom: 20,
+  },
+  stepLineActive: {
+    backgroundColor: "#10B981",
+  },
+  stepLineInactive: {
+    backgroundColor: "#E2E8F0",
+  },
+  stepLabelDone: {
+    fontSize: 10.5,
     fontWeight: "700",
-    color: "#64748B",
-    letterSpacing: 0.8,
+    color: "#059669",
+    textAlign: "center",
   },
-  gateUnlockedBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  gateUnlockedText: {
+  stepLabelPending: {
     fontSize: 10.5,
     fontWeight: "800",
-    letterSpacing: 0.5,
+    color: "#581C87",
+    textAlign: "center",
   },
-  ticketInstructionsBox: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+  stepLabelInactive: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: "#94A3B8",
+    textAlign: "center",
   },
-  ticketGateNotice: {
+
+  /* Notice Card (Pending) - Lavender Theme */
+  noticeCardPending: {
+    width: "100%",
+    backgroundColor: "#FAF5FF",
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "#E9D8FD",
+    padding: 16,
+    marginBottom: 16,
+  },
+  noticeHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginBottom: 8,
+  },
+  noticeIcon: {
+    fontSize: 16,
+  },
+  noticeTitle: {
+    fontSize: 13.5,
+    fontWeight: "800",
+    color: "#3B0764",
+  },
+  noticeBody: {
     fontSize: 12.5,
     color: "#334155",
     lineHeight: 18,
-    fontWeight: "500",
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  ticketTurnstileTagRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  turnstilePill: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#4338CA",
-    backgroundColor: "#EEF2FF",
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-  },
-
-  /* Perforated Divider with Notches */
-  perforatedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    position: "relative",
-    marginVertical: 4,
-  },
-  ticketNotch: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1.5,
-    borderColor: "#E2E8F0",
-    position: "absolute",
-    zIndex: 3,
-  },
-  notchLeft: {
-    left: -12,
-  },
-  notchRight: {
-    right: -12,
-  },
-  dashedDividerLine: {
-    flex: 1,
-    height: 1,
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderStyle: "dashed",
-    marginHorizontal: 18,
-  },
-
-  /* Barcode Section inside Ticket */
-  ticketBarcodeSection: {
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  ticketBarcodeHeaderLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    color: "#64748B",
-    marginBottom: 10,
-  },
-  barcodeCardWrapper: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#E2E8F0",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-    marginBottom: 10,
-  },
-  cornerBracket: {
-    position: "absolute",
-    width: 14,
-    height: 14,
-    borderColor: "#06B6D4",
-    borderStyle: "solid",
-  },
-  cornerTL: {
-    top: 6,
-    left: 6,
-    borderWidth: 2.5,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 4,
-  },
-  cornerTR: {
-    top: 6,
-    right: 6,
-    borderWidth: 2.5,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-    borderTopRightRadius: 4,
-  },
-  cornerBL: {
-    bottom: 6,
-    left: 6,
-    borderWidth: 2.5,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 4,
-  },
-  cornerBR: {
-    bottom: 6,
-    right: 6,
-    borderWidth: 2.5,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderBottomRightRadius: 4,
-  },
-  barcodeStripesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 58,
-    overflow: "hidden",
-  },
-  barcodeDigitsText: {
-    marginTop: 6,
-    fontFamily: "monospace",
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#0F172A",
-    letterSpacing: 3,
-  },
-  ticketScanInstructionPill: {
+  autoUpdatePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1,
-    borderColor: "#BFDBFE",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    backgroundColor: "#F3E8FF",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     borderRadius: 8,
-    marginTop: 4,
+    alignSelf: "flex-start",
   },
-  ticketScanIcon: {
-    fontSize: 14,
+  autoUpdateFlash: {
+    fontSize: 12,
+    color: "#7C3AED",
   },
-  ticketScanHintText: {
+  autoUpdateText: {
     fontSize: 11,
-    fontWeight: "600",
-    color: "#1E40AF",
+    fontWeight: "700",
+    color: "#581C87",
   },
 
   /* Order Summary Card */
@@ -729,15 +804,15 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderWidth: 1.5,
+    borderColor: "#E9D8FD",
     padding: 16,
     marginBottom: 20,
-    shadowColor: "#0F172A",
+    shadowColor: "#2E0854",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
-    elevation: 3,
+    elevation: 2,
   },
   orderSummaryTopRow: {
     flexDirection: "row",
@@ -759,10 +834,10 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginTop: 2,
   },
-  orderGrandTotalAmount: {
+  orderGrandTotalAmountPending: {
     fontSize: 26,
     fontWeight: "900",
-    color: "#15803D",
+    color: "#3B0764", // App brand deep purple
   },
   orderInfoGrid: {
     flexDirection: "row",
@@ -783,49 +858,452 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  /* Action Buttons */
+  /* Registered Shopper Detail Card */
+  customerDetailCard: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#E9D8FD",
+    backgroundColor: "#FAF5FF",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E9D8FD",
+  },
+  customerDetailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  customerDetailLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#7C3AED",
+    letterSpacing: 0.8,
+  },
+  verifiedShopperBadge: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
+  verifiedShopperText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#059669",
+  },
+  customerDetailRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  customerAvatarSmall: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#EDE9FE",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+  },
+  customerNameBold: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#1E1B4B",
+    letterSpacing: -0.2,
+  },
+  customerPhoneBold: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: "#475569",
+    marginTop: 2,
+  },
+  customerAddressText: {
+    fontSize: 11.5,
+    fontWeight: "500",
+    color: "#64748B",
+    marginTop: 3,
+    lineHeight: 16,
+  },
+
+  /* Action Buttons (Pending) */
   actionButtonsContainer: {
     width: "100%",
     gap: 12,
   },
-  downloadTaxReceiptBtn: {
+  refreshStatusBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
     paddingVertical: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FAF5FF",
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: "#2E0854",
+    borderColor: "#3B0764",
+    shadowColor: "#3B0764",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  downloadBtnIcon: {
-    fontSize: 18,
-    color: "#2E0854",
+  refreshIcon: {
+    fontSize: 16,
     marginRight: 8,
-    fontWeight: "900",
   },
-  downloadBtnText: {
+  refreshBtnText: {
     fontSize: 14.5,
     fontWeight: "800",
-    color: "#2E0854",
+    color: "#3B0764",
   },
-  viewOrdersPrimaryBtn: {
+  viewOrdersSecondaryBtn: {
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
     paddingVertical: 14,
-    backgroundColor: "#2E0854",
+    backgroundColor: "#3B0764",
     borderRadius: 14,
-    shadowColor: "#2E0854",
+    shadowColor: "#3B0764",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
   },
-  viewOrdersBtnText: {
+  viewOrdersSecondaryBtnText: {
     fontSize: 14.5,
     fontWeight: "800",
     color: "#FFFFFF",
+  },
+
+  /* ========================================================================= */
+  /* PAYMENT SUCCESSFUL (APPROVED) STYLES - PROPER & COMPLETE DESIGN          */
+  /* ========================================================================= */
+  heroSuccessCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingTop: 22,
+    paddingBottom: 20,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#2E0854",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "#E9D8FD",
+  },
+  heroImageContainerApproved: {
+    width: 185,
+    height: 185,
+    borderRadius: 24,
+    backgroundColor: "#F0FDF4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: "#86EFAC",
+    overflow: "hidden",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  heroTitleApproved: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#2E0854",
+    textAlign: "center",
+    letterSpacing: -0.3,
+    marginBottom: 8,
+  },
+  statusPillApproved: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: "#DCFCE7",
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    gap: 6,
+  },
+  statusLiveDotGreen: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#059669",
+  },
+  statusPillTextApproved: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#047857",
+  },
+
+  /* Paid Amount Card */
+  paidAmountCard: {
+    width: "100%",
+    backgroundColor: "#FAF5FF",
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "#E9D8FD",
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  paidAmountLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#7C3AED",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  paidAmountValue: {
+    fontSize: 34,
+    fontWeight: "900",
+    color: "#15803D",
+    letterSpacing: -0.5,
+  },
+  savingsTagSuccess: {
+    backgroundColor: "#DCFCE7",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
+  savingsTagText: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: "#15803D",
+  },
+  paidByText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#475569",
+    marginTop: 6,
+  },
+
+  /* Smart Turnstile Pass Card */
+  smartPassCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "#86EFAC",
+    marginBottom: 16,
+    overflow: "hidden",
+    shadowColor: "#059669",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  passHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#F0FDF4",
+    borderBottomWidth: 1,
+    borderBottomColor: "#DCFCE7",
+  },
+  passBrandGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  passBrandIcon: {
+    fontSize: 20,
+  },
+  passStoreName: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#14532D",
+    letterSpacing: 0.5,
+  },
+  passSubtitle: {
+    fontSize: 9.5,
+    fontWeight: "800",
+    color: "#16A34A",
+    letterSpacing: 0.6,
+  },
+  gateUnlockedBadge: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
+  gateUnlockedText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#15803D",
+  },
+  passBody: {
+    padding: 16,
+  },
+  passInstructions: {
+    fontSize: 12.5,
+    color: "#334155",
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  passBadgesRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  passTag: {
+    backgroundColor: "#DCFCE7",
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 6,
+  },
+  passTagText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#15803D",
+  },
+  passCustomerCard: {
+    backgroundColor: "#FAF5FF",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E9D8FD",
+    marginBottom: 10,
+  },
+  passCustomerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  passCustomerLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#7C3AED",
+    letterSpacing: 0.8,
+  },
+  passOrderMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    paddingTop: 8,
+    marginTop: 4,
+  },
+  passMetaText: {
+    fontSize: 11.5,
+    color: "#475569",
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+
+  /* Thank You Card */
+  thankYouCard: {
+    width: "100%",
+    backgroundColor: "#FAF5FF",
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: "#E9D8FD",
+    padding: 18,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  thankYouIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  thankYouTitle: {
+    fontSize: 19,
+    fontWeight: "900",
+    color: "#2E0854",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  thankYouSubText: {
+    fontSize: 12.5,
+    color: "#475569",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  thankYouPolicyText: {
+    fontSize: 11,
+    color: "#7C3AED",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  /* Success Action Buttons */
+  successActionsContainer: {
+    width: "100%",
+    gap: 12,
+    marginBottom: 10,
+  },
+  viewTaxInvoicePrimaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    paddingVertical: 15,
+    backgroundColor: "#3B0764",
+    borderRadius: 16,
+    shadowColor: "#3B0764",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+    gap: 8,
+  },
+  receiptActionIcon: {
+    fontSize: 18,
+  },
+  viewTaxInvoiceBtnText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
+  },
+  continueShoppingBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    paddingVertical: 14,
+    backgroundColor: "#FAF5FF",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#3B0764",
+  },
+  continueShoppingBtnText: {
+    fontSize: 14.5,
+    fontWeight: "800",
+    color: "#3B0764",
+  },
+  viewMyOrdersBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    paddingVertical: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+  },
+  viewMyOrdersBtnText: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: "#475569",
   },
 });

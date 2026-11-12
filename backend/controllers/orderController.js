@@ -94,12 +94,27 @@ exports.checkout = async (req, res) => {
         });
       }
 
-      const originalPrice = Number(product.price);
-      const discountPerUnit = Number(product.discount || 0);
-      const effectivePrice = Math.max(0, originalPrice - discountPerUnit);
+      const rawPrice = Number(product.price || 0);
+      const rawCostPrice = Number(product.costPrice || 0);
+      const explicitDiscount = Number(product.discount || 0);
+
+      let originalMrp = rawPrice;
+      let effectivePrice = rawPrice;
+      let discountPerUnit = explicitDiscount;
+
+      if (rawCostPrice > 0 && rawCostPrice !== rawPrice) {
+        originalMrp = Math.max(rawPrice, rawCostPrice);
+        effectivePrice = Math.min(rawPrice, rawCostPrice);
+        discountPerUnit = Math.max(explicitDiscount, originalMrp - effectivePrice);
+      } else if (explicitDiscount > 0) {
+        originalMrp = rawPrice;
+        effectivePrice = Math.max(0, rawPrice - explicitDiscount);
+        discountPerUnit = explicitDiscount;
+      }
+
       const itemSubtotal = effectivePrice * quantity;
 
-      grossSubtotal += originalPrice * quantity;
+      grossSubtotal += originalMrp * quantity;
       totalDiscount += discountPerUnit * quantity;
 
       verifiedItems.push({
@@ -110,6 +125,8 @@ exports.checkout = async (req, res) => {
         barcode: product.barcode || "",
         imageUrl: product.imageUrl || "",
         price: effectivePrice,
+        originalPrice: originalMrp,
+        discount: discountPerUnit,
         quantity,
         subtotal: itemSubtotal,
       });
@@ -153,6 +170,7 @@ exports.checkout = async (req, res) => {
         name: customer?.name || "Mobile Shopper",
         phone: customer?.phone || "",
         email: customer?.email || "",
+        address: customer?.address || "",
       },
       exitBarcode,
       inventoryDeducted,
@@ -170,20 +188,31 @@ exports.checkout = async (req, res) => {
         totalCartItems: 0,
         totalCartAmount: 0,
       });
-    } catch (_) {}
+    } catch (_) { }
 
     try {
       const io = req.app?.get("io");
       if (io) {
-        io.emit("new-order", {
+        const notifData = {
+          id: `pending-${order._id || order.orderNumber}`,
+          type: "pending",
+          badge: "PRE-BOOKING",
+          title: "New Pre-Booking",
+          actor: order.customer?.name || "Shopper",
+          message: `${order.customer?.name || "Shopper"} is waiting for approval.`,
+          timestamp: order.createdAt || new Date().toISOString(),
           order,
-          title: `New Order: ${order.orderNumber}`,
-          message: `${order.customer?.name || "Shopper"} placed order for ₹${order.totalAmount} (${order.totalItems} items)`,
-          time: "Just now",
-          type: "order",
+          customerName: order.customer?.name || "Shopper",
+          totalAmount: order.totalAmount,
+          paymentMethod: order.paymentMethod,
+        };
+        io.emit("admin:notification", notifData);
+        io.emit("new-order", {
+          ...notifData,
+          order,
         });
       }
-    } catch (_) {}
+    } catch (_) { }
 
     return res.status(201).json({
       success: true,
@@ -235,6 +264,25 @@ exports.logCartActivity = async (req, res) => {
       totalCartItems,
       totalCartAmount,
     });
+
+    try {
+      const io = req.app?.get("io");
+      if (io) {
+        io.emit("admin:notification", {
+          id: `cart-${activity._id || Date.now()}`,
+          type: "cart",
+          badge: "ADDED TO CART",
+          title: "Cart Item Added",
+          actor: customerName || "Mobile Shopper",
+          message: `${customerName || "Customer"} added ${productName} (Qty: ${quantity}) to cart.`,
+          timestamp: activity.createdAt || new Date().toISOString(),
+          customerName: customerName || "Mobile Shopper",
+          productName,
+          quantity,
+          price,
+        });
+      }
+    } catch (_) {}
 
     return res.status(201).json({
       success: true,
@@ -346,6 +394,24 @@ exports.approvePayment = async (req, res) => {
     order.approvedAt = new Date();
     await order.save();
 
+    try {
+      const io = req.app?.get("io");
+      if (io) {
+        io.emit("admin:notification", {
+          id: `approved-${order._id || order.orderNumber}`,
+          type: "approved",
+          badge: "APPROVED",
+          title: "Pre-Booking Approved",
+          actor: order.customer?.name || "Shopper",
+          message: `${order.customer?.name || "Shopper"} was approved by Super Admin.`,
+          timestamp: order.approvedAt || new Date().toISOString(),
+          order,
+          customerName: order.customer?.name || "Shopper",
+          totalAmount: order.totalAmount,
+        });
+      }
+    } catch (_) {}
+
     return res.status(200).json({
       success: true,
       message: `Order #${order.orderNumber} payment approved by Super Admin.`,
@@ -417,12 +483,12 @@ exports.completePayment = async (req, res) => {
 exports.updatePaymentStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { paymentStatus } = req.body;
+    const { paymentStatus, failureReason } = req.body;
 
-    if (!["Pending", "Approved", "Completed", "Failed"].includes(paymentStatus)) {
+    if (!["Pending", "Approved", "Completed", "Failed", "Network Error"].includes(paymentStatus)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid payment status. Must be Pending, Approved, Completed, or Failed.",
+        message: "Invalid payment status. Must be Pending, Approved, Completed, Failed, or Network Error.",
       });
     }
 
@@ -466,6 +532,9 @@ exports.updatePaymentStatus = async (req, res) => {
     }
 
     order.paymentStatus = paymentStatus;
+    if (failureReason !== undefined) {
+      order.failureReason = failureReason;
+    }
     await order.save();
 
     return res.status(200).json({
@@ -610,6 +679,14 @@ exports.getAdminStats = async (req, res) => {
       activeCartsCount = 0;
     }
 
+    // Distinct registered customers count
+    const customerPhoneSet = new Set();
+    allOrders.forEach((o) => {
+      const p = o.customer?.phone || o.customer?.name;
+      if (p) customerPhoneSet.add(p);
+    });
+    const totalCustomers = customerPhoneSet.size;
+
     return res.status(200).json({
       success: true,
       stats: {
@@ -617,6 +694,7 @@ exports.getAdminStats = async (req, res) => {
         totalInventoryValue,
         totalSales,
         totalOrders,
+        totalCustomers,
         pendingCashOrdersCount,
         allOrdersCount: allOrders.length,
         lowStockCount,
@@ -741,6 +819,12 @@ exports.getReports = async (req, res) => {
         failedOrders: filteredOrders.filter(
           (order) => order.paymentStatus === "Failed"
         ).length,
+        networkErrorOrders: filteredOrders.filter(
+          (order) => order.paymentStatus === "Network Error"
+        ).length,
+        networkErrorAmount: filteredOrders
+          .filter((order) => order.paymentStatus === "Network Error")
+          .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0),
         productsSold,
         totalCustomers: customerKeys.size,
         lowStockCount: lowStockProducts.length,
@@ -763,3 +847,4 @@ exports.getReports = async (req, res) => {
     });
   }
 };
+
