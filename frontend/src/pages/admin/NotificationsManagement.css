@@ -852,13 +852,14 @@
 
 /* Order Workspace in Inspector */
 .inspector-order-workspace {
-  padding: 16px 20px 24px 20px;
+  padding: 16px 20px 36px 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  box-sizing: border-box;
 }
 
 .inspector-order-workspace::-webkit-scrollbar {
@@ -1034,6 +1035,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   overflow: hidden;
+  margin-bottom: 8px;
 }
 
 .ledger-head {
@@ -1128,16 +1130,18 @@
 
 .calc-row.total {
   border-top: 1.5px solid #e2e8f0;
-  padding-top: 12px;
-  padding-bottom: 12px;
-  margin-top: 4px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  margin-top: 6px;
   font-size: 13.5px;
   font-weight: 800;
   color: #0f172a;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 40px;
+  min-height: 44px;
+  position: relative;
+  z-index: 1;
 }
 
 .grand-total-amount {
@@ -1169,10 +1173,14 @@
   flex-wrap: wrap;
   padding-top: 18px;
   margin-top: 16px;
+  margin-bottom: 8px;
   border-top: 1.5px solid #e2e8f0;
   flex-shrink: 0;
   width: 100%;
   clear: both;
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
 }
 
 .terminal-command-btn {

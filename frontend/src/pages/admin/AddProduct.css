@@ -971,6 +971,12 @@
     grid-template-columns: 1fr !important;
     gap: 16px !important;
   }
+
+  .ap-row-2col,
+  .ap-row-3col {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1005,7 +1011,15 @@
     gap: 12px !important;
   }
 
+  .ap-input-group label {
+    font-size: 12px !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    line-height: 1.3 !important;
+  }
+
   /* Category chips flex wrap cleanly */
+  .ap-chips-row,
   .ap-category-chips {
     display: flex !important;
     flex-wrap: wrap !important;

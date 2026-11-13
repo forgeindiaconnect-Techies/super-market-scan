@@ -1922,17 +1922,21 @@
     display: block !important;
     box-sizing: border-box !important;
     border-radius: 10px !important;
+    scrollbar-width: thin !important;
   }
 
   .db-orders-table {
-    min-width: 580px !important;
-    width: 100% !important;
+    min-width: 620px !important;
+    width: max-content !important;
+    border-collapse: collapse !important;
   }
 
   .db-orders-table th,
   .db-orders-table td {
-    padding: 7px 10px !important;
+    padding: 8px 12px !important;
     font-size: 11.5px !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
   }
 
   /* Quick Actions 2x2 Grid */
@@ -1951,19 +1955,47 @@
     font-size: 11px !important;
   }
 
-  /* Business Insights Rings */
+  /* Business Insights Rings (Always 3 columns side-by-side on mobile) */
   .db-insights-rings-row {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
-    gap: 8px !important;
+    gap: 6px !important;
+    align-items: center !important;
+    justify-items: center !important;
+    width: 100% !important;
   }
 
   .db-ring-card {
-    padding: 8px 6px !important;
+    padding: 6px 4px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .db-gauge-wrap {
+    width: 54px !important;
+    height: 54px !important;
+    margin-bottom: 3px !important;
+  }
+
+  .db-gauge-svg {
+    width: 54px !important;
+    height: 54px !important;
+  }
+
+  .db-gauge-pct {
+    font-size: 10px !important;
+    font-weight: 800 !important;
   }
 
   .db-ring-label {
     font-size: 10px !important;
+    white-space: nowrap !important;
+    line-height: 1.2 !important;
+  }
+
+  .db-ring-trend {
+    font-size: 8.5px !important;
   }
 }
 
@@ -1980,8 +2012,42 @@
     font-size: 15.5px !important;
   }
 
+  /* Business Insights: Keep 3 columns side-by-side on all smartphones */
   .db-insights-rings-row {
-    grid-template-columns: 1fr !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 4px !important;
+    justify-items: center !important;
+    width: 100% !important;
+  }
+
+  .db-ring-card {
+    padding: 4px 2px !important;
+    width: 100% !important;
+  }
+
+  .db-gauge-wrap {
+    width: 50px !important;
+    height: 50px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .db-gauge-svg {
+    width: 50px !important;
+    height: 50px !important;
+  }
+
+  .db-gauge-pct {
+    font-size: 9.5px !important;
+  }
+
+  .db-ring-label {
+    font-size: 9.5px !important;
+    white-space: nowrap !important;
+  }
+
+  .db-ring-trend {
+    font-size: 8px !important;
   }
 }
 

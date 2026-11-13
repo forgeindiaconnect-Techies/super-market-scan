@@ -76,6 +76,20 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    supermarket: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supermarket",
+      default: null,
+      index: true,
+    },
+
+    supermarketCode: {
+      type: String,
+      default: "DEFAULT",
+      trim: true,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -83,14 +97,16 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index(
-  { barcode: 1 },
+  { supermarket: 1, barcode: 1 },
   {
     unique: true,
+    sparse: true,
     partialFilterExpression: {
       barcode: { $type: "string" },
     },
   }
 );
+productSchema.index({ supermarket: 1, isActive: 1 });
 
 module.exports = mongoose.model("Product", productSchema);
 

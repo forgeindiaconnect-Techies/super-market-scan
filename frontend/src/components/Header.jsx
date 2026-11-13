@@ -20,9 +20,16 @@ import {
   Sparkles,
   Users,
   Barcode,
+  Building2,
+  LogOut,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import API from "../services/api";
+import { useAuth } from "../context/AuthContext";
+import {
+  getPersistentProducts,
+  mergeApiWithStorage,
+} from "../utils/realtimeStorage";
 
 const NOTIF_READ_KEY = "grocerease_notif_read_ids";
 
@@ -53,12 +60,13 @@ const formatNotifTime = (timestamp) => {
 export default function Header({ onMenuClick }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, isSuperAdmin, currentSupermarket, logout } = useAuth();
   const [backendOnline, setBackendOnline] = useState(true);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
-  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState(getPersistentProducts);
   const [catalogOrders, setCatalogOrders] = useState([]);
   const [catalogCustomers, setCatalogCustomers] = useState([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
@@ -69,13 +77,7 @@ export default function Header({ onMenuClick }) {
   const searchContainerRef = useRef(null);
   const mobileSearchInputRef = useRef(null);
 
-  useEffect(() => {
-    if (mobileSearchOpen && mobileSearchInputRef.current) {
-      mobileSearchInputRef.current.focus();
-    }
-  }, [mobileSearchOpen]);
-
-  // Preload catalog data when search input is focused or user types
+  // Preload catalog data immediately on mount and on storage events
   const loadSearchCatalog = async () => {
     try {
       const [prodRes, ordRes] = await Promise.allSettled([
@@ -83,9 +85,16 @@ export default function Header({ onMenuClick }) {
         API.get("/orders"),
       ]);
 
-      if (prodRes.status === "fulfilled" && prodRes.value.data?.success && Array.isArray(prodRes.value.data.products)) {
-        setCatalogProducts(prodRes.value.data.products);
+      let loadedProducts = getPersistentProducts();
+      if (
+        prodRes.status === "fulfilled" &&
+        prodRes.value.data?.success &&
+        Array.isArray(prodRes.value.data.products)
+      ) {
+        loadedProducts = mergeApiWithStorage(prodRes.value.data.products);
       }
+      setCatalogProducts(loadedProducts);
+
       if (ordRes.status === "fulfilled" && ordRes.value.data?.success && Array.isArray(ordRes.value.data.orders)) {
         const ords = ordRes.value.data.orders;
         setCatalogOrders(ords);
@@ -111,8 +120,30 @@ export default function Header({ onMenuClick }) {
         setCatalogCustomers(Array.from(customerMap.values()));
       }
       setCatalogLoaded(true);
-    } catch (_) {}
+    } catch (_) {
+      setCatalogProducts(getPersistentProducts());
+      setCatalogLoaded(true);
+    }
   };
+
+  useEffect(() => {
+    loadSearchCatalog();
+
+    const handleStorageUpdate = () => {
+      setCatalogProducts(getPersistentProducts());
+    };
+    window.addEventListener("grocerease_storage_updated", handleStorageUpdate);
+
+    return () => {
+      window.removeEventListener("grocerease_storage_updated", handleStorageUpdate);
+    };
+  }, [currentSupermarket]);
+
+  useEffect(() => {
+    if (mobileSearchOpen && mobileSearchInputRef.current) {
+      mobileSearchInputRef.current.focus();
+    }
+  }, [mobileSearchOpen]);
 
   // Filtered Results for Search Dropdown
   const cleanQuery = searchQuery.toLowerCase().trim();
@@ -196,6 +227,7 @@ export default function Header({ onMenuClick }) {
   const [socketConnected, setSocketConnected] = useState(false);
 
   const isNotifPage = location.pathname.startsWith("/admin/notifications");
+  const notifReadKey = `grocerease_notif_read_ids_${currentSupermarket?._id || currentSupermarket?.code || "default"}`;
 
   // Load ONLY real-time customer cart, pending payment, and approved payment notifications
   const loadRealNotifications = async () => {
@@ -207,7 +239,7 @@ export default function Header({ onMenuClick }) {
 
       let readSet = new Set();
       try {
-        readSet = new Set(JSON.parse(localStorage.getItem(NOTIF_READ_KEY) || "[]"));
+        readSet = new Set(JSON.parse(localStorage.getItem(notifReadKey) || "[]"));
       } catch (_) {}
 
       const items = [];
@@ -244,7 +276,7 @@ export default function Header({ onMenuClick }) {
               badge: "APPROVED",
               title: "Pre-Booking Approved",
               actor: custName,
-              message: `${custName} was approved by Super Admin.`,
+              message: `${custName} was approved for store exit.`,
               timestamp: o.approvedAt || o.completedAt || o.createdAt || new Date().toISOString(),
               read: readSet.has(notifId),
               order: o,
@@ -302,6 +334,14 @@ export default function Header({ onMenuClick }) {
     // Real-Time Socket Event when Customer Adds to Cart, Places Order, or Payment is Approved
     socket.on("admin:notification", (data) => {
       if (!data) return;
+      if (
+        currentSupermarket &&
+        data.supermarketId &&
+        String(data.supermarketId) !== String(currentSupermarket._id) &&
+        String(data.supermarketCode) !== String(currentSupermarket.code)
+      ) {
+        return;
+      }
 
       setNotifications((prev) => {
         const filtered = prev.filter((n) => n.id !== data.id);
@@ -335,6 +375,14 @@ export default function Header({ onMenuClick }) {
     socket.on("new-order", (data) => {
       if (!data || !data.order) return;
       const order = data.order;
+      if (
+        currentSupermarket &&
+        order.supermarket &&
+        String(order.supermarket) !== String(currentSupermarket._id) &&
+        String(order.supermarketCode) !== String(currentSupermarket.code)
+      ) {
+        return;
+      }
       const custName = order.customer?.name || "Shopper";
 
       setNotifications((prev) => {
@@ -361,7 +409,7 @@ export default function Header({ onMenuClick }) {
       socket.disconnect();
       clearInterval(interval);
     };
-  }, []);
+  }, [currentSupermarket]);
 
   const unreadCount = notifications.filter((item) => !item.read).length;
 
@@ -369,7 +417,7 @@ export default function Header({ onMenuClick }) {
   const handleMarkAllRead = () => {
     try {
       const allIds = notifications.map((n) => n.id);
-      localStorage.setItem(NOTIF_READ_KEY, JSON.stringify(allIds));
+      localStorage.setItem(notifReadKey, JSON.stringify(allIds));
     } catch (_) {}
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
@@ -377,9 +425,9 @@ export default function Header({ onMenuClick }) {
   // Click on a notification: mark as read and navigate
   const handleNotificationClick = (item) => {
     try {
-      const readSet = new Set(JSON.parse(localStorage.getItem(NOTIF_READ_KEY) || "[]"));
+      const readSet = new Set(JSON.parse(localStorage.getItem(notifReadKey) || "[]"));
       readSet.add(item.id);
-      localStorage.setItem(NOTIF_READ_KEY, JSON.stringify(Array.from(readSet)));
+      localStorage.setItem(notifReadKey, JSON.stringify(Array.from(readSet)));
     } catch (_) {}
 
     setNotifications((prev) =>
@@ -699,7 +747,7 @@ export default function Header({ onMenuClick }) {
                         type="button"
                         onClick={() => {
                           setSearchDropdownOpen(false);
-                          navigate("/admin/products");
+                          navigate(`/admin/products?search=${encodeURIComponent(searchQuery)}`);
                         }}
                       >
                         All Products &rarr;
@@ -708,7 +756,7 @@ export default function Header({ onMenuClick }) {
                         type="button"
                         onClick={() => {
                           setSearchDropdownOpen(false);
-                          navigate("/admin/orders");
+                          navigate(`/admin/orders?search=${encodeURIComponent(searchQuery)}`);
                         }}
                       >
                         All Orders &rarr;
@@ -717,7 +765,7 @@ export default function Header({ onMenuClick }) {
                         type="button"
                         onClick={() => {
                           setSearchDropdownOpen(false);
-                          navigate("/admin/barcodes");
+                          navigate(`/admin/barcodes?search=${encodeURIComponent(searchQuery)}`);
                         }}
                       >
                         All Barcodes &rarr;
@@ -851,7 +899,7 @@ export default function Header({ onMenuClick }) {
           )}
         </div>
 
-        {/* Compact Admin Profile: Pooja V, Super Admin */}
+        {/* Compact Admin Profile: Pooja V / Store Admin */}
         <div
           ref={profileDropdownRef}
           className="user-profile-widget"
@@ -860,14 +908,14 @@ export default function Header({ onMenuClick }) {
           <div className="avatar-wrapper">
             <img
               src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80"
-              alt="Pooja V"
+              alt={user?.name || "Admin"}
               className="user-avatar"
             />
             <span className="avatar-online-dot" />
           </div>
           <div className="user-meta">
-            <span className="user-name">Pooja V</span>
-            <span className="user-role">Super Admin</span>
+            <span className="user-name">{user?.name || "Pooja V"}</span>
+            <span className="user-role">{isSuperAdmin ? "Super Admin" : "Admin"}</span>
           </div>
           <ChevronDown size={13} className="user-chevron" />
 
@@ -878,25 +926,27 @@ export default function Header({ onMenuClick }) {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="profile-dropdown-header">
-                <strong>Pooja V</strong>
-                <span>pooja@grocerease.store</span>
+                <strong>{user?.name || "Pooja V"}</strong>
+                <span>{user?.username ? `@${user.username}` : "admin@grocerease.store"}</span>
               </div>
               <hr className="profile-dropdown-divider" />
+              {isSuperAdmin && (
+                <Link
+                  to="/super-admin"
+                  className="profile-dropdown-item"
+                  onClick={() => setProfileDropdownOpen(false)}
+                >
+                  <Shield size={14} color="#2563EB" />
+                  <span style={{ color: "#2563EB", fontWeight: 700 }}>Super Admin Console</span>
+                </Link>
+              )}
               <Link
                 to="/admin/settings"
                 className="profile-dropdown-item"
                 onClick={() => setProfileDropdownOpen(false)}
               >
                 <Store size={14} />
-                <span>Store Branch #001</span>
-              </Link>
-              <Link
-                to="/admin/settings"
-                className="profile-dropdown-item"
-                onClick={() => setProfileDropdownOpen(false)}
-              >
-                <Shield size={14} />
-                <span>Security & Gate Access</span>
+                <span>{currentSupermarket?.code || "Branch #001"} Settings</span>
               </Link>
               <Link
                 to="/customer"
@@ -906,6 +956,16 @@ export default function Header({ onMenuClick }) {
                 <ExternalLink size={14} />
                 <span>Customer Self-Checkout</span>
               </Link>
+              <hr className="profile-dropdown-divider" />
+              <button
+                type="button"
+                className="profile-dropdown-item"
+                style={{ color: "#dc2626", background: "none", border: "none", width: "100%", cursor: "pointer", textAlign: "left" }}
+                onClick={logout}
+              >
+                <LogOut size={14} />
+                <span>Sign Out</span>
+              </button>
             </div>
           )}
         </div>

@@ -1,13 +1,43 @@
-// Real-Time Persistent Storage Helper
-// Ensures all product updates, additions, stock steppers, and edits
-// persist permanently across browser refreshes and sync with MongoDB Atlas.
+// Real-Time Multi-Tenant Persistent Storage Helper
+// Ensures each supermarket's products, inventory, orders, and barcodes
+// are strictly isolated by supermarket ID across browser refreshes and sync with MongoDB Atlas.
 
-export const STORAGE_KEY_PRODUCTS = "grocerease_real_products";
-export const STORAGE_KEY_ORDERS = "grocerease_real_orders";
+export function getActiveSupermarketId() {
+  try {
+    const raw = localStorage.getItem("grocerease_current_supermarket");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?._id) return parsed._id;
+      if (parsed?.code) return parsed.code;
+    }
+  } catch (_) {}
+  return "default";
+}
 
-export const DEFAULT_SUPERMARKET_PRODUCTS = [
+export function getStorageKeyProducts() {
+  return `grocerease_real_products_${getActiveSupermarketId()}`;
+}
+
+export function getStorageKeyOrders() {
+  return `grocerease_real_orders_${getActiveSupermarketId()}`;
+}
+
+export const DEFAULT_SUPERMARKET_PRODUCTS_STORE1 = [
   {
-    _id: "prod-real-1",
+    _id: "prod-s1-1",
+    name: "Fresh Red Apples (Washington)",
+    brand: "Fresh Orchard",
+    category: "Fruits & Vegetables",
+    barcode: "2001984210342",
+    price: 180.0,
+    costPrice: 130.0,
+    stock: 45,
+    lowStockThreshold: 10,
+    imageUrl: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=120&auto=format&fit=crop&q=80",
+    description: "Crisp and juicy sweet Washington red apples.",
+  },
+  {
+    _id: "prod-s1-2",
     name: "Chocolate",
     brand: "Zero sugar",
     category: "Beverages",
@@ -20,7 +50,7 @@ export const DEFAULT_SUPERMARKET_PRODUCTS = [
     description: "Premium chocolate zero sugar.",
   },
   {
-    _id: "prod-real-2",
+    _id: "prod-s1-3",
     name: "Lays",
     brand: "NO 1",
     category: "Beverages",
@@ -33,7 +63,7 @@ export const DEFAULT_SUPERMARKET_PRODUCTS = [
     description: "Crispy salted potato chips.",
   },
   {
-    _id: "prod-real-3",
+    _id: "prod-s1-4",
     name: "Shmapoo 180 ml",
     brand: "Dove",
     category: "Household",
@@ -46,7 +76,7 @@ export const DEFAULT_SUPERMARKET_PRODUCTS = [
     description: "Dove daily hair nourishment.",
   },
   {
-    _id: "prod-real-4",
+    _id: "prod-s1-5",
     name: "Rice",
     brand: "Rice no 1",
     category: "Groceries",
@@ -58,44 +88,89 @@ export const DEFAULT_SUPERMARKET_PRODUCTS = [
     imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=120&auto=format&fit=crop&q=80",
     description: "Aromatic basmati rice 5kg pack.",
   },
+];
+
+export const DEFAULT_SUPERMARKET_PRODUCTS_STORE2 = [
   {
-    _id: "prod-real-5",
-    name: "Rice",
-    brand: "Rice no 1",
-    category: "Groceries",
-    barcode: "1234567",
-    price: 2500.0,
-    costPrice: 2100.0,
+    _id: "prod-s2-1",
+    name: "Fresh Red Apples (Washington)",
+    brand: "Green Valley",
+    category: "Fruits & Vegetables",
+    barcode: "2002773410982",
+    price: 175.0,
+    costPrice: 125.0,
+    stock: 35,
+    lowStockThreshold: 10,
+    imageUrl: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=120&auto=format&fit=crop&q=80",
+    description: "Crisp and sweet farm apples.",
+  },
+  {
+    _id: "prod-s2-2",
+    name: "Chocolate",
+    brand: "Zero Sugar",
+    category: "Beverages",
+    barcode: "2002884102941",
+    price: 350.0,
+    costPrice: 275.0,
     stock: 20,
+    lowStockThreshold: 8,
+    imageUrl: "https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=120&auto=format&fit=crop&q=80",
+    description: "Premium chocolate zero sugar.",
+  },
+  {
+    _id: "prod-s2-3",
+    name: "Basmati Rice 5kg",
+    brand: "Kohinoor",
+    category: "Groceries",
+    barcode: "2002995201473",
+    price: 640.0,
+    costPrice: 510.0,
+    stock: 25,
     lowStockThreshold: 5,
     imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=120&auto=format&fit=crop&q=80",
-    description: "Polished everyday long grain rice.",
+    description: "Premium long grain basmati rice.",
+  },
+  {
+    _id: "prod-s2-4",
+    name: "Farm Fresh Whole Milk 1L",
+    brand: "Amul",
+    category: "Dairy",
+    barcode: "2002661029381",
+    price: 68.0,
+    costPrice: 58.0,
+    stock: 40,
+    lowStockThreshold: 10,
+    imageUrl: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=120&auto=format&fit=crop&q=80",
+    description: "Pasteurized full cream cow milk.",
   },
 ];
 
-// Read persistent products from storage or fallback
+export const DEFAULT_SUPERMARKET_PRODUCTS = DEFAULT_SUPERMARKET_PRODUCTS_STORE1;
+
+// Read persistent products for current supermarket tenant
 export function getPersistentProducts() {
+  const key = getStorageKeyProducts();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_PRODUCTS);
-    if (raw) {
+    const raw = localStorage.getItem(key);
+    if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
   } catch (err) {
-    console.warn("Storage read failed, using defaults:", err);
+    console.warn("Storage read failed:", err);
   }
-  // Initialize storage with defaults on first run
-  savePersistentProducts(DEFAULT_SUPERMARKET_PRODUCTS);
-  return DEFAULT_SUPERMARKET_PRODUCTS;
+
+  // When no data exists yet for this tenant, return clean empty list
+  return [];
 }
 
-// Save persistent products to localStorage
+// Save persistent products to localStorage scoped to current supermarket
 export function savePersistentProducts(products) {
+  const key = getStorageKeyProducts();
   try {
-    localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(products));
-    // Dispatch custom event for real-time tab sync
+    localStorage.setItem(key, JSON.stringify(Array.isArray(products) ? products : []));
     window.dispatchEvent(new Event("grocerease_storage_updated"));
   } catch (err) {
     console.warn("Storage write failed:", err);
@@ -117,30 +192,13 @@ export function updatePersistentStock(identifier, newStock) {
 
 // Merge backend API products with local persistent storage
 export function mergeApiWithStorage(apiProducts) {
-  if (!Array.isArray(apiProducts) || apiProducts.length === 0) {
+  if (!Array.isArray(apiProducts)) {
     return getPersistentProducts();
   }
-  const current = getPersistentProducts();
 
-  const merged = apiProducts.map((apiP) => {
-    return {
-      ...apiP,
-      stock: typeof apiP.stock === "number" ? apiP.stock : (current.find((c) => c._id === apiP._id)?.stock ?? 0),
-    };
-  });
-
-  // Keep any newly added local products not yet synced to MongoDB
-  for (const local of current) {
-    const exists = merged.some(
-      (m) => m._id === local._id || (local.barcode && m.barcode === local.barcode)
-    );
-    if (!exists) {
-      merged.push(local);
-    }
-  }
-
-  savePersistentProducts(merged);
-  return merged;
+  // Backend API is the source of truth for this tenant
+  savePersistentProducts(apiProducts);
+  return apiProducts;
 }
 
 // Add a newly created product

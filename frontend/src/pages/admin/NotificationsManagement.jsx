@@ -982,18 +982,14 @@ export default function NotificationsManagement() {
                             0
                           ) || 0;
                           const total = Number(activeInspectedItem.totalAmount || calculatedItemsSubtotal || 0);
-                          const grossSub = Number(
-                            activeInspectedItem.subtotalAmount ||
-                            activeInspectedItem.order?.subtotalAmount ||
-                            calculatedItemsSubtotal ||
-                            total
-                          );
-                          // Ensure displaySubtotal matches genuine purchased items sum
-                          const displaySubtotal = calculatedItemsSubtotal > 0 ? calculatedItemsSubtotal : grossSub;
-                          const discount = Math.max(
-                            0,
-                            Number(activeInspectedItem.discountAmount || activeInspectedItem.order?.discountAmount || (displaySubtotal - total))
-                          );
+                          const rawDiscount = Number(activeInspectedItem.discountAmount || activeInspectedItem.order?.discountAmount || 0);
+
+                          // Subtotal matches the line items purchased (e.g. 1 Dress x 1 = ₹480.00)
+                          const displaySubtotal = rawDiscount > 0 && Math.abs(calculatedItemsSubtotal - total) < 0.01
+                            ? total + rawDiscount
+                            : (calculatedItemsSubtotal > 0 ? calculatedItemsSubtotal : total);
+
+                          const discount = Math.max(0, rawDiscount || (displaySubtotal > total ? displaySubtotal - total : 0));
                           const taxable = total / 1.05;
                           const gst = total - taxable;
                           const cgst = (gst / 2).toFixed(2);

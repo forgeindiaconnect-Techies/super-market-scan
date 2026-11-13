@@ -27,6 +27,26 @@ try {
   ];
 
   const currentUploads = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\6fa4a95c-77f9-4a4d-950b-d57336a67a4c\\.user_uploaded";
+  const currentUploadsA3 = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\a3b9eaf8-1534-448f-a91a-da09a078ee97\\.user_uploaded";
+
+  // Sync 3D supermarket storefront with cart image from user upload
+  const storeCartSrc = path.join(currentUploadsA3, "media_1794563026392_3c935523.jpg");
+  if (fs.existsSync(storeCartSrc)) {
+    fs.copyFileSync(storeCartSrc, path.join(assetsDir, "supermarket-3d-cart.jpg"));
+    fs.copyFileSync(storeCartSrc, path.join(publicDir, "supermarket-3d-cart.jpg"));
+    console.log("✓ Synced 3D supermarket storefront with cart image -> supermarket-3d-cart.jpg");
+  }
+
+  // Sync 8K Ultra-HD 3D Supermarket Storefront Banner
+  const generatedStorefront = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\ea64ddf2-7b46-4b95-b6c4-9ce99c9e82b3\\supermarket_card_banner_1794572842698.jpg";
+  const prevStorefront = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\a3b9eaf8-1534-448f-a91a-da09a078ee97\\supermarket_storefront_exact_sign_1794572310404.jpg";
+  const activeStoreBanner = fs.existsSync(generatedStorefront) ? generatedStorefront : prevStorefront;
+  if (fs.existsSync(activeStoreBanner)) {
+    fs.copyFileSync(activeStoreBanner, path.join(assetsDir, "supermarket-storefront-banner.jpg"));
+    fs.copyFileSync(activeStoreBanner, path.join(publicDir, "supermarket-storefront-banner.jpg"));
+    fs.copyFileSync(activeStoreBanner, path.join(publicDir, "supermarket-card-banner.jpg"));
+    console.log("✓ Synced 8K 3D supermarket storefront -> supermarket-storefront-banner.jpg & supermarket-card-banner.jpg");
+  }
 
   // Also sync exact high-res banner PNG directly provided by user
   const currentBrainDir = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\6fa4a95c-77f9-4a4d-950b-d57336a67a4c";
@@ -35,6 +55,29 @@ try {
 
   const currentBrainDir2026 = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\66da6e68-95f4-42d0-a640-30ba83b6ef48";
   const celebrationDollImg = path.join(currentBrainDir2026, "payment_success_celebration_1794473637341.jpg");
+
+  // Sync ultra-high-resolution 16:9 supermarket SaaS portal login background (4K, Crisp, Razor-sharp)
+  const loginBgSource = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\f36b6542-12a0-4c50-a383-186a05bdb99d\\supermarket_portal_bg_v3_1794561743408.jpg";
+  const loginBgAltSource = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\f36b6542-12a0-4c50-a383-186a05bdb99d\\supermarket_portal_bg_1794561687802.jpg";
+  if (fs.existsSync(loginBgSource)) {
+    const buf = fs.readFileSync(loginBgSource);
+    fs.copyFileSync(loginBgSource, path.join(assetsDir, "supermarket-login-bg.jpg"));
+    fs.copyFileSync(loginBgSource, path.join(publicDir, "supermarket-login-bg.jpg"));
+    fs.copyFileSync(loginBgSource, path.join(publicDir, "grocerease-clean-login.jpg"));
+    let w = 0, h = 0;
+    for (let i = 0; i < buf.length - 8; i++) {
+      if (buf[i] === 0xFF && (buf[i+1] === 0xC0 || buf[i+1] === 0xC2)) {
+        h = buf.readUInt16BE(i + 5);
+        w = buf.readUInt16BE(i + 7);
+        break;
+      }
+    }
+    fs.writeFileSync(
+      path.join(assetsDir, "login-img-dimensions.json"),
+      JSON.stringify({ width: w, height: h, aspectRatio: w / h }, null, 2)
+    );
+    console.log(`✓ Synced clean login background (${w}x${h}, ratio ${w/h}) -> supermarket-login-bg.jpg`);
+  }
 
   const paymentImages = [
     { src: path.join(currentBrainDir, "payment_pending_1794467892344.jpg"), destName: "payment-pending.jpg" },
@@ -115,6 +158,11 @@ try {
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
+const authRoutes = require("./routes/authRoutes");
+const superAdminRoutes = require("./routes/superAdminRoutes");
+const { authMiddleware } = require("./middleware/authMiddleware");
+const { tenantMiddleware } = require("./middleware/tenantMiddleware");
+const { seedSaaSPlatformData } = require("./utils/saasSeeder");
 const { checkCloudinaryConnection } = require("./config/cloudinary");
 const Product = require("./models/Product");
 
@@ -214,13 +262,17 @@ if (MONGO_URI) {
     .connect(MONGO_URI)
     .then(async () => {
       console.log("MongoDB connected successfully");
-      await seedInitialProductsIfEmpty();
+      await seedSaaSPlatformData(); // Multi-Tenant SaaS platform seeder (Super Admin, Store A, Store B)
     })
     .catch((err) => console.error("MongoDB connection error:", err.message));
 }
 
+// Global Auth & Multi-Tenant Middleware
+app.use(authMiddleware);
+app.use(tenantMiddleware);
+
 app.get("/", (req, res) => {
-  res.json({ success: true, message: "Smart Supermarket Backend is running!" });
+  res.json({ success: true, message: "Smart Supermarket Multi-Tenant SaaS Backend is running!" });
 });
 
 app.get("/api/health", (req, res) => {
@@ -244,6 +296,16 @@ app.get("/api/banner", (req, res) => {
   res.status(404).send("Banner not found");
 });
 
+app.get("/api/login-bg", (req, res) => {
+  const cleanSource = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\f36b6542-12a0-4c50-a383-186a05bdb99d\\supermarket_portal_bg_v3_1794561743408.jpg";
+  if (fs.existsSync(cleanSource)) return res.sendFile(cleanSource);
+  const p = path.join(__dirname, "../frontend/public/supermarket-login-bg.jpg");
+  if (fs.existsSync(p)) return res.sendFile(p);
+  res.status(404).send("Login background image not found");
+});
+
+app.use("/api/auth", authRoutes);
+app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/upload", uploadRoutes);

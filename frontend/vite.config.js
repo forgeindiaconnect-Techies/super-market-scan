@@ -18,5 +18,11 @@ export default defineConfig({
       strict: false,
       allow: ['..', 'C:/Users/Forgeindiaconnect/.gemini'],
     },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+      },
+    },
   },
 })

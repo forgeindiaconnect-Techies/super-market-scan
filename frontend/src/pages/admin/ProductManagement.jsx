@@ -68,9 +68,9 @@ export default function ProductManagement() {
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
   const [stockFilter, setStockFilter] = useState("all");
   const [stats, setStats] = useState({
-    totalSales: 1250,
-    totalOrders: 4,
-    activeCustomers: 4,
+    totalSales: 0,
+    totalOrders: 0,
+    activeCustomers: 0,
   });
 
   // Pagination state (6 items per page so 9+ items paginate naturally)
@@ -100,24 +100,35 @@ export default function ProductManagement() {
       }
 
       if (statsRes.status === "fulfilled" && statsRes.value.data?.success) {
-        const s = statsRes.value.data.stats;
+        const s = statsRes.value.data.stats || {};
         setStats({
-          totalSales: s.totalSales > 0 ? s.totalSales : 1250,
-          totalOrders: s.totalOrders || 4,
-          activeCustomers: Math.max(s.activeCartsCount || 0, s.allOrdersCount || 0, 4),
+          totalSales: s.totalSales || 0,
+          totalOrders: s.totalOrders || 0,
+          activeCustomers: s.activeCartsCount || s.allOrdersCount || 0,
         });
       } else if (ordRes.status === "fulfilled" && ordRes.value.data?.success) {
         const ords = ordRes.value.data.orders || [];
         const completed = ords.filter((o) => o.paymentStatus === "Completed");
         const sales = completed.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
         setStats({
-          totalSales: sales > 0 ? sales : 1250,
-          totalOrders: completed.length > 0 ? completed.length : 4,
-          activeCustomers: Math.max(ords.length, 4),
+          totalSales: sales,
+          totalOrders: completed.length,
+          activeCustomers: ords.length,
+        });
+      } else {
+        setStats({
+          totalSales: 0,
+          totalOrders: 0,
+          activeCustomers: 0,
         });
       }
     } catch (_) {
       setProducts(getPersistentProducts());
+      setStats({
+        totalSales: 0,
+        totalOrders: 0,
+        activeCustomers: 0,
+      });
     }
   };
 

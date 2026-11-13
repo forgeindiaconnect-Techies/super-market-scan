@@ -1189,12 +1189,28 @@
 @media (max-width: 860px) {
   .om-kpi-grid-5 {
     grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
 }
 
 @media (max-width: 520px) {
   .om-kpi-grid-5 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .om-kpi-grid-5 > div:last-child {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 320px) {
+  .om-kpi-grid-5 {
     grid-template-columns: 1fr;
+  }
+
+  .om-kpi-grid-5 > div:last-child {
+    grid-column: span 1;
   }
 }
 
@@ -4124,11 +4140,43 @@
     border-radius: 10px !important;
   }
 
-  .pm-actions-group {
+  .pm-toolbar-filters .pm-actions-group,
+  .pm-toolbar-row .pm-actions-group {
     display: flex !important;
     flex-wrap: wrap !important;
     width: 100% !important;
     gap: 8px !important;
+  }
+
+  /* Table Cell Action Buttons: MUST ALWAYS STAY IN ONE HORIZONTAL ROW (No wrapping) */
+  td .pm-actions-group,
+  .pm-products-table td .pm-actions-group,
+  .im-table-wrapper td .pm-actions-group,
+  .pm-table-wrapper td .pm-actions-group {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    width: auto !important;
+    min-width: 105px !important;
+    white-space: nowrap !important;
+  }
+
+  .pm-products-table td:last-child,
+  .im-table-wrapper td:last-child,
+  .pm-table-wrapper td:last-child {
+    white-space: nowrap !important;
+    min-width: 110px !important;
+    text-align: center !important;
+  }
+
+  .pm-action-circle {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 15px !important;
+    flex-shrink: 0 !important;
   }
 
   .pm-btn,
@@ -4152,9 +4200,25 @@
   }
 
   .pm-catalog-header {
-    padding: 10px 14px !important;
+    padding: 12px 14px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .om-ledger-actions,
+  .cm-header-controls {
+    display: flex !important;
     flex-wrap: wrap !important;
+    align-items: center !important;
     gap: 8px !important;
+    width: 100% !important;
+    margin-top: 4px !important;
+  }
+
+  .om-ledger-actions .pm-action-btn,
+  .cm-header-controls button {
+    flex-shrink: 0 !important;
   }
 
   .pm-table-wrapper,
@@ -4167,17 +4231,137 @@
     max-width: 100% !important;
     display: block !important;
     box-sizing: border-box !important;
+    scrollbar-width: thin !important;
   }
 
   .pm-products-table {
-    min-width: 650px !important;
-    width: 100% !important;
+    min-width: 820px !important;
+    width: max-content !important;
   }
 
   .pm-products-table th,
   .pm-products-table td {
-    padding: 8px 10px !important;
+    padding: 9px 12px !important;
     font-size: 12px !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+  }
+
+  /* Edit & View Product Modal Responsive Layout (1 column on mobile) */
+  .modal-grid,
+  .pm-modal-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .modal-card,
+  .pm-modal-card {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 92vh !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    border-radius: 14px !important;
+  }
+
+  .modal-form,
+  .pm-modal-form {
+    padding: 14px 16px !important;
+    gap: 12px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+
+  .modal-grid label,
+  .modal-form label {
+    font-size: 12px !important;
+    width: 100% !important;
+    white-space: normal !important;
+  }
+
+  .modal-grid input,
+  .modal-grid select,
+  .modal-form input,
+  .modal-form select {
+    width: 100% !important;
+    padding: 9px 12px !important;
+    font-size: 13px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Pagination Bar Stacking on Mobile (No Horizontal Overflow) */
+  .pm-pagination-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 10px !important;
+    padding: 12px 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .pm-pagination-info {
+    font-size: 11.5px !important;
+    color: #64748b !important;
+    text-align: center !important;
+    line-height: 1.3 !important;
+    margin: 0 !important;
+  }
+
+  .pm-pagination-controls {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  .pm-goto-wrap {
+    margin-left: 0 !important;
+    margin-top: 2px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 11.5px !important;
+  }
+
+  /* Orders Management Mobile 5-KPI 2-Column Grid & Touch Tabs Strip */
+  .om-kpi-grid-5 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+    width: 100% !important;
+  }
+
+  .om-kpi-grid-5 > div:last-child {
+    grid-column: span 2 !important;
+  }
+
+  .om-tabs-strip {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 6px !important;
+    padding-bottom: 6px !important;
+    scrollbar-width: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .om-tabs-strip::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .om-tab-btn {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    font-size: 11.5px !important;
+    padding: 6px 12px !important;
+    border-radius: 16px !important;
   }
 
   /* 5. Barcode Grid */
@@ -4222,6 +4406,82 @@
   .pm-thumb-box {
     width: 30px !important;
     height: 30px !important;
+  }
+
+  /* Table action buttons stay nowrap in 1 horizontal row */
+  td .pm-actions-group,
+  .pm-products-table td .pm-actions-group,
+  .im-table-wrapper td .pm-actions-group {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    width: auto !important;
+    min-width: 95px !important;
+    white-space: nowrap !important;
+  }
+
+  .pm-action-circle {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 14px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .pm-products-table td:last-child,
+  .im-table-wrapper td:last-child {
+    min-width: 100px !important;
+    white-space: nowrap !important;
+  }
+
+  /* Orders Management KPI cards 2-columns on smartphones */
+  .om-kpi-grid-5 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+  }
+
+  .om-kpi-grid-5 > div:last-child {
+    grid-column: span 2 !important;
+  }
+
+  .modal-grid,
+  .pm-modal-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .pm-modal-actions {
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 12px 16px !important;
+  }
+
+  .pm-modal-actions > div {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  .pm-modal-actions button,
+  .pm-btn-cancel,
+  .pm-btn-save {
+    flex: 1 !important;
+    text-align: center !important;
+    justify-content: center !important;
+  }
+
+  .pm-products-table {
+    min-width: 780px !important;
+    width: max-content !important;
+  }
+
+  .pm-products-table th,
+  .pm-products-table td {
+    padding: 8px 10px !important;
+    white-space: nowrap !important;
   }
 }
 

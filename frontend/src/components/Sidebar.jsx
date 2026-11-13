@@ -14,6 +14,7 @@ import {
   LogOut,
   X,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 let storefrontImg = "/storefront-3d.jpg";
 try {
@@ -38,6 +39,7 @@ const navItems = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
+  const { user, isSuperAdmin, currentSupermarket, logout } = useAuth();
 
   return (
     <aside className={`admin-sidebar ${isOpen ? "open" : ""}`}>
@@ -109,11 +111,7 @@ export default function Sidebar({ isOpen, onClose }) {
         <button
           type="button"
           className="nav-item sidebar-logout-btn"
-          onClick={() => {
-            if (window.confirm("Switch to Customer Self-Checkout Web Mirror?")) {
-              window.location.href = "/customer";
-            }
-          }}
+          onClick={logout}
         >
           <div className="nav-icon-wrap">
             <LogOut size={16} strokeWidth={2.2} />
@@ -122,7 +120,7 @@ export default function Sidebar({ isOpen, onClose }) {
         </button>
 
         <div className="sidebar-version-pill">
-          <span>v1.0.0 | GrocerEase © 2026</span>
+          <span>v1.0.0 | GrocerEase &copy; 2026</span>
         </div>
       </div>
     </aside>

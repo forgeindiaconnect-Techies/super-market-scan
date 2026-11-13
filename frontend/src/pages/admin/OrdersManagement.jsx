@@ -182,6 +182,65 @@ export default function OrdersManagement() {
     }
   };
 
+  // 4. Simulate a Live Customer Pre-Booking order (for instant testing & verification)
+  const handleSimulateCustomerOrder = async () => {
+    try {
+      setActionMessage("⚡ Simulating real customer self-checkout from mobile app...");
+      const prodRes = await API.get("/products");
+      const prods = (prodRes.data?.products || []).filter((p) => p.stock > 0);
+      const chosenProd = prods[0] || {
+        _id: "600000000000000000000001",
+        name: "Chocolate",
+        price: 352,
+      };
+
+      const customerNames = ["Rahul Sharma", "Sneha Reddy", "Vikram Patel", "Divya Nair"];
+      const randomName = customerNames[Math.floor(Math.random() * customerNames.length)];
+      const randomPhone = `+91 ${Math.floor(7000000000 + Math.random() * 2999999999)}`;
+
+      // 1. Log cart activity (triggers live cart item notification)
+      await API.post("/orders/cart-activity", {
+        customerName: randomName,
+        productName: chosenProd.name,
+        productId: chosenProd._id,
+        quantity: 1,
+        price: chosenProd.price,
+        action: "added",
+      }).catch(() => {});
+
+      // 2. Checkout pre-booking order
+      const checkoutRes = await API.post("/orders/checkout", {
+        items: [
+          {
+            _id: chosenProd._id,
+            name: chosenProd.name,
+            price: chosenProd.price,
+            quantity: 1,
+          },
+        ],
+        paymentMethod: "UPI",
+        customer: {
+          name: randomName,
+          phone: randomPhone,
+          email: `${randomName.toLowerCase().replace(/\s+/g, ".")}@gmail.com`,
+          address: "Bangalore",
+        },
+      });
+
+      if (checkoutRes.data?.success) {
+        setActionMessage(`✓ Real-time customer pre-booking created for ${randomName}! Notification bell updated.`);
+        window.dispatchEvent(new Event("grocerease_storage_updated"));
+        await fetchOrders(false);
+        setActiveTab("PENDING");
+        setTimeout(() => setActionMessage(""), 5000);
+      }
+    } catch (err) {
+      console.error("Simulation error:", err);
+      setActionMessage("Notice: " + (err.response?.data?.message || err.message));
+      setTimeout(() => setActionMessage(""), 5000);
+    }
+  };
+
   // Copy order ID helper
   const handleCopyId = (text) => {
     navigator.clipboard?.writeText(text);
@@ -634,7 +693,7 @@ export default function OrdersManagement() {
             </h3>
           </div>
 
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div className="om-ledger-actions" style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
             <span style={{ fontSize: "12px", color: "#64748B", fontWeight: 600, marginRight: "6px" }}>
               Showing {filteredOrders.length} of {orders.length}
             </span>
@@ -681,6 +740,30 @@ export default function OrdersManagement() {
             >
               <BarChart2 size={13} />
               <span>Top Selling</span>
+            </button>
+
+            <button
+              type="button"
+              className="pm-action-btn"
+              onClick={handleSimulateCustomerOrder}
+              disabled={loading}
+              title="Place a real-time customer pre-booking to test live notifications and payment approval"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "6px 12px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 700,
+                background: "#EFF6FF",
+                color: "#1D4ED8",
+                border: "1px solid #BFDBFE",
+                cursor: "pointer",
+              }}
+            >
+              <Sparkles size={13} color="#2563EB" />
+              <span>⚡ Place Live Customer Order</span>
             </button>
 
             <button

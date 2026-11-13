@@ -39,6 +39,18 @@ const cartActivitySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    supermarket: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supermarket",
+      default: null,
+      index: true,
+    },
+    supermarketCode: {
+      type: String,
+      default: "DEFAULT",
+      trim: true,
+      index: true,
+    },
   },
   {
     timestamps: true,

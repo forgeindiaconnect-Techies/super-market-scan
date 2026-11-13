@@ -621,7 +621,7 @@ export default function CustomersManagement() {
             </h3>
           </div>
 
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div className="cm-header-controls" style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
             {/* Top Interactive Page Navigation Control */}
             <div
               style={{

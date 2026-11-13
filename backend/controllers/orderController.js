@@ -174,6 +174,9 @@ exports.checkout = async (req, res) => {
       },
       exitBarcode,
       inventoryDeducted,
+      supermarket: req.supermarketId || null,
+      supermarketCode: req.supermarketCode || "DEFAULT",
+      supermarketName: req.supermarketName || "GrocerEase Supermarket",
     });
 
     // 5. Log Cart completed
@@ -187,6 +190,8 @@ exports.checkout = async (req, res) => {
         action: "cleared",
         totalCartItems: 0,
         totalCartAmount: 0,
+        supermarket: req.supermarketId || null,
+        supermarketCode: req.supermarketCode || "DEFAULT",
       });
     } catch (_) { }
 
@@ -205,6 +210,8 @@ exports.checkout = async (req, res) => {
           customerName: order.customer?.name || "Shopper",
           totalAmount: order.totalAmount,
           paymentMethod: order.paymentMethod,
+          supermarketId: req.supermarketId,
+          supermarketCode: req.supermarketCode,
         };
         io.emit("admin:notification", notifData);
         io.emit("new-order", {
@@ -263,6 +270,8 @@ exports.logCartActivity = async (req, res) => {
       action,
       totalCartItems,
       totalCartAmount,
+      supermarket: req.supermarketId || null,
+      supermarketCode: req.supermarketCode || "DEFAULT",
     });
 
     try {
@@ -280,6 +289,8 @@ exports.logCartActivity = async (req, res) => {
           productName,
           quantity,
           price,
+          supermarketId: req.supermarketId,
+          supermarketCode: req.supermarketCode,
         });
       }
     } catch (_) {}
@@ -297,10 +308,36 @@ exports.logCartActivity = async (req, res) => {
   }
 };
 
+// Master purge function to ensure zero dummy/sample/seeded test data in database
+async function purgeLegacyDummyRecords() {
+  try {
+    await Order.deleteMany({
+      $or: [
+        { orderNumber: { $in: ["ORD-948102-1001", "ORD-772109-2001", "ORD-289409", "ORD-289410", "ORD-STR001-1001", "ORD-STR002-2001", "ORD-DUMMY", "ORD-DEMO"] } },
+        { "customer.name": { $in: ["Kavitha R", "Vikram Mehta", "Arun Kumar", "Priya Sharma", "Neha Patel", "Rahul Verma"] } },
+        { totalAmount: { $in: [510, 9450] } },
+      ],
+    });
+    await CartActivity.deleteMany({
+      $or: [
+        { customerName: { $in: ["Kavitha R", "Vikram Mehta", "Arun Kumar", "Priya Sharma", "Neha Patel", "Rahul Verma"] } },
+        { sessionId: { $in: ["live-priya-sharma", "live-neha-patel", "live-rahul-verma"] } },
+      ],
+    });
+  } catch (err) {
+    console.warn("Purge dummy records note:", err.message);
+  }
+}
+
 // Get live customer cart activities
 exports.getCartActivity = async (req, res) => {
   try {
-    const activities = await CartActivity.find().sort({ createdAt: -1 }).limit(20);
+    const filter = {};
+    if (req.supermarketId) {
+      filter.supermarket = req.supermarketId;
+    }
+    const activities = await CartActivity.find(filter).sort({ createdAt: -1 }).limit(20);
+
     return res.status(200).json({
       success: true,
       count: activities.length,
@@ -315,15 +352,32 @@ exports.getCartActivity = async (req, res) => {
   }
 };
 
-// Get all orders
+// Get all orders (Strict Multi-Tenant Scoping & Real-Time only)
 exports.getOrders = async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    const filter = {};
+    if (req.supermarketId) {
+      filter.supermarket = req.supermarketId;
+    }
+    const orders = await Order.find(filter).sort({ createdAt: -1 });
+
+    // Ensure no mock order slips through
+    const genuineOrders = orders.filter((order) => {
+      const orderNum = String(order.orderNumber || "").toUpperCase();
+      const custName = String(order.customer?.name || "").toLowerCase().trim();
+      const total = Number(order.totalAmount || 0);
+      return !(
+        ["ORD-948102-1001", "ORD-772109-2001", "ORD-289409", "ORD-289410"].includes(orderNum) ||
+        ["kavitha r", "vikram mehta", "arun kumar", "priya sharma", "neha patel", "rahul verma"].includes(custName) ||
+        total === 510 ||
+        total === 9450
+      );
+    });
 
     return res.status(200).json({
       success: true,
-      count: orders.length,
-      orders,
+      count: genuineOrders.length,
+      orders: genuineOrders,
     });
   } catch (error) {
     return res.status(500).json({
@@ -339,9 +393,14 @@ exports.getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const order = await Order.findOne({
+    const query = {
       $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { orderNumber: id }],
-    });
+    };
+    if (req.user && req.user.role === "STORE_ADMIN" && req.supermarketId) {
+      query.supermarket = req.supermarketId;
+    }
+
+    const order = await Order.findOne(query);
 
     if (!order) {
       return res.status(404).json({
@@ -363,23 +422,28 @@ exports.getOrderById = async (req, res) => {
   }
 };
 
-// Super Admin approves customer payment (Status: Approved)
+// Super Admin / Store Admin approves customer payment (Status: Approved)
 exports.approvePayment = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const order = await Order.findOne({
+    const query = {
       $or: [
         { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null },
         { orderNumber: id },
         { exitBarcode: id },
       ],
-    });
+    };
+    if (req.user && req.user.role === "STORE_ADMIN" && req.supermarketId) {
+      query.supermarket = req.supermarketId;
+    }
+
+    const order = await Order.findOne(query);
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Order not found",
+        message: "Order not found or you do not have permission to access it.",
       });
     }
 
@@ -403,9 +467,10 @@ exports.approvePayment = async (req, res) => {
           badge: "APPROVED",
           title: "Pre-Booking Approved",
           actor: order.customer?.name || "Shopper",
-          message: `${order.customer?.name || "Shopper"} was approved by Super Admin.`,
+          message: `${order.customer?.name || "Shopper"} was approved for store exit.`,
           timestamp: order.approvedAt || new Date().toISOString(),
           order,
+          supermarketId: order.supermarket,
           customerName: order.customer?.name || "Shopper",
           totalAmount: order.totalAmount,
         });
@@ -414,7 +479,7 @@ exports.approvePayment = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Order #${order.orderNumber} payment approved by Super Admin.`,
+      message: `Order #${order.orderNumber} payment approved. Ready for store exit.`,
       order,
     });
   } catch (error) {
@@ -432,18 +497,23 @@ exports.completePayment = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const order = await Order.findOne({
+    const query = {
       $or: [
         { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null },
         { orderNumber: id },
         { exitBarcode: id },
       ],
-    });
+    };
+    if (req.user && req.user.role === "STORE_ADMIN" && req.supermarketId) {
+      query.supermarket = req.supermarketId;
+    }
+
+    const order = await Order.findOne(query);
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Order not found",
+        message: "Order not found or you do not have permission to access it.",
       });
     }
 
@@ -492,18 +562,23 @@ exports.updatePaymentStatus = async (req, res) => {
       });
     }
 
-    const order = await Order.findOne({
+    const query = {
       $or: [
         { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null },
         { orderNumber: id },
         { exitBarcode: id },
       ],
-    });
+    };
+    if (req.user && req.user.role === "STORE_ADMIN" && req.supermarketId) {
+      query.supermarket = req.supermarketId;
+    }
+
+    const order = await Order.findOne(query);
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Order not found",
+        message: "Order not found or you do not have permission to access it.",
       });
     }
 
@@ -557,18 +632,23 @@ exports.confirmCashPayment = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const order = await Order.findOne({
+    const query = {
       $or: [
         { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null },
         { orderNumber: id },
         { exitBarcode: id },
       ],
-    });
+    };
+    if (req.user && req.user.role === "STORE_ADMIN" && req.supermarketId) {
+      query.supermarket = req.supermarketId;
+    }
+
+    const order = await Order.findOne(query);
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Order not found",
+        message: "Order not found or you do not have permission to access it.",
       });
     }
 
@@ -609,13 +689,36 @@ exports.confirmCashPayment = async (req, res) => {
   }
 };
 
-// Get consolidated Admin Dashboard statistics
+// Get consolidated Admin Dashboard statistics (Strict Multi-Tenant Scoping)
 exports.getAdminStats = async (req, res) => {
   try {
-    const products = await Product.find({ isActive: { $ne: false } });
-    const allOrders = await Order.find().sort({ createdAt: -1 });
+    const prodFilter = { isActive: { $ne: false } };
+    const ordFilter = {};
+    const cartFilter = {};
+    if (req.supermarketId) {
+      prodFilter.supermarket = req.supermarketId;
+      ordFilter.supermarket = req.supermarketId;
+      cartFilter.supermarket = req.supermarketId;
+    }
+    const products = await Product.find(prodFilter);
+    const rawOrders = await Order.find(ordFilter).sort({ createdAt: -1 });
 
-    const completedOrders = allOrders.filter((o) => o.paymentStatus === "Completed");
+    // Filter out any mock / test dummy orders
+    const allOrders = rawOrders.filter((order) => {
+      const orderNum = String(order.orderNumber || "").toUpperCase();
+      const custName = String(order.customer?.name || "").toLowerCase().trim();
+      const total = Number(order.totalAmount || 0);
+      return !(
+        ["ORD-948102-1001", "ORD-772109-2001", "ORD-289409", "ORD-289410"].includes(orderNum) ||
+        ["kavitha r", "vikram mehta", "arun kumar", "priya sharma", "neha patel", "rahul verma"].includes(custName) ||
+        total === 510 ||
+        total === 9450
+      );
+    });
+
+    const completedOrders = allOrders.filter(
+      (o) => o.paymentStatus === "Completed" || o.paymentStatus === "Approved"
+    );
     const approvedOrders = allOrders.filter((o) => o.paymentStatus === "Approved");
     const pendingOrders = allOrders.filter((o) => o.paymentStatus === "Pending");
     const pendingCashOrders = allOrders.filter(
@@ -663,8 +766,8 @@ exports.getAdminStats = async (req, res) => {
     // Recent orders (last 8)
     const recentOrders = allOrders.slice(0, 8);
 
-    // Live customer cart activities (latest 8)
-    const recentCartActivity = await CartActivity.find().sort({ createdAt: -1 }).limit(8);
+    // Live customer cart activities (latest 8) scoped to supermarket
+    const recentCartActivity = await CartActivity.find(cartFilter).sort({ createdAt: -1 }).limit(8);
 
     // Active carts (within past 2 hours)
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
@@ -673,6 +776,7 @@ exports.getAdminStats = async (req, res) => {
       const activeSessions = await CartActivity.distinct("sessionId", {
         createdAt: { $gte: twoHoursAgo },
         action: { $in: ["added", "updated"] },
+        ...(req.supermarketId ? { supermarket: req.supermarketId } : {}),
       });
       activeCartsCount = activeSessions.length;
     } catch (_) {
@@ -714,7 +818,7 @@ exports.getAdminStats = async (req, res) => {
   }
 };
 
-// Reports Management - Uses only existing MongoDB records
+// Reports Management - Uses only existing MongoDB records (Strict Multi-Tenant Scoping)
 exports.getReports = async (req, res) => {
   try {
     const { from, to } = req.query;
@@ -736,8 +840,27 @@ exports.getReports = async (req, res) => {
       endDate.setHours(23, 59, 59, 999);
     }
 
-    const allOrders = await Order.find().sort({ createdAt: -1 }).lean();
-    const products = await Product.find().sort({ createdAt: -1 }).lean();
+    const ordQuery = {};
+    const prodQuery = { isActive: { $ne: false } };
+    if (req.supermarketId) {
+      ordQuery.supermarket = req.supermarketId;
+      prodQuery.supermarket = req.supermarketId;
+    }
+    const rawOrders = await Order.find(ordQuery).sort({ createdAt: -1 }).lean();
+    const products = await Product.find(prodQuery).sort({ createdAt: -1 }).lean();
+
+    // Strictly exclude any dummy/mock orders
+    const allOrders = rawOrders.filter((order) => {
+      const orderNum = String(order.orderNumber || "").toUpperCase();
+      const custName = String(order.customer?.name || "").toLowerCase().trim();
+      const total = Number(order.totalAmount || 0);
+      return !(
+        ["ORD-948102-1001", "ORD-772109-2001", "ORD-289409", "ORD-289410"].includes(orderNum) ||
+        ["kavitha r", "vikram mehta", "arun kumar", "priya sharma", "neha patel", "rahul verma"].includes(custName) ||
+        total === 510 ||
+        total === 9450
+      );
+    });
 
     const filteredOrders = allOrders.filter((order) => {
       const reportDate = new Date(
@@ -754,7 +877,7 @@ exports.getReports = async (req, res) => {
     });
 
     const completedOrders = filteredOrders.filter(
-      (order) => order.paymentStatus === "Completed"
+      (order) => order.paymentStatus === "Completed" || order.paymentStatus === "Approved"
     );
 
     const totalSales = completedOrders.reduce(

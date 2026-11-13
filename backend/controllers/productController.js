@@ -99,14 +99,19 @@ exports.createProduct = async (req, res) => {
     }
 
     if (cleanBarcode) {
-      const existingProduct = await Product.findOne({
+      const existingQuery = {
         barcode: cleanBarcode,
-      });
+        isActive: { $ne: false },
+      };
+      if (req.supermarketId) {
+        existingQuery.supermarket = req.supermarketId;
+      }
+      const existingProduct = await Product.findOne(existingQuery);
 
       if (existingProduct) {
         return res.status(409).json({
           success: false,
-          message: "This barcode already exists",
+          message: "This barcode already exists in your supermarket inventory",
         });
       }
     }
@@ -125,6 +130,8 @@ exports.createProduct = async (req, res) => {
       lowStockThreshold: numericThreshold,
       imageUrl: imageUrl?.trim() || "",
       description: description?.trim() || "",
+      supermarket: req.supermarketId || null,
+      supermarketCode: req.supermarketCode || "DEFAULT",
     });
 
     try {
@@ -138,6 +145,8 @@ exports.createProduct = async (req, res) => {
             ? `Stock is down to ${product.stock} units (Threshold: ${product.lowStockThreshold || 5})`
             : `Added to inventory at ₹${product.price} (${product.stock} units)`,
           time: "Just now",
+          supermarketId: req.supermarketId,
+          supermarketCode: req.supermarketCode,
         });
       }
     } catch (_) {}
@@ -166,9 +175,14 @@ exports.createProduct = async (req, res) => {
 // Get all active products
 exports.getProducts = async (req, res) => {
   try {
-    const products = await Product.find({
+    const filter = {
       isActive: { $ne: false },
-    }).sort({ createdAt: -1 });
+    };
+    if (req.supermarketId) {
+      filter.supermarket = req.supermarketId;
+    }
+
+    const products = await Product.find(filter).sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -205,10 +219,15 @@ exports.getProductByBarcode = async (req, res) => {
     const rawBarcode = req.params.barcode;
     const candidates = getBarcodeVariants(rawBarcode);
 
-    const product = await Product.findOne({
+    const query = {
       barcode: { $in: candidates },
       isActive: { $ne: false },
-    });
+    };
+    if (req.supermarketId) {
+      query.supermarket = req.supermarketId;
+    }
+
+    const product = await Product.findOne(query);
 
     if (!product) {
       return res.status(404).json({
@@ -236,10 +255,15 @@ exports.getProductByQr = async (req, res) => {
     const { id } = req.params;
     let product = null;
 
+    const baseFilter = { isActive: { $ne: false } };
+    if (req.supermarketId) {
+      baseFilter.supermarket = req.supermarketId;
+    }
+
     if (mongoose.Types.ObjectId.isValid(id)) {
       product = await Product.findOne({
         _id: id,
-        isActive: { $ne: false },
+        ...baseFilter,
       });
     }
 
@@ -247,7 +271,7 @@ exports.getProductByQr = async (req, res) => {
       const candidates = getBarcodeVariants(id);
       product = await Product.findOne({
         barcode: { $in: candidates },
-        isActive: { $ne: false },
+        ...baseFilter,
       });
     }
 
@@ -282,13 +306,18 @@ exports.getProductById = async (req, res) => {
       });
     }
 
+    const baseFilter = { isActive: { $ne: false } };
+    if (req.supermarketId) {
+      baseFilter.supermarket = req.supermarketId;
+    }
+
     let product = null;
 
     // 1. Try finding by Mongo ObjectId
     if (mongoose.Types.ObjectId.isValid(id)) {
       product = await Product.findOne({
         _id: id,
-        isActive: { $ne: false },
+        ...baseFilter,
       });
     }
 
@@ -297,7 +326,7 @@ exports.getProductById = async (req, res) => {
       const candidates = getBarcodeVariants(id);
       product = await Product.findOne({
         barcode: { $in: candidates },
-        isActive: { $ne: false },
+        ...baseFilter,
       });
     }
 
@@ -395,6 +424,9 @@ exports.updateProduct = async (req, res) => {
       const candidates = getBarcodeVariants(id);
       query = { barcode: { $in: candidates } };
     }
+    if (req.supermarketId) {
+      query.supermarket = req.supermarketId;
+    }
 
     // Ensure all numeric fields are correctly parsed as numbers
     if (updates.price !== undefined) updates.price = Number(updates.price);
@@ -413,8 +445,12 @@ exports.updateProduct = async (req, res) => {
     // Fallback: check barcode in request body if not matched by id parameter
     if (!product && req.body.barcode) {
       const candidates = getBarcodeVariants(req.body.barcode);
+      const fallbackQuery = { barcode: { $in: candidates } };
+      if (req.supermarketId) {
+        fallbackQuery.supermarket = req.supermarketId;
+      }
       product = await Product.findOneAndUpdate(
-        { barcode: { $in: candidates } },
+        fallbackQuery,
         { $set: updates },
         { new: true }
       );
@@ -435,6 +471,8 @@ exports.updateProduct = async (req, res) => {
         lowStockThreshold: updates.lowStockThreshold || 5,
         imageUrl: updates.imageUrl || "",
         description: updates.description || "",
+        supermarket: req.supermarketId || null,
+        supermarketCode: req.supermarketCode || "DEFAULT",
         isActive: true,
       });
     }
@@ -487,6 +525,9 @@ exports.updateProductStock = async (req, res) => {
       const candidates = getBarcodeVariants(id);
       query = { barcode: { $in: candidates } };
     }
+    if (req.supermarketId) {
+      query.supermarket = req.supermarketId;
+    }
 
     let product = await Product.findOneAndUpdate(
       query,
@@ -497,8 +538,12 @@ exports.updateProductStock = async (req, res) => {
     // Fallback to barcode in body if not matched by id parameter
     if (!product && req.body?.barcode) {
       const candidates = getBarcodeVariants(req.body.barcode);
+      const fallbackQuery = { barcode: { $in: candidates } };
+      if (req.supermarketId) {
+        fallbackQuery.supermarket = req.supermarketId;
+      }
       product = await Product.findOneAndUpdate(
-        { barcode: { $in: candidates } },
+        fallbackQuery,
         { $set: { stock } },
         { new: true }
       );
@@ -553,6 +598,9 @@ exports.deleteProduct = async (req, res) => {
       const candidates = getBarcodeVariants(id);
       query = { barcode: { $in: candidates }, isActive: true };
     }
+    if (req.supermarketId) {
+      query.supermarket = req.supermarketId;
+    }
 
     let product = await Product.findOneAndUpdate(
       query,
@@ -562,8 +610,12 @@ exports.deleteProduct = async (req, res) => {
 
     if (!product && req.body?.barcode) {
       const candidates = getBarcodeVariants(req.body.barcode);
+      const fallbackQuery = { barcode: { $in: candidates }, isActive: true };
+      if (req.supermarketId) {
+        fallbackQuery.supermarket = req.supermarketId;
+      }
       product = await Product.findOneAndUpdate(
-        { barcode: { $in: candidates } },
+        fallbackQuery,
         { $set: { isActive: false } },
         { new: true }
       );

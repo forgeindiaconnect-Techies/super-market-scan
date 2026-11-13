@@ -170,6 +170,19 @@ export default function ReportsManagement() {
         loadedOrders = ordersRes.value.data.orders;
       }
 
+      // Strict filter against any legacy dummy / mock orders
+      loadedOrders = loadedOrders.filter((order) => {
+        const orderNum = String(order.orderNumber || "").toUpperCase();
+        const custName = String(order.customer?.name || "").toLowerCase().trim();
+        const total = Number(order.totalAmount || 0);
+        return !(
+          ["ORD-948102-1001", "ORD-772109-2001", "ORD-289409", "ORD-289410"].includes(orderNum) ||
+          ["kavitha r", "vikram mehta", "arun kumar", "priya sharma", "neha patel", "rahul verma"].includes(custName) ||
+          total === 510 ||
+          total === 9450
+        );
+      });
+
       let loadedProducts = getPersistentProducts();
       if (
         productsRes.status === "fulfilled" &&
@@ -201,6 +214,18 @@ export default function ReportsManagement() {
 
     socket.on("new-order", (data) => {
       if (data?.order) {
+        const orderNum = String(data.order.orderNumber || "").toUpperCase();
+        const custName = String(data.order.customer?.name || "").toLowerCase().trim();
+        const total = Number(data.order.totalAmount || 0);
+        if (
+          ["ORD-948102-1001", "ORD-772109-2001", "ORD-289409", "ORD-289410"].includes(orderNum) ||
+          ["kavitha r", "vikram mehta", "arun kumar", "priya sharma"].includes(custName) ||
+          total === 510 ||
+          total === 9450
+        ) {
+          return;
+        }
+
         setOrders((prev) => {
           if (prev.some((o) => o._id === data.order._id)) return prev;
           return [data.order, ...prev];
@@ -899,7 +924,9 @@ export default function ReportsManagement() {
                 </div>
               </div>
               <span className="rm-chart-meta-pill">
-                Daily Benchmark Avg: ₹{avgDailySales.toLocaleString("en-IN")}
+                {successfulOrders.length > 0
+                  ? `Daily Benchmark Avg: ₹${avgDailySales.toLocaleString("en-IN")}`
+                  : "Real-Time Sync: ₹0 Active Revenue"}
               </span>
             </div>
 
@@ -947,76 +974,100 @@ export default function ReportsManagement() {
             </div>
 
             <div className="rm-chart-footer-stats">
-              <span>
-                Peak Weekday: <strong>{peakDay.day}</strong> (₹{peakDay.sales.toLocaleString("en-IN")})
-              </span>
-              <span>
-                Lowest Weekday: <strong>{lowestDay.day}</strong> (₹{lowestDay.sales.toLocaleString("en-IN")})
-              </span>
-              <span>
-                Total Orders Across Week: <strong>{successfulOrders.length}</strong>
-              </span>
+              {successfulOrders.length > 0 ? (
+                <>
+                  <span>
+                    Peak Weekday: <strong>{peakDay.day}</strong> (₹{peakDay.sales.toLocaleString("en-IN")})
+                  </span>
+                  <span>
+                    Lowest Weekday: <strong>{lowestDay.day}</strong> (₹{lowestDay.sales.toLocaleString("en-IN")})
+                  </span>
+                  <span>
+                    Total Orders Across Week: <strong>{successfulOrders.length}</strong>
+                  </span>
+                </>
+              ) : (
+                <span style={{ color: "#64748B" }}>
+                  Awaiting real-time customer checkouts. Verified weekday sales will plot here automatically.
+                </span>
+              )}
             </div>
           </div>
 
           {/* B. Low and High Performance Comparative Charts */}
-          <div className="rm-perf-split-grid">
-            {/* Chart 1: High-Performance Days */}
-            <div className="rm-perf-card high">
-              <div className="rm-perf-header">
-                <div>
-                  <span className="rm-perf-badge high">
-                    <TrendingUp size={13} /> High-Performance Sales Periods
-                  </span>
-                  <h4 className="rm-perf-main-val">₹{peakDay.sales.toLocaleString("en-IN")}</h4>
-                  <small style={{ color: "#059669" }}>Peak Day: {peakDay.day}</small>
+          {successfulOrders.length === 0 ? (
+            <div className="rm-perf-split-grid" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="rm-perf-card high" style={{ textAlign: "center", padding: "24px 20px" }}>
+                <span className="rm-perf-badge high" style={{ margin: "0 auto 8px auto", width: "fit-content" }}>
+                  <TrendingUp size={13} /> Real-Time Demand Intelligence
+                </span>
+                <h4 style={{ margin: "6px 0", color: "#1E293B", fontSize: "15px", fontWeight: 700 }}>
+                  Awaiting Customer Checkout Transactions
+                </h4>
+                <p style={{ margin: 0, color: "#64748B", fontSize: "12.5px" }}>
+                  Peak demand surges, weekday velocity trends, and restocking lift strategies will compute automatically once sales are recorded.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="rm-perf-split-grid">
+              {/* Chart 1: High-Performance Days */}
+              <div className="rm-perf-card high">
+                <div className="rm-perf-header">
+                  <div>
+                    <span className="rm-perf-badge high">
+                      <TrendingUp size={13} /> High-Performance Sales Periods
+                    </span>
+                    <h4 className="rm-perf-main-val">₹{peakDay.sales.toLocaleString("en-IN")}</h4>
+                    <small style={{ color: "#059669" }}>Peak Day: {peakDay.day}</small>
+                  </div>
+                </div>
+
+                <div className="rm-perf-days-list">
+                  {highPerformanceDays.map((d) => (
+                    <div key={d.day} className="rm-perf-day-row">
+                      <span>{d.day}</span>
+                      <strong style={{ color: "#059669" }}>
+                        ₹{d.sales.toLocaleString("en-IN")} ({d.ordersCount} orders)
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rm-perf-advice high">
+                  <strong>Peak Demand Insight:</strong> Sales volume surges on {peakDay.day}. Ensure shelf restocking is completed by Friday evening to capture weekend footfall.
                 </div>
               </div>
 
-              <div className="rm-perf-days-list">
-                {highPerformanceDays.map((d) => (
-                  <div key={d.day} className="rm-perf-day-row">
-                    <span>{d.day}</span>
-                    <strong style={{ color: "#059669" }}>
-                      ₹{d.sales.toLocaleString("en-IN")} ({d.ordersCount} orders)
-                    </strong>
+              {/* Chart 2: Low-Performance Days */}
+              <div className="rm-perf-card low">
+                <div className="rm-perf-header">
+                  <div>
+                    <span className="rm-perf-badge low">
+                      <TrendingDown size={13} /> Low-Performance Sales Periods
+                    </span>
+                    <h4 className="rm-perf-main-val">₹{lowestDay.sales.toLocaleString("en-IN")}</h4>
+                    <small style={{ color: "#b45309" }}>Lowest Day: {lowestDay.day}</small>
                   </div>
-                ))}
-              </div>
+                </div>
 
-              <div className="rm-perf-advice high">
-                <strong>Peak Demand Insight:</strong> Sales volume surges on {peakDay.day}. Ensure shelf restocking is completed by Friday evening to capture weekend footfall.
-              </div>
-            </div>
+                <div className="rm-perf-days-list">
+                  {lowPerformanceDays.map((d) => (
+                    <div key={d.day} className="rm-perf-day-row">
+                      <span>{d.day}</span>
+                      <strong style={{ color: "#d97706" }}>
+                        ₹{d.sales.toLocaleString("en-IN")} ({d.ordersCount} orders)
+                      </strong>
+                    </div>
+                  ))}
+                </div>
 
-            {/* Chart 2: Low-Performance Days */}
-            <div className="rm-perf-card low">
-              <div className="rm-perf-header">
-                <div>
-                  <span className="rm-perf-badge low">
-                    <TrendingDown size={13} /> Low-Performance Sales Periods
-                  </span>
-                  <h4 className="rm-perf-main-val">₹{lowestDay.sales.toLocaleString("en-IN")}</h4>
-                  <small style={{ color: "#b45309" }}>Lowest Day: {lowestDay.day}</small>
+                <div className="rm-perf-advice low">
+                  <strong>Revenue Lift Strategy:</strong> {lowestDay.day} experiences dip in basket sizes. Introduce promotional offers, bundle discounts, or mobile app push notifications.
                 </div>
               </div>
-
-              <div className="rm-perf-days-list">
-                {lowPerformanceDays.map((d) => (
-                  <div key={d.day} className="rm-perf-day-row">
-                    <span>{d.day}</span>
-                    <strong style={{ color: "#d97706" }}>
-                      ₹{d.sales.toLocaleString("en-IN")} ({d.ordersCount} orders)
-                    </strong>
-                  </div>
-                ))}
-              </div>
-
-              <div className="rm-perf-advice low">
-                <strong>Revenue Lift Strategy:</strong> {lowestDay.day} experiences dip in basket sizes. Introduce promotional offers, bundle discounts, or mobile app push notifications.
-              </div>
             </div>
-          </div>
+          )}
 
           {/* C. Payment Method Analytics (UPI, Card, Cash, Other) */}
           <div className="rm-payment-analytics-card">

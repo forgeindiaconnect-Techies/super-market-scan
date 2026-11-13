@@ -1544,28 +1544,32 @@ body,
 }
 
 .nav-item.active {
-  background: #1455d9 !important;
+  background: linear-gradient(135deg, #1d68ff 0%, #1455d9 100%) !important;
   color: #ffffff !important;
   font-weight: 700 !important;
-  border-radius: 12px !important;
+  border-radius: 10px !important;
   display: flex !important;
   align-items: center !important;
+  gap: 10px !important;
+  box-shadow: 0 4px 14px rgba(20, 85, 217, 0.45) !important;
 }
 
+.nav-item .nav-icon-wrap,
 .nav-item.active .nav-icon-wrap {
-  width: 28px !important;
-  height: 28px !important;
-  border-radius: 50% !important;
-  background: #ffffff !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  margin: 0 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin-right: 8px !important;
   flex-shrink: 0 !important;
 }
 
 .nav-item.active .nav-icon-wrap svg {
-  stroke: #1455d9 !important;
+  stroke: #ffffff !important;
+  color: #ffffff !important;
 }
 
 .db-storefront-3d-wrap {
@@ -2773,14 +2777,18 @@ body,
     top: 0 !important;
     bottom: 0 !important;
     height: 100vh !important;
-    width: 250px !important;
+    height: 100dvh !important;
+    width: 280px !important;
+    max-width: 82vw !important;
     z-index: 1000 !important;
     transform: translateX(-105%) !important;
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35) !important;
-    padding: 14px 12px !important;
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom, 12px)) 12px !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   .admin-sidebar.open {
@@ -2788,13 +2796,47 @@ body,
   }
 
   .sidebar-nav {
-    gap: 4px !important;
+    gap: 3px !important;
+    flex: 0 0 auto !important;
   }
 
   .nav-item {
-    padding: 8.5px 12px !important;
+    padding: 8px 12px !important;
     font-size: 13px !important;
     border-radius: 10px !important;
+    min-height: 38px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  .sidebar-promo-wrap {
+    margin-top: auto !important;
+    flex-shrink: 0 !important;
+    padding-top: 14px !important;
+    padding-bottom: 6px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .sidebar-logout-btn {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding: 9px 12px !important;
+    border-radius: 10px !important;
+    min-height: 40px !important;
+    box-sizing: border-box !important;
+  }
+
+  .sidebar-version-pill {
+    padding-top: 4px !important;
+    padding-bottom: 2px !important;
+    text-align: center !important;
+    font-size: 11px !important;
+    color: #64748b !important;
   }
 
   .sidebar-backdrop {
@@ -2806,7 +2848,18 @@ body,
   }
 
   .sidebar-mobile-close {
-    display: block !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    color: #ffffff !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    transition: all 0.15s ease !important;
   }
 
   .mobile-menu-toggle {

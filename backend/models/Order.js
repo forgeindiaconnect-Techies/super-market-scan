@@ -86,11 +86,31 @@ const orderSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    supermarket: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supermarket",
+      default: null,
+      index: true,
+    },
+    supermarketCode: {
+      type: String,
+      default: "DEFAULT",
+      trim: true,
+      index: true,
+    },
+    supermarketName: {
+      type: String,
+      default: "GrocerEase Supermarket",
+      trim: true,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+orderSchema.index({ supermarket: 1, createdAt: -1 });
+orderSchema.index({ supermarket: 1, paymentStatus: 1 });
 
 module.exports = mongoose.model("Order", orderSchema);
 

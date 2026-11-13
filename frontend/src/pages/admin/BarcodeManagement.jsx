@@ -74,7 +74,7 @@ export default function BarcodeManagement() {
     try {
       setLoading(true);
       const res = await API.get("/products");
-      if (res.data?.success && Array.isArray(res.data.products) && res.data.products.length > 0) {
+      if (res.data?.success && Array.isArray(res.data.products)) {
         const merged = mergeApiWithStorage(res.data.products);
         setProducts(merged);
       } else {
@@ -1064,6 +1064,8 @@ export default function BarcodeManagement() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px",
                   padding: "16px 24px",
                   borderTop: "1px solid #f1f5f9",
                   background: "#ffffff",

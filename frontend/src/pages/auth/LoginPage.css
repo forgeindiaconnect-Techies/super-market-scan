@@ -1,0 +1,1033 @@
+/* =========================================================================
+   GrocerEase Supermarket SaaS Login Portal
+   Ultra-High-Resolution 4K Background • Pure Vector Glassmorphism
+   Zero Gaps • Zero Murkiness • 100% Crystal-Clear Resolution
+   ========================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Satisfy&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&display=swap');
+
+:root {
+  --ge-emerald-main: #16a34a;
+  --ge-emerald-dark: #15803d;
+  --ge-neon-green: #22c55e;
+  --ge-neon-lime: #4ade80;
+  --ge-dark-emerald: #021a13;
+}
+
+/* =========================================================================
+   1. Root Viewport Container (Locks Full Screen, Zero Gaps)
+   ========================================================================= */
+.ge-login-root {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--ge-dark-emerald);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* =========================================================================
+   2. Crystal-Clear Photorealistic Background Image (Enhanced Brightness & Sharpness)
+   ========================================================================= */
+.ge-bg-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center bottom;
+  z-index: 1;
+  filter: brightness(1.24) contrast(1.08) saturate(1.15);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Atmospheric Lighting Vignette: Soft & Bright (Lets Supermarket Storefront Glow With Zero Murkiness) */
+.ge-bg-ambient-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(2, 26, 19, 0.55) 0%, rgba(2, 26, 19, 0.30) 30%, rgba(2, 26, 19, 0.04) 55%, transparent 75%),
+    linear-gradient(180deg, rgba(2, 26, 19, 0.45) 0%, transparent 15%, transparent 85%, rgba(2, 26, 19, 0.35) 100%);
+}
+
+/* =========================================================================
+   3. Top Header Bar (Clean Enterprise SaaS Navbar)
+   ========================================================================= */
+.ge-top-bar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 3rem;
+  box-sizing: border-box;
+  width: 100%;
+  background: linear-gradient(180deg, rgba(2, 26, 19, 0.55) 0%, transparent 100%);
+}
+
+/* Brand Lockup: Matches Reference Image (Cart with Leaf + GrocerEase) */
+.ge-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ge-brand-icon-box {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(6, 78, 59, 0.7);
+  border: 1.5px solid rgba(74, 222, 128, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+.ge-brand-leaf-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  transform: rotate(15deg);
+  filter: drop-shadow(0 0 6px rgba(74, 222, 128, 0.8));
+}
+
+.ge-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.ge-brand-title {
+  font-size: clamp(23px, 1.8vw, 28px);
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+.ge-brand-accent {
+  color: var(--ge-neon-lime);
+  text-shadow: 0 0 16px rgba(74, 222, 128, 0.7);
+}
+
+.ge-brand-tagline {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #cbd5e1;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* Top-Right Enterprise Operational Status & Helpline */
+.ge-header-right-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ge-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(6, 78, 59, 0.55);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 5px 13px;
+  border-radius: 9999px;
+  color: #86efac;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.ge-status-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: gePulse 1.8s infinite;
+}
+
+@keyframes gePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.ge-header-support-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  padding: 5px 14px;
+  color: #f1f5f9;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.ge-header-support-btn:hover {
+  background: rgba(74, 222, 128, 0.25);
+  border-color: var(--ge-neon-lime);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* =========================================================================
+   4. Split-Screen Main Content Body (Exactly Matching Reference Artwork)
+   ========================================================================= */
+.ge-main-body {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0.5rem 2.5rem 2rem 2.5rem;
+  box-sizing: border-box;
+  flex: 1;
+  gap: 2.5rem;
+}
+
+/* Top-Left Glowing Neon Energy Arc (Matches Reference Artwork in Image 2) */
+.ge-top-corner-arc {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 140px;
+  pointer-events: none;
+  z-index: 4;
+  filter: drop-shadow(0 0 14px rgba(74, 222, 128, 0.8));
+}
+
+.ge-top-corner-arc svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Left Hero Section: Exactly Matching Reference Composition */
+.ge-left-hero {
+  flex: 1;
+  max-width: 530px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.ge-hero-text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ge-hero-heading {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(32px, 2.7vw, 42px);
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.15;
+  letter-spacing: -0.6px;
+  margin: 0;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.8);
+}
+
+.ge-highlight-neon {
+  color: var(--ge-neon-lime);
+  text-shadow:
+    0 0 24px rgba(74, 222, 128, 0.8),
+    0 0 45px rgba(74, 222, 128, 0.4),
+    0 2px 14px rgba(0, 0, 0, 0.95);
+}
+
+.ge-hero-subheading {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(14px, 1.05vw, 15.5px);
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0;
+  max-width: 480px;
+  line-height: 1.45;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.95);
+  letter-spacing: 0.1px;
+}
+
+/* 4 Feature Badges in 1 Row: Exact 4-Column Layout from Reference Image */
+.ge-features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  max-width: 530px;
+  margin-top: 4px;
+}
+
+.ge-feature-card {
+  background: rgba(6, 78, 59, 0.65);
+  border: 1.5px solid rgba(74, 222, 128, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 16px;
+  padding: 14px 6px 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2),
+    0 0 14px rgba(74, 222, 128, 0.16);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ge-feature-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--ge-neon-lime);
+  background: rgba(6, 78, 59, 0.8);
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(74, 222, 128, 0.35);
+}
+
+.ge-feature-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.6));
+  margin-bottom: 2px;
+}
+
+.ge-feature-label {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.25;
+  letter-spacing: 0.1px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+/* Bottom Left Script Slogan Under the Cart: Exact Dancing Script Match to Image 2 */
+.ge-bottom-script {
+  position: absolute;
+  bottom: 2rem;
+  left: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Dancing Script', 'Satisfy', cursive, sans-serif;
+  font-size: clamp(34px, 2.8vw, 44px);
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.12;
+  transform: rotate(-6deg);
+  transform-origin: left bottom;
+  text-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.95),
+    0 0 18px rgba(74, 222, 128, 0.6),
+    0 0 35px rgba(74, 222, 128, 0.3);
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: 0.5px;
+}
+
+.ge-bottom-script::after {
+  content: '';
+  display: block;
+  width: 140px;
+  height: 3.5px;
+  background: linear-gradient(90deg, #4ade80 0%, rgba(74, 222, 128, 0.7) 60%, transparent 100%);
+  border-radius: 9999px;
+  box-shadow: 0 0 10px #4ade80, 0 0 20px rgba(74, 222, 128, 0.6);
+  margin-top: 5px;
+  transform: rotate(2deg);
+}
+
+/* =========================================================================
+   5. Right Section: The White Glass Login Card (Centered & Well-Proportioned)
+   ========================================================================= */
+.ge-right-card-section {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  align-self: center; /* Centered vertically relative to the screen height */
+  margin-top: -0.5rem;
+}
+
+.ge-login-card {
+  width: clamp(350px, 24vw, 390px);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-radius: 22px;
+  box-shadow:
+    0 25px 60px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.95),
+    0 8px 25px rgba(0, 0, 0, 0.16);
+  padding: 1.55rem 1.75rem 1.25rem 1.75rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+  animation: geCardEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes geCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Top Centered Cart Emblem Header */
+.ge-card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.ge-header-lines {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.ge-line {
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.ge-cart-emblem {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #86efac;
+  background: #f0fdf4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.18);
+}
+
+.ge-card-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.4px;
+}
+
+.ge-title-green {
+  color: var(--ge-emerald-main);
+}
+
+.ge-card-subtitle {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+/* Error Notification Alert */
+.ge-error-alert {
+  padding: 7px 11px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #b91c1c;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-sizing: border-box;
+  animation: geShake 0.25s ease-in-out;
+}
+
+@keyframes geShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* Form Layout */
+.ge-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Input Group */
+.ge-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0 12px;
+  height: 42px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.ge-input-group:focus-within {
+  background: #ffffff;
+  border-color: var(--ge-emerald-main);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
+}
+
+.ge-input-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 9px;
+  flex-shrink: 0;
+}
+
+.ge-input-control {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.ge-input-control::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Override Browser Autofill (Eliminates Chrome/Edge pale-blue background & forced styling) */
+.ge-input-control:-webkit-autofill,
+.ge-input-control:-webkit-autofill:hover, 
+.ge-input-control:-webkit-autofill:focus, 
+.ge-input-control:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a !important;
+  border-radius: 8px !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.ge-eye-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.15s ease;
+}
+
+.ge-eye-btn:hover {
+  color: var(--ge-emerald-main);
+}
+
+/* Options: Remember Me & Forgot Password */
+.ge-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -2px;
+  padding: 0 2px;
+}
+
+.ge-remember-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ge-checkbox-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ge-checkbox-box {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.ge-checkbox-box.checked {
+  background: var(--ge-emerald-main);
+  border-color: var(--ge-emerald-main);
+}
+
+.ge-remember-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.ge-forgot-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ge-emerald-main);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s ease;
+}
+
+.ge-forgot-btn:hover {
+  color: var(--ge-emerald-dark);
+  text-decoration: underline;
+}
+
+/* Primary Green Login Button */
+.ge-primary-login-btn {
+  width: 100%;
+  height: 42px;
+  background: linear-gradient(135deg, var(--ge-neon-green) 0%, var(--ge-emerald-main) 100%);
+  border: none;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.32);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  margin-top: 2px;
+}
+
+.ge-primary-login-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow: 0 8px 22px rgba(22, 163, 74, 0.4);
+}
+
+.ge-primary-login-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.ge-primary-login-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.ge-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: geSpin 0.7s linear infinite;
+}
+
+@keyframes geSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Or Divider */
+.ge-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 1px 0;
+}
+
+.ge-divider-line {
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.ge-divider-text {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Contact Support Button */
+.ge-support-btn {
+  width: 100%;
+  height: 38px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  color: #1e293b;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.ge-support-btn:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: var(--ge-emerald-main);
+}
+
+/* Trust Badges Row */
+.ge-trust-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ge-trust-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ge-trust-badge span {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.2px;
+}
+
+/* Powered By Footer */
+.ge-powered-footer {
+  text-align: center;
+  font-size: 10.5px;
+  color: #94a3b8;
+  margin-top: -3px;
+}
+
+.ge-powered-footer strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.ge-heart {
+  color: var(--ge-emerald-main);
+  margin-left: 3px;
+}
+
+/* =========================================================================
+   6. Modals (Support Desk & Password Recovery)
+   ========================================================================= */
+.ge-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(2, 26, 19, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+.ge-modal-card {
+  width: 100%;
+  max-width: 480px;
+  background: #ffffff;
+  border-radius: 22px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+  padding: 1.8rem;
+  box-sizing: border-box;
+  animation: geCardEnter 0.25s ease-out;
+}
+
+.ge-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 1.2rem;
+  position: relative;
+}
+
+.ge-modal-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #dcfce7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ge-modal-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 3px 0;
+}
+
+.ge-modal-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.ge-modal-close {
+  position: absolute;
+  right: 0;
+  top: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.15s ease;
+}
+
+.ge-modal-close:hover {
+  color: #0f172a;
+}
+
+.ge-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 1.4rem;
+}
+
+.ge-support-channel-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+.ge-support-channel-card strong {
+  display: block;
+  font-size: 13.5px;
+  color: #0f172a;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.ge-support-channel-card p {
+  font-size: 13px;
+  color: var(--ge-emerald-main);
+  font-weight: 700;
+  margin: 0 0 2px 0;
+}
+
+.ge-support-channel-card small {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.ge-cred-card {
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ge-cred-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ge-cred-header strong {
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.ge-badge-saas {
+  font-size: 10px;
+  font-weight: 800;
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.ge-badge-tenant {
+  font-size: 10px;
+  font-weight: 800;
+  background: #dcfce7;
+  color: var(--ge-emerald-dark);
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.ge-cred-details {
+  display: flex;
+  gap: 14px;
+  font-size: 12.5px;
+  color: #475569;
+}
+
+.ge-cred-details code {
+  background: #e2e8f0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.ge-cred-use-btn {
+  background: #ffffff;
+  border: 1px solid var(--ge-emerald-main);
+  color: var(--ge-emerald-main);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.ge-cred-use-btn:hover {
+  background: var(--ge-emerald-main);
+  color: #ffffff;
+}
+
+.ge-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ge-modal-primary-btn {
+  background: var(--ge-emerald-main);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+
+.ge-modal-primary-btn:hover {
+  background: var(--ge-emerald-dark);
+}
+
+/* =========================================================================
+   7. Responsive Adaptations
+   ========================================================================= */
+@media (max-width: 1080px) {
+  .ge-top-bar {
+    padding: 1rem 1.5rem;
+  }
+
+  .ge-main-body {
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 1.5rem 2.5rem 1.5rem;
+    gap: 2rem;
+  }
+
+  .ge-left-hero {
+    align-items: center;
+    text-align: center;
+  }
+
+  .ge-hero-subheading {
+    margin: 0 auto;
+  }
+
+  .ge-features-grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 380px;
+  }
+
+  .ge-right-card-section {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ge-login-card {
+    width: 100%;
+    max-width: 440px;
+  }
+}
+
+@media (max-width: 640px) {
+  .ge-status-pill {
+    display: none;
+  }
+
+  .ge-top-bar {
+    padding: 0.85rem 1rem;
+  }
+
+  .ge-features-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .ge-login-card {
+    padding: 1.35rem 1.15rem;
+  }
+}
