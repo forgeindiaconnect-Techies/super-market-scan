@@ -63,8 +63,8 @@ export default function SuperAdminLayout() {
         const canvas = document.createElement("canvas");
         const origW = img.naturalWidth || 618;
         const origH = img.naturalHeight || 383;
-        // In the master reference image (618x383), the header banner is exactly the top 56px
-        const bannerH = Math.round(origH * (56 / 383));
+        // In the master reference image, the header banner is exactly the top 14.8% of height
+        const bannerH = Math.round(origH * 0.148);
         canvas.width = origW;
         canvas.height = bannerH;
         const ctx = canvas.getContext("2d");
@@ -443,13 +443,9 @@ export default function SuperAdminLayout() {
                 type="button"
                 className="sa-hotspot-bell-btn"
                 onClick={() => navigate("/super-admin/reports")}
-                title={unreadNotifCount > 0 ? `${unreadNotifCount} Platform Notifications` : "Platform Notifications"}
+                title="Platform Notifications"
                 aria-label="Platform Notifications"
-              >
-                {unreadNotifCount > 0 && (
-                  <span className="sa-hotspot-bell-badge">{unreadNotifCount}</span>
-                )}
-              </button>
+              />
 
               {/* Hotspot 2: Super Admin Profile Pill */}
               <div

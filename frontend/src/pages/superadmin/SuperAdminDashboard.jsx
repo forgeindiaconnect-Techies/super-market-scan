@@ -26,6 +26,31 @@ export default function SuperAdminDashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [salesRange, setSalesRange] = useState("7d"); // "7d" or "30d"
+  const [wireCartUrl, setWireCartUrl] = useState(null);
+
+  // Extract the exact white wire shopping cart with produce from the master reference image
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = "/super-admin-reference-master.jpg";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const W = img.naturalWidth;
+        const H = img.naturalHeight;
+        // Bounding box of the white shopping cart in the master reference image
+        const x = Math.round(W * 0.021);
+        const y = Math.round(H * 0.445);
+        const w = Math.round(W * 0.086);
+        const h = Math.round(H * 0.195);
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+        setWireCartUrl(canvas.toDataURL("image/png"));
+      } catch (_) {}
+    };
+  }, []);
 
   // Fetch Central Platform Analytics & Registered Supermarkets
   const fetchAnalytics = async () => {
@@ -129,25 +154,24 @@ export default function SuperAdminDashboard() {
           </div>
           {/* Subtle Green Sparkline Wave */}
           <div className="sa-ref-kpi-spark">
-            <svg viewBox="0 0 70 34" fill="none" className="sa-spark-svg">
+            <svg viewBox="0 0 80 34" fill="none" className="sa-spark-svg">
+              <defs>
+                <linearGradient id="greenWaveGrad1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.38" />
+                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
               <path
-                d="M2 28 Q18 26 28 18 T48 16 T68 6"
+                d="M2,28 C18,28 24,18 40,22 C56,26 64,12 78,8 L78,34 L2,34 Z"
+                fill="url(#greenWaveGrad1)"
+              />
+              <path
+                d="M2,28 C18,28 24,18 40,22 C56,26 64,12 78,8"
                 stroke="#10b981"
-                strokeWidth="2.2"
+                strokeWidth="2.5"
                 strokeLinecap="round"
                 fill="none"
               />
-              <path
-                d="M2 28 Q18 26 28 18 T48 16 T68 6 L68 34 L2 34 Z"
-                fill="url(#greenWaveGrad1)"
-                opacity="0.25"
-              />
-              <defs>
-                <linearGradient id="greenWaveGrad1" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" />
-                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-                </linearGradient>
-              </defs>
             </svg>
           </div>
         </div>
@@ -167,25 +191,24 @@ export default function SuperAdminDashboard() {
             </div>
           </div>
           <div className="sa-ref-kpi-spark">
-            <svg viewBox="0 0 70 34" fill="none" className="sa-spark-svg">
+            <svg viewBox="0 0 80 34" fill="none" className="sa-spark-svg">
+              <defs>
+                <linearGradient id="greenWaveGrad2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.38" />
+                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
               <path
-                d="M2 28 Q18 24 32 19 T50 14 T68 7"
+                d="M2,26 C16,26 26,16 42,20 C58,24 64,10 78,6 L78,34 L2,34 Z"
+                fill="url(#greenWaveGrad2)"
+              />
+              <path
+                d="M2,26 C16,26 26,16 42,20 C58,24 64,10 78,6"
                 stroke="#10b981"
-                strokeWidth="2.2"
+                strokeWidth="2.5"
                 strokeLinecap="round"
                 fill="none"
               />
-              <path
-                d="M2 28 Q18 24 32 19 T50 14 T68 7 L68 34 L2 34 Z"
-                fill="url(#greenWaveGrad2)"
-                opacity="0.25"
-              />
-              <defs>
-                <linearGradient id="greenWaveGrad2" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" />
-                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-                </linearGradient>
-              </defs>
             </svg>
           </div>
         </div>
@@ -308,12 +331,9 @@ export default function SuperAdminDashboard() {
           <div className="sa-ref-overview-bottom">
             <div className="sa-ref-cart-img-box">
               <img
-                src="/grocery-basket-3d.jpg"
+                src={wireCartUrl || "/check-cart.png"}
                 alt="Supermarket Shopping Cart"
                 className="sa-ref-cart-img"
-                onError={(e) => {
-                  e.currentTarget.src = "/dashboard-hero-fresh-cart.jpg";
-                }}
               />
             </div>
             <div className="sa-ref-overview-desc-side">

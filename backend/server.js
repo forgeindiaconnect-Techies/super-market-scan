@@ -38,14 +38,18 @@ function syncInitialAssets() {
 
     // Sync exact user-provided Super Admin Header Banner (pristine crop from prompt 7)
     const userUploadedDir = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\c9a15307-ca50-4a98-86d7-d740eabbe413\\.user_uploaded";
-    // Master Reference Image from user prompt
-    const refMaster = path.join(userUploadedDir, "media_1794659026168_be103530.jpg");
-    const refMasterFallback = path.join(userUploadedDir, "media_1794658309735_226a05fd.jpg");
-    const masterToUse = fs.existsSync(refMaster) ? refMaster : refMasterFallback;
+    // Copy candidate cart images
+    const cartCandidate = path.join(userUploadedDir, "media_1794646062763_01232915.png");
+    if (fs.existsSync(cartCandidate)) {
+      fs.copyFileSync(cartCandidate, path.join(publicDir, "check-cart.png"));
+    }
+    const refMaster = path.join(userUploadedDir, "media_1794659704107_58fbadce.jpg");
+    const refMasterFallback = path.join(userUploadedDir, "media_1794659026168_be103530.jpg");
+    const masterToUse = fs.existsSync(refMaster) ? refMaster : (fs.existsSync(refMasterFallback) ? refMasterFallback : path.join(userUploadedDir, "media_1794658309735_226a05fd.jpg"));
     if (fs.existsSync(masterToUse)) {
       fs.copyFileSync(masterToUse, path.join(publicDir, "super-admin-reference-master.jpg"));
       fs.copyFileSync(masterToUse, path.join(assetsDir, "super-admin-reference-master.jpg"));
-      console.log("✓ Synced master reference image to public & assets");
+      console.log(`✓ Synced master reference image (${path.basename(masterToUse)}) to public & assets`);
     }
 
     // Cleanup temporary debug files
@@ -65,15 +69,6 @@ function syncInitialAssets() {
         try { fs.unlinkSync(p); } catch (_) {}
       }
     });
-    // Push clean server state to git
-    try {
-      const { execSync } = require("child_process");
-      const rootDir = path.join(__dirname, "..");
-      execSync("git add backend/server.js", { cwd: rootDir });
-      execSync('git commit -m "chore: clean up asset sync in server.js"', { cwd: rootDir });
-      execSync("git push origin main", { cwd: rootDir });
-    } catch (_) {}
-
     const mobileAssetsDir = path.join(__dirname, "../mobile-app/assets/images");
     if (!fs.existsSync(mobileAssetsDir)) fs.mkdirSync(mobileAssetsDir, { recursive: true });
 
