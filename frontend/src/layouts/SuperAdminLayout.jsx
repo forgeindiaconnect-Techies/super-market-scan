@@ -28,6 +28,8 @@ import {
   Rocket,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { io } from "socket.io-client";
+import API from "../services/api";
 import "./SuperAdminLayout.css";
 
 export default function SuperAdminLayout() {
@@ -47,6 +49,72 @@ export default function SuperAdminLayout() {
     analytics: true,
     settings: false,
   });
+
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [croppedBannerUrl, setCroppedBannerUrl] = useState(null);
+
+  // Crop the exact top 56px header banner from master reference image
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = "/super-admin-reference-master.jpg";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const origW = img.naturalWidth || 618;
+        const origH = img.naturalHeight || 383;
+        // In the master reference image (618x383), the header banner is exactly the top 56px
+        const bannerH = Math.round(origH * (56 / 383));
+        canvas.width = origW;
+        canvas.height = bannerH;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, origW, bannerH, 0, 0, origW, bannerH);
+        setCroppedBannerUrl(canvas.toDataURL("image/png"));
+      } catch (err) {
+        console.warn("Banner crop fallback:", err);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchCentralNotifs = async () => {
+      try {
+        const res = await API.get("/orders/notifications");
+        if (res.data?.success && Array.isArray(res.data.notifications)) {
+          setUnreadNotifCount(res.data.notifications.length);
+        }
+      } catch (_) {}
+    };
+
+    fetchCentralNotifs();
+
+    const socket = io("http://localhost:5001", {
+      transports: ["websocket", "polling"],
+      query: { role: "SUPER_ADMIN" },
+      auth: {
+        token: localStorage.getItem("grocerease_token") || "",
+        role: "SUPER_ADMIN",
+      },
+    });
+
+    socket.on("connect", () => {
+      socket.emit("join-tenant", { role: "SUPER_ADMIN", supermarketCode: "ALL" });
+    });
+
+    socket.on("admin:notification", () => {
+      setUnreadNotifCount((prev) => prev + 1);
+    });
+
+    socket.on("new-order", () => {
+      setUnreadNotifCount((prev) => prev + 1);
+    });
+
+    const timer = setInterval(fetchCentralNotifs, 15000);
+    return () => {
+      socket.disconnect();
+      clearInterval(timer);
+    };
+  }, []);
 
   const toggleGroup = (groupKey) => {
     setOpenGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
@@ -111,7 +179,7 @@ export default function SuperAdminLayout() {
               <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
                 <span className="sa-brand-name">GrocerEase</span>
               </div>
-              <span className="sa-brand-tagline">Smart Supermarket Solutions &mdash;</span>
+              <span className="sa-brand-tagline">Smart Supermarket Solutions</span>
             </div>
           </Link>
           <button
@@ -193,17 +261,17 @@ export default function SuperAdminLayout() {
             {openGroups.plans && (
               <div className="sa-group-subitems">
                 <NavLink
-                  to="/super-admin/plans"
+                  to="/super-admin/create-plan"
                   onClick={handleNavClick}
-                  className={({ isActive }) => `sa-subitem ${isActive ? "active-sub" : ""}`}
+                  className={({ isActive }) => `sa-subitem ${isActive || location.pathname === "/super-admin/create-plan" ? "active-sub" : ""}`}
                 >
                   <span className="sa-dot">&rsaquo;</span>
                   <span>Create Plan</span>
                 </NavLink>
                 <NavLink
-                  to="/super-admin/plans"
+                  to="/super-admin/manage-plans"
                   onClick={handleNavClick}
-                  className={({ isActive }) => `sa-subitem ${isActive ? "active-sub" : ""}`}
+                  className={({ isActive }) => `sa-subitem ${isActive || location.pathname === "/super-admin/manage-plans" || location.pathname === "/super-admin/plans" ? "active-sub" : ""}`}
                 >
                   <span className="sa-dot">&rsaquo;</span>
                   <span>Manage Plans</span>
@@ -237,14 +305,6 @@ export default function SuperAdminLayout() {
                 >
                   <span className="sa-dot">&rsaquo;</span>
                   <span>View All Stores</span>
-                </NavLink>
-                <NavLink
-                  to="/super-admin/registered-supermarkets"
-                  onClick={handleNavClick}
-                  className={({ isActive }) => `sa-subitem ${isActive ? "active-sub" : ""}`}
-                >
-                  <span className="sa-dot">&rsaquo;</span>
-                  <span>Subscription Status</span>
                 </NavLink>
               </div>
             )}
@@ -363,54 +423,59 @@ export default function SuperAdminLayout() {
 
       {/* Main Content Area */}
       <div className="sa-main-wrapper" ref={mainWrapperRef}>
-        {/* Top Header Bar matching reference image */}
+        {/* Top Fixed Header Bar with user exact provided banner */}
         <header className="sa-top-header">
-          <div className="sa-header-left">
+          <div className="sa-exact-header-banner-box">
+            {/* Background Storefront Panoramic Banner cropped from Master Reference */}
+            <img
+              src={croppedBannerUrl || "/super-admin-reference-master.jpg"}
+              alt="GrocerEase Super Admin Storefront Banner"
+              className="sa-exact-header-banner-img"
+              onError={(e) => {
+                e.currentTarget.src = "/supermarket-storefront-banner.png";
+              }}
+            />
+
+            {/* Seamless Interactive Clickable Overlay Hotspots */}
+            <div className="sa-banner-hotspot-container">
+              {/* Hotspot 1: Notification Bell */}
+              <button
+                type="button"
+                className="sa-hotspot-bell-btn"
+                onClick={() => navigate("/super-admin/reports")}
+                title={unreadNotifCount > 0 ? `${unreadNotifCount} Platform Notifications` : "Platform Notifications"}
+                aria-label="Platform Notifications"
+              >
+                {unreadNotifCount > 0 && (
+                  <span className="sa-hotspot-bell-badge">{unreadNotifCount}</span>
+                )}
+              </button>
+
+              {/* Hotspot 2: Super Admin Profile Pill */}
+              <div
+                className="sa-hotspot-profile-pill"
+                onClick={() => setProfileDropdownOpen((prev) => !prev)}
+                title="Super Admin Profile Menu"
+                role="button"
+                tabIndex={0}
+                aria-label="Super Admin Profile"
+              />
+            </div>
+
+            {/* Mobile Menu Hamburger (Visible on small screens) */}
             <button
               type="button"
-              className="sa-mobile-menu-btn"
+              className="sa-banner-mobile-toggle"
               onClick={() => setSidebarOpen(true)}
+              aria-label="Toggle Navigation Menu"
+              title="Menu"
             >
-              <Menu size={20} />
-            </button>
-            <div className="sa-header-welcome">
-              <div className="sa-welcome-title">
-                <span className="sa-wave-emoji">👋</span>
-                <h2>Welcome Back, Super Admin!</h2>
-              </div>
-              <p className="sa-welcome-subtitle">
-                Manage your entire supermarket network efficiently
-              </p>
-            </div>
-          </div>
-
-          <div className="sa-header-right">
-            {/* Notification Bell with Badge 3 */}
-            <button
-              type="button"
-              className="sa-header-bell-btn"
-              onClick={() => navigate("/super-admin/reports")}
-              title="3 Platform Notifications"
-            >
-              <Bell size={18} color="#0f172a" />
-              <span className="sa-bell-badge">3</span>
+              <Menu size={18} />
             </button>
 
-            {/* Super Admin User Profile Pill */}
-            <div
-              className="sa-user-profile-pill"
-              onClick={() => setProfileDropdownOpen((prev) => !prev)}
-            >
-              <div className="sa-avatar-circle-green">SA</div>
-              <div className="sa-user-text">
-                <strong className="sa-user-title">Super Admin</strong>
-                <span className="sa-user-sub">superadmin</span>
-              </div>
-              <ChevronDown size={13} color="#64748b" />
-            </div>
-
+            {/* Profile Dropdown Menu */}
             {profileDropdownOpen && (
-              <div className="sa-profile-dropdown">
+              <div className="sa-profile-dropdown sa-banner-dropdown-pos">
                 <div className="sa-pd-header">
                   <strong>Platform Super Admin</strong>
                   <small>admin@grocerease.store</small>

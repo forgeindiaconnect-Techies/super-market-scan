@@ -43,8 +43,32 @@ try {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const adminDisplayName = user?.adminName || user?.name || "Admin";
+  const { user, currentSupermarket } = useAuth();
+  const adminDisplayName = useMemo(() => {
+    if (user?.role === "SUPER_ADMIN") return "Super Admin";
+    if (currentSupermarket?.code === "SM-7087") {
+      return (user?.role === "STORE_ADMIN" && user?.supermarketCode === "SM-7087" && user?.name)
+        ? user.name
+        : (currentSupermarket?.adminName || "Akshaya Admin");
+    }
+    if (currentSupermarket?.code === "STR-002") {
+      return (user?.role === "STORE_ADMIN" && user?.supermarketCode === "STR-002" && user?.name)
+        ? user.name
+        : (currentSupermarket?.adminName || "Rohan Gupta");
+    }
+    if (currentSupermarket?.code === "STR-001") {
+      return (user?.role === "STORE_ADMIN" && user?.supermarketCode === "STR-001" && user?.name)
+        ? user.name
+        : (currentSupermarket?.adminName || "Pooja V");
+    }
+    return (user?.role === "STORE_ADMIN" && user?.name) || currentSupermarket?.adminName || currentSupermarket?.ownerName || "Store Admin";
+  }, [user, currentSupermarket]);
+
+  const storeName = currentSupermarket?.name || user?.supermarketName || "GrocerEase Supermarket";
+  const storeCode = currentSupermarket?.code || user?.supermarketCode || "STR-001";
+  const storeLogo = currentSupermarket?.logoUrl;
+  const storeCity = currentSupermarket?.city || "Bangalore";
+  const storeTagline = currentSupermarket?.tagline || "Autonomous Smart Retail & High-Speed Clearance";
 
   // 1. Live State from Database & Local Realtime Storage
   const [products, setProducts] = useState(getPersistentProducts);
@@ -95,16 +119,30 @@ export default function AdminDashboard() {
         ordRes.value.data?.success &&
         Array.isArray(ordRes.value.data.orders)
       ) {
+        const currentTenantId = currentSupermarket?._id ? String(currentSupermarket._id) : (user?.supermarket?._id ? String(user.supermarket._id) : (typeof user?.supermarket === "string" ? user.supermarket : null));
+        const currentTenantCode = (currentSupermarket?.code || user?.supermarketCode || "").toUpperCase();
+
         loadedOrders = ordRes.value.data.orders.filter((order) => {
           const orderNum = String(order.orderNumber || "").toUpperCase();
           const custName = String(order.customer?.name || "").toLowerCase().trim();
           const total = Number(order.totalAmount || 0);
-          return !(
+          const isNotDummy = !(
             ["ORD-948102-1001", "ORD-772109-2001", "ORD-289409", "ORD-289410"].includes(orderNum) ||
             ["kavitha r", "vikram mehta", "arun kumar", "priya sharma", "neha patel", "rahul verma"].includes(custName) ||
             total === 510 ||
             total === 9450
           );
+          if (!isNotDummy) return false;
+
+          // Strict tenant isolation guard for Store Admin
+          if (user?.role !== "SUPER_ADMIN") {
+            const oId = order.supermarket ? (typeof order.supermarket === "object" ? String(order.supermarket._id || order.supermarket) : String(order.supermarket)) : null;
+            const oCode = order.supermarketCode ? String(order.supermarketCode).toUpperCase() : null;
+            const matchesId = currentTenantId && oId && currentTenantId === oId;
+            const matchesCode = currentTenantCode && oCode && currentTenantCode === oCode;
+            return matchesId || matchesCode;
+          }
+          return true;
         });
         setOrders(loadedOrders);
       }
@@ -270,23 +308,43 @@ export default function AdminDashboard() {
         {/* 1. Panoramic Background Produce Cart on the Right */}
         <div className="db-hero-panoramic-bg" style={{ backgroundImage: "url('/dashboard-hero-fresh-cart.jpg')" }} />
 
-        {/* 2. Left Group: 3D Shopping Bag + Welcome Back Card */}
+        {/* 2. Left Group: Store Dynamic Logo + Store Info + Welcome Card */}
         <div className="db-hero-left">
-          <div className="db-storefront-3d-wrap">
-            <img
-              src="/storefront-3d.jpg"
-              alt="GrocerEase 3D Storefront"
-              className="db-storefront-3d-img"
-              onError={(e) => { e.currentTarget.src = "/storefront-3d.png"; }}
-            />
+          <div className="db-storefront-3d-wrap" style={{ background: "#ffffff", borderRadius: "14px", padding: storeLogo ? "4px" : "0", border: "1.5px solid #bfdbfe", boxShadow: "0 3px 10px rgba(37,99,235,0.12)" }}>
+            {storeLogo ? (
+              <img
+                src={storeLogo}
+                alt={storeName}
+                className="db-storefront-3d-img"
+                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "10px" }}
+                onError={(e) => { e.currentTarget.src = "/storefront-3d.jpg"; }}
+              />
+            ) : (
+              <img
+                src="/storefront-3d.jpg"
+                alt={storeName}
+                className="db-storefront-3d-img"
+                onError={(e) => { e.currentTarget.src = "/storefront-3d.png"; }}
+              />
+            )}
           </div>
           <div className="db-hero-text-block">
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+              <span style={{ fontSize: "11px", fontWeight: 800, color: "#16a34a", background: "#f0fdf4", padding: "1px 7px", borderRadius: "4px", border: "1px solid #bbf7d0", fontFamily: "monospace" }}>
+                {storeCode}
+              </span>
+              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
+                &bull; {storeCity}
+              </span>
+            </div>
             <h1 className="db-hero-title">
               <span>Welcome Back,</span>
               <span className="db-hero-title-blue"> {adminDisplayName}!</span>
               <span role="img" aria-label="wave"> 👋</span>
             </h1>
-            <p className="db-hero-subtitle">Manage your supermarket efficiently and grow your business.</p>
+            <p className="db-hero-subtitle" style={{ maxWidth: "380px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {storeName} &bull; {storeTagline}
+            </p>
             <div className="db-hero-meta-row">
               <div className="db-date-pill">
                 <Calendar size={12} color="#2563EB" />
@@ -316,8 +374,12 @@ export default function AdminDashboard() {
 
         {/* 3. Center Supermarket Thought / Slogan */}
         <div className="db-hero-thought-center">
-          <span className="db-thought-script">Freshness in Every Cart</span>
-          <span className="db-thought-sub">Everyday Low Prices • Always Fresh</span>
+          <span className="db-thought-script" style={{ maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+            {storeName}
+          </span>
+          <span className="db-thought-sub" style={{ maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+            {storeTagline}
+          </span>
           <div className="db-thought-swoosh" />
         </div>
       </section>

@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const CartActivity = require("../models/CartActivity");
+const Supermarket = require("../models/Supermarket");
+const { emitTenantNotification } = require("../utils/notificationEmitter");
 
 // Helper function to safely deduct order inventory once
 async function deductOrderInventory(order) {
@@ -119,6 +121,8 @@ exports.checkout = async (req, res) => {
 
       verifiedItems.push({
         product: product._id,
+        supermarket: product.supermarket || null,
+        supermarketCode: product.supermarketCode || "DEFAULT",
         name: product.name,
         brand: product.brand || "",
         category: product.category,
@@ -155,6 +159,44 @@ exports.checkout = async (req, res) => {
       ? `PENDING-CASH-${Date.now().toString().slice(-6)}`
       : `PENDING-${paymentMethod.toUpperCase()}-${Date.now().toString().slice(-6)}`;
 
+    // Resolve order supermarket: prioritize product items' actual supermarket, or explicit body/header
+    let resolvedSupermarketId = null;
+    let resolvedSupermarketCode = null;
+    let resolvedSupermarketName = null;
+
+    // Check items first - products have the definitive source of truth of which supermarket owns them
+    const itemWithSupermarket = verifiedItems.find((it) => it.supermarket);
+    if (itemWithSupermarket && itemWithSupermarket.supermarket) {
+      resolvedSupermarketId = itemWithSupermarket.supermarket.toString();
+      resolvedSupermarketCode = itemWithSupermarket.supermarketCode;
+    }
+
+    // If not found on items, check body or request context
+    if (!resolvedSupermarketId) {
+      const candidateId = req.body?.supermarketId || (typeof req.body?.supermarket === "string" ? req.body.supermarket : req.body?.supermarket?._id) || req.supermarketId;
+      if (candidateId) resolvedSupermarketId = candidateId.toString();
+      resolvedSupermarketCode = req.body?.supermarketCode || req.supermarketCode;
+    }
+
+    // Look up the store to get canonical name and code
+    if (resolvedSupermarketId) {
+      try {
+        const store = await Supermarket.findById(resolvedSupermarketId);
+        if (store) {
+          resolvedSupermarketId = store._id.toString();
+          resolvedSupermarketCode = store.code;
+          resolvedSupermarketName = store.name;
+        }
+      } catch (_) {}
+    }
+
+    // Fallback if still unresolved
+    if (!resolvedSupermarketId && req.supermarketId) {
+      resolvedSupermarketId = req.supermarketId;
+      resolvedSupermarketCode = req.supermarketCode;
+      resolvedSupermarketName = req.supermarketName;
+    }
+
     const order = await Order.create({
       orderNumber,
       items: verifiedItems,
@@ -174,12 +216,12 @@ exports.checkout = async (req, res) => {
       },
       exitBarcode,
       inventoryDeducted,
-      supermarket: req.supermarketId || null,
-      supermarketCode: req.supermarketCode || "DEFAULT",
-      supermarketName: req.supermarketName || "GrocerEase Supermarket",
+      supermarket: resolvedSupermarketId || null,
+      supermarketCode: resolvedSupermarketCode || "DEFAULT",
+      supermarketName: resolvedSupermarketName || "GrocerEase Supermarket",
     });
 
-    // 5. Log Cart completed
+    // 5. Log Cart completed strictly scoped to this supermarket
     try {
       await CartActivity.create({
         sessionId: customer?.phone || "mobile-shopper",
@@ -190,8 +232,8 @@ exports.checkout = async (req, res) => {
         action: "cleared",
         totalCartItems: 0,
         totalCartAmount: 0,
-        supermarket: req.supermarketId || null,
-        supermarketCode: req.supermarketCode || "DEFAULT",
+        supermarket: resolvedSupermarketId || null,
+        supermarketCode: resolvedSupermarketCode || "DEFAULT",
       });
     } catch (_) { }
 
@@ -210,11 +252,13 @@ exports.checkout = async (req, res) => {
           customerName: order.customer?.name || "Shopper",
           totalAmount: order.totalAmount,
           paymentMethod: order.paymentMethod,
-          supermarketId: req.supermarketId,
-          supermarketCode: req.supermarketCode,
+          supermarketId: resolvedSupermarketId ? resolvedSupermarketId.toString() : null,
+          supermarketCode: resolvedSupermarketCode || "DEFAULT",
+          supermarketName: resolvedSupermarketName || "GrocerEase Supermarket",
         };
-        io.emit("admin:notification", notifData);
-        io.emit("new-order", {
+        // Strict tenant-isolated notification emission
+        emitTenantNotification(io, "admin:notification", notifData);
+        emitTenantNotification(io, "new-order", {
           ...notifData,
           order,
         });
@@ -260,6 +304,22 @@ exports.logCartActivity = async (req, res) => {
       });
     }
 
+    let actSupermarketId = req.supermarketId;
+    let actSupermarketCode = req.supermarketCode;
+
+    // Resolve tenant strictly from product if productId provided
+    if (productId) {
+      try {
+        const prod = await Product.findById(productId).select("supermarket supermarketCode");
+        if (prod && prod.supermarket) {
+          actSupermarketId = prod.supermarket.toString();
+          actSupermarketCode = prod.supermarketCode || actSupermarketCode;
+        }
+      } catch (_) {}
+    }
+    if (req.body?.supermarketId) actSupermarketId = req.body.supermarketId;
+    if (req.body?.supermarketCode) actSupermarketCode = req.body.supermarketCode;
+
     const activity = await CartActivity.create({
       sessionId,
       customerName,
@@ -270,14 +330,14 @@ exports.logCartActivity = async (req, res) => {
       action,
       totalCartItems,
       totalCartAmount,
-      supermarket: req.supermarketId || null,
-      supermarketCode: req.supermarketCode || "DEFAULT",
+      supermarket: actSupermarketId || null,
+      supermarketCode: actSupermarketCode || "DEFAULT",
     });
 
     try {
       const io = req.app?.get("io");
       if (io) {
-        io.emit("admin:notification", {
+        emitTenantNotification(io, "admin:notification", {
           id: `cart-${activity._id || Date.now()}`,
           type: "cart",
           badge: "ADDED TO CART",
@@ -289,8 +349,8 @@ exports.logCartActivity = async (req, res) => {
           productName,
           quantity,
           price,
-          supermarketId: req.supermarketId,
-          supermarketCode: req.supermarketCode,
+          supermarketId: actSupermarketId ? actSupermarketId.toString() : null,
+          supermarketCode: actSupermarketCode || "DEFAULT",
         });
       }
     } catch (_) {}
@@ -329,14 +389,33 @@ async function purgeLegacyDummyRecords() {
   }
 }
 
-// Get live customer cart activities
+// Get live customer cart activities (Strict Multi-Tenant Scoping)
 exports.getCartActivity = async (req, res) => {
   try {
     const filter = {};
-    if (req.supermarketId) {
-      filter.supermarket = req.supermarketId;
+
+    if (req.user && req.user.role === "STORE_ADMIN") {
+      const orConditions = [];
+      if (req.supermarketId) orConditions.push({ supermarket: req.supermarketId });
+      if (req.supermarketCode && req.supermarketCode !== "DEFAULT" && req.supermarketCode !== "ALL") {
+        orConditions.push({ supermarketCode: req.supermarketCode });
+      }
+      if (orConditions.length > 0) {
+        filter.$or = orConditions;
+      } else {
+        return res.status(200).json({ success: true, count: 0, activities: [] });
+      }
+    } else if (req.supermarketId) {
+      const orConditions = [{ supermarket: req.supermarketId }];
+      if (req.supermarketCode && req.supermarketCode !== "DEFAULT" && req.supermarketCode !== "ALL") {
+        orConditions.push({ supermarketCode: req.supermarketCode });
+      }
+      filter.$or = orConditions;
+    } else if (!req.user || req.user.role !== "SUPER_ADMIN") {
+      return res.status(200).json({ success: true, count: 0, activities: [] });
     }
-    const activities = await CartActivity.find(filter).sort({ createdAt: -1 }).limit(20);
+
+    const activities = await CartActivity.find(filter).sort({ createdAt: -1 }).limit(30);
 
     return res.status(200).json({
       success: true,
@@ -356,9 +435,28 @@ exports.getCartActivity = async (req, res) => {
 exports.getOrders = async (req, res) => {
   try {
     const filter = {};
-    if (req.supermarketId) {
-      filter.supermarket = req.supermarketId;
+
+    if (req.user && req.user.role === "STORE_ADMIN") {
+      const orConditions = [];
+      if (req.supermarketId) orConditions.push({ supermarket: req.supermarketId });
+      if (req.supermarketCode && req.supermarketCode !== "DEFAULT" && req.supermarketCode !== "ALL") {
+        orConditions.push({ supermarketCode: req.supermarketCode });
+      }
+      if (orConditions.length > 0) {
+        filter.$or = orConditions;
+      } else {
+        return res.status(200).json({ success: true, count: 0, orders: [] });
+      }
+    } else if (req.supermarketId) {
+      const orConditions = [{ supermarket: req.supermarketId }];
+      if (req.supermarketCode && req.supermarketCode !== "DEFAULT" && req.supermarketCode !== "ALL") {
+        orConditions.push({ supermarketCode: req.supermarketCode });
+      }
+      filter.$or = orConditions;
+    } else if (!req.user || req.user.role !== "SUPER_ADMIN") {
+      return res.status(200).json({ success: true, count: 0, orders: [] });
     }
+
     const orders = await Order.find(filter).sort({ createdAt: -1 });
 
     // Ensure no mock order slips through
@@ -383,6 +481,104 @@ exports.getOrders = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to fetch orders",
+      error: error.message,
+    });
+  }
+};
+
+// Dedicated Multi-Tenant Notification Feed with Unread Counts
+exports.getNotifications = async (req, res) => {
+  try {
+    const filter = {};
+
+    if (req.user && req.user.role === "STORE_ADMIN") {
+      const orConditions = [];
+      if (req.supermarketId) orConditions.push({ supermarket: req.supermarketId });
+      if (req.supermarketCode && req.supermarketCode !== "DEFAULT" && req.supermarketCode !== "ALL") {
+        orConditions.push({ supermarketCode: req.supermarketCode });
+      }
+      if (orConditions.length > 0) {
+        filter.$or = orConditions;
+      } else {
+        return res.status(200).json({ success: true, count: 0, unreadCount: 0, notifications: [] });
+      }
+    } else if (req.supermarketId) {
+      const orConditions = [{ supermarket: req.supermarketId }];
+      if (req.supermarketCode && req.supermarketCode !== "DEFAULT" && req.supermarketCode !== "ALL") {
+        orConditions.push({ supermarketCode: req.supermarketCode });
+      }
+      filter.$or = orConditions;
+    } else if (!req.user || req.user.role !== "SUPER_ADMIN") {
+      return res.status(200).json({ success: true, count: 0, unreadCount: 0, notifications: [] });
+    }
+
+    const [orders, cartActivities] = await Promise.all([
+      Order.find({
+        ...filter,
+        paymentStatus: { $in: ["Pending", "Approved", "Completed"] },
+      }).sort({ createdAt: -1 }).limit(50),
+      CartActivity.find(filter).sort({ createdAt: -1 }).limit(30),
+    ]);
+
+    const notifications = [];
+
+    orders.forEach((o) => {
+      const isPending = o.paymentStatus === "Pending";
+      const custName = o.customer?.name || "Mobile Shopper";
+      const amount = Number(o.totalAmount || 0).toFixed(2);
+      const notifId = isPending ? `pending-${o._id || o.orderNumber}` : `approved-${o._id || o.orderNumber}`;
+
+      notifications.push({
+        id: notifId,
+        type: isPending ? "pending" : "approved",
+        badge: isPending ? "PRE-BOOKING" : "APPROVED",
+        title: isPending ? "New Pre-Booking" : "Pre-Booking Approved",
+        actor: custName,
+        message: isPending
+          ? `${custName} is waiting for payment approval (₹${amount} • ${o.paymentMethod || "UPI"}).`
+          : `Payment of ₹${amount} for order #${o.orderNumber} was approved for store exit.`,
+        timestamp: isPending ? o.createdAt : (o.approvedAt || o.completedAt || o.createdAt),
+        order: o,
+        supermarketId: o.supermarket ? o.supermarket.toString() : null,
+        supermarketCode: o.supermarketCode,
+        supermarketName: o.supermarketName,
+      });
+    });
+
+    cartActivities.forEach((act) => {
+      const custName = act.customerName || "Mobile Shopper";
+      const prodName = act.productName || "Product";
+      notifications.push({
+        id: `cart-${act._id || Math.random()}`,
+        type: "cart",
+        badge: "ADDED TO CART",
+        title: "Cart Item Added",
+        actor: custName,
+        message: `${custName} added "${prodName}" (Qty: ${act.quantity || 1}) to cart.`,
+        timestamp: act.createdAt,
+        productName: prodName,
+        quantity: act.quantity || 1,
+        supermarketId: act.supermarket ? act.supermarket.toString() : null,
+        supermarketCode: act.supermarketCode,
+      });
+    });
+
+    notifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return res.status(200).json({
+      success: true,
+      count: notifications.length,
+      notifications,
+      supermarket: {
+        id: req.supermarketId,
+        code: req.supermarketCode,
+        name: req.supermarketName,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch notifications",
       error: error.message,
     });
   }
@@ -461,7 +657,7 @@ exports.approvePayment = async (req, res) => {
     try {
       const io = req.app?.get("io");
       if (io) {
-        io.emit("admin:notification", {
+        emitTenantNotification(io, "admin:notification", {
           id: `approved-${order._id || order.orderNumber}`,
           type: "approved",
           badge: "APPROVED",
@@ -470,7 +666,8 @@ exports.approvePayment = async (req, res) => {
           message: `${order.customer?.name || "Shopper"} was approved for store exit.`,
           timestamp: order.approvedAt || new Date().toISOString(),
           order,
-          supermarketId: order.supermarket,
+          supermarketId: order.supermarket ? order.supermarket.toString() : null,
+          supermarketCode: order.supermarketCode,
           customerName: order.customer?.name || "Shopper",
           totalAmount: order.totalAmount,
         });
@@ -695,7 +892,21 @@ exports.getAdminStats = async (req, res) => {
     const prodFilter = { isActive: { $ne: false } };
     const ordFilter = {};
     const cartFilter = {};
-    if (req.supermarketId) {
+
+    if (req.user && req.user.role === "STORE_ADMIN") {
+      const orConditions = [];
+      if (req.supermarketId) orConditions.push({ supermarket: req.supermarketId });
+      if (req.supermarketCode && req.supermarketCode !== "DEFAULT" && req.supermarketCode !== "ALL") {
+        orConditions.push({ supermarketCode: req.supermarketCode });
+      }
+      if (orConditions.length > 0) {
+        ordFilter.$or = orConditions;
+        cartFilter.$or = orConditions;
+        if (req.supermarketId) prodFilter.supermarket = req.supermarketId;
+      } else {
+        return res.status(200).json({ success: true, stats: {} });
+      }
+    } else if (req.supermarketId) {
       prodFilter.supermarket = req.supermarketId;
       ordFilter.supermarket = req.supermarketId;
       cartFilter.supermarket = req.supermarketId;
@@ -842,7 +1053,20 @@ exports.getReports = async (req, res) => {
 
     const ordQuery = {};
     const prodQuery = { isActive: { $ne: false } };
-    if (req.supermarketId) {
+
+    if (req.user && req.user.role === "STORE_ADMIN") {
+      const orConditions = [];
+      if (req.supermarketId) orConditions.push({ supermarket: req.supermarketId });
+      if (req.supermarketCode && req.supermarketCode !== "DEFAULT" && req.supermarketCode !== "ALL") {
+        orConditions.push({ supermarketCode: req.supermarketCode });
+      }
+      if (orConditions.length > 0) {
+        ordQuery.$or = orConditions;
+        if (req.supermarketId) prodQuery.supermarket = req.supermarketId;
+      } else {
+        return res.status(200).json({ success: true, reports: {} });
+      }
+    } else if (req.supermarketId) {
       ordQuery.supermarket = req.supermarketId;
       prodQuery.supermarket = req.supermarketId;
     }

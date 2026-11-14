@@ -33,6 +33,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import API from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import BarcodeSVG from "../../components/BarcodeSVG";
 import ErpPageBanner from "../../components/ErpPageBanner";
 import bannerCartImg from "../../assets/banner-cart.png";
@@ -56,6 +57,7 @@ const DATE_PERIODS = [
 
 export default function OrdersManagement() {
   const [searchParams] = useSearchParams();
+  const { user, isSuperAdmin, currentSupermarket } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(() => searchParams.get("search") || "");
@@ -85,7 +87,17 @@ export default function OrdersManagement() {
       if (showLoading) setLoading(true);
       const res = await API.get("/orders");
       if (res.data?.success && Array.isArray(res.data.orders)) {
-        setOrders(res.data.orders);
+        let orderList = res.data.orders;
+        if (!isSuperAdmin) {
+          const tenantId = currentSupermarket?._id ? String(currentSupermarket._id) : (user?.supermarket?._id ? String(user.supermarket._id) : (typeof user?.supermarket === "string" ? user.supermarket : null));
+          const tenantCode = (currentSupermarket?.code || user?.supermarketCode || "").toUpperCase();
+          orderList = orderList.filter((o) => {
+            const oId = o.supermarket ? (typeof o.supermarket === "object" ? String(o.supermarket._id || o.supermarket) : String(o.supermarket)) : null;
+            const oCode = o.supermarketCode ? String(o.supermarketCode).toUpperCase() : null;
+            return (tenantId && oId && tenantId === oId) || (tenantCode && oCode && tenantCode === oCode);
+          });
+        }
+        setOrders(orderList);
       }
     } catch (err) {
       console.warn("Fetch orders fallback:", err.message);

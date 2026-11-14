@@ -220,6 +220,12 @@ export default function ProductDetailsScreen() {
                 Brand: <Text style={styles.metaValue}>{product.brand || "Supermarket"}</Text>
                 {"   |   "}
                 Category: <Text style={styles.metaValue}>{product.category || "General"}</Text>
+                {product.supermarket?.name ? (
+                  <>
+                    {"   |   "}
+                    Store: <Text style={styles.metaValue}>{product.supermarket.name}</Text>
+                  </>
+                ) : null}
               </Text>
             </View>
 

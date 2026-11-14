@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const {
   getAllSupermarkets,
+  getSupermarketDetails,
   createSupermarket,
   updateSupermarket,
   deleteSupermarket,
@@ -14,6 +15,9 @@ const {
   createSubscriptionPlan,
   updateSubscriptionPlan,
   deleteSubscriptionPlan,
+  sendRenewalEmail,
+  sendRenewalChat,
+  extendSubscription,
 } = require("../controllers/superAdminController");
 const { authMiddleware, requireSuperAdmin } = require("../middleware/authMiddleware");
 
@@ -23,10 +27,14 @@ router.use(authMiddleware);
 
 // 1. Supermarkets Management
 router.get("/supermarkets", getAllSupermarkets);
+router.get("/supermarkets/:id/details", getSupermarketDetails);
 router.post("/supermarkets", createSupermarket);
 router.put("/supermarkets/:id", updateSupermarket);
 router.delete("/supermarkets/:id", deleteSupermarket);
 router.post("/supermarkets/:id/reset-password", resetStorePassword);
+router.post("/supermarkets/:id/send-renewal-email", sendRenewalEmail);
+router.post("/supermarkets/:id/send-renewal-chat", sendRenewalChat);
+router.post("/supermarkets/:id/extend-subscription", extendSubscription);
 
 // 2. Centralized Analytics & Product-Wise Breakdown per Supermarket
 router.get("/analytics", getPlatformAnalytics);

@@ -43,6 +43,84 @@ export default function SupermarketsManagement() {
   const [newPasswordValue, setNewPasswordValue] = useState("StoreAdmin@123");
   const [showPasswordMap, setShowPasswordMap] = useState({});
 
+  // Logo Edit Modal States
+  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
+  const [selectedStoreForLogo, setSelectedStoreForLogo] = useState(null);
+  const [logoInputUrl, setLogoInputUrl] = useState("");
+  const [logoPreviewError, setLogoPreviewError] = useState(false);
+  const [isSavingLogo, setIsSavingLogo] = useState(false);
+  const logoFilePickerRef = React.useRef(null);
+
+  // Helper: Extract actual image source if wrapped in Google Images search URLs
+  const cleanAndExtractImageUrl = (raw) => {
+    if (!raw) return "";
+    let val = raw.trim();
+    if (val.includes("imgurl=")) {
+      try {
+        const match = val.match(/[?&]imgurl=([^&]+)/i);
+        if (match && match[1]) {
+          val = decodeURIComponent(match[1]);
+        }
+      } catch (_) {}
+    } else if (val.includes("google.") && val.includes("url=")) {
+      try {
+        const match = val.match(/[?&]url=([^&]+)/i);
+        if (match && match[1] && (match[1].startsWith("http%3A") || match[1].startsWith("https%3A") || match[1].startsWith("http"))) {
+          val = decodeURIComponent(match[1]);
+        }
+      } catch (_) {}
+    }
+    return val;
+  };
+
+  const handleOpenLogoModal = (store) => {
+    setSelectedStoreForLogo(store);
+    setLogoInputUrl(store.logoUrl || "");
+    setLogoPreviewError(false);
+    setIsLogoModalOpen(true);
+  };
+
+  const handleLogoFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Logo file must be smaller than 5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result;
+      if (dataUrl) {
+        setLogoInputUrl(dataUrl);
+        setLogoPreviewError(false);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleSaveLogo = async () => {
+    if (!selectedStoreForLogo) return;
+    try {
+      setIsSavingLogo(true);
+      const cleanUrl = cleanAndExtractImageUrl(logoInputUrl);
+      const res = await API.put(`/super-admin/supermarkets/${selectedStoreForLogo._id}`, {
+        logoUrl: cleanUrl,
+      });
+      if (res.data?.success) {
+        showToast(`✓ Logo updated successfully for "${selectedStoreForLogo.name}"!`);
+        setIsLogoModalOpen(false);
+        await loadSupermarkets();
+      } else {
+        showToast(res.data?.message || "Failed to update logo.");
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || "Failed to update logo.");
+    } finally {
+      setIsSavingLogo(false);
+    }
+  };
+
   // New Supermarket Form State
   const [formValues, setFormValues] = useState({
     name: "",
@@ -91,11 +169,9 @@ export default function SupermarketsManagement() {
     setShowPasswordMap((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Launch store as Super Admin
-  const handleLaunchStore = (store) => {
-    switchSupermarket(store);
-    showToast(`Switched active context to "${store.name}".`);
-    navigate("/admin");
+  // View supermarket details in Registered Supermarkets (without redirecting to store admin)
+  const handleViewDetails = (store) => {
+    navigate(`/super-admin/registered-supermarkets?store=${store._id || store.code}`);
   };
 
   // Handle Add Supermarket
@@ -234,10 +310,7 @@ export default function SupermarketsManagement() {
           <button
             type="button"
             className="sa-btn-primary"
-            onClick={() => {
-              setFormError("");
-              setIsAddModalOpen(true);
-            }}
+            onClick={() => navigate("/super-admin/add-supermarket")}
           >
             <PlusCircle size={16} />
             <span>Add New Supermarket</span>
@@ -300,8 +373,40 @@ export default function SupermarketsManagement() {
                   <div>
                     <div className="sa-store-card-header">
                       <div className="sa-store-brand">
-                        <div className="sa-store-avatar">
-                          {store.name ? store.name[0].toUpperCase() : "S"}
+                        <div
+                          className="sa-store-avatar"
+                          title={`Click to view or edit logo for ${store.name}`}
+                          onClick={() => handleOpenLogoModal(store)}
+                          style={{ cursor: "pointer", position: "relative" }}
+                        >
+                          {store.logoUrl ? (
+                            <img
+                              src={store.logoUrl}
+                              alt={store.name}
+                              className="sa-store-logo-img"
+                              style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "10px" }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const fallback = e.currentTarget.parentElement?.querySelector(".sa-store-letter-fallback");
+                                if (fallback) fallback.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <span
+                            className="sa-store-letter-fallback"
+                            style={{
+                              display: store.logoUrl ? "none" : "flex",
+                              width: "100%",
+                              height: "100%",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {store.name ? store.name[0].toUpperCase() : "S"}
+                          </span>
+                          <div className="sa-avatar-edit-badge" title="Change logo">
+                            <Edit size={10} />
+                          </div>
                         </div>
                         <div className="sa-store-title-wrap">
                           <h3>{store.name}</h3>
@@ -317,23 +422,29 @@ export default function SupermarketsManagement() {
                       </span>
                     </div>
 
-                    <p style={{ margin: "0.75rem 0 0 0", fontSize: "12px", color: "#64748b", fontStyle: "italic" }}>
-                      "{store.tagline || "Autonomous Smart Retail & High-Speed Clearance"}"
-                    </p>
+                    {store.tagline ? (
+                      <p style={{ margin: "0.75rem 0 0 0", fontSize: "12px", color: "#64748b", fontStyle: "italic" }}>
+                        "{store.tagline}"
+                      </p>
+                    ) : (
+                      <p style={{ margin: "0.75rem 0 0 0", fontSize: "12px", color: "#64748b" }}>
+                        {store.storeType || "Dedicated Multi-Tenant Instance"}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Operational Metrics Strip */}
+                  {/* Operational Metrics Strip (Strict Zero-State for newly onboarded stores) */}
                   <div className="sa-store-stats-strip">
                     <div className="sa-stat-col">
-                      <strong>&#8377;{Number(store.totalSales || (store.code === "STR-001" ? 19250 : 9200)).toLocaleString("en-IN")}</strong>
+                      <strong>&#8377;{Number(store.totalSales !== undefined && store.totalSales !== null ? store.totalSales : 0).toLocaleString("en-IN")}</strong>
                       <span>Total Sales</span>
                     </div>
                     <div className="sa-stat-col">
-                      <strong>{store.totalOrders || (store.code === "STR-001" ? 42 : 22)}</strong>
+                      <strong>{Number(store.totalOrders !== undefined && store.totalOrders !== null ? store.totalOrders : 0)}</strong>
                       <span>Orders</span>
                     </div>
                     <div className="sa-stat-col">
-                      <strong>{store.totalProducts || (store.code === "STR-001" ? 20 : 18)}</strong>
+                      <strong>{Number(store.totalProducts !== undefined && store.totalProducts !== null ? store.totalProducts : 0)}</strong>
                       <span>SKUs</span>
                     </div>
                   </div>
@@ -432,11 +543,12 @@ export default function SupermarketsManagement() {
                     <button
                       type="button"
                       className="sa-btn-primary"
-                      style={{ padding: "6px 14px", fontSize: "12px" }}
-                      onClick={() => handleLaunchStore(store)}
+                      style={{ padding: "6px 14px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                      onClick={() => handleViewDetails(store)}
+                      title={`View detailed performance, products, and sales for ${store.name}`}
                     >
-                      <span>Enter Store Admin</span>
-                      <ExternalLink size={12} />
+                      <Eye size={13} />
+                      <span>View Details</span>
                     </button>
                   </div>
                 </div>
@@ -684,6 +796,173 @@ export default function SupermarketsManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* EDIT STORE LOGO MODAL                                                     */}
+      {/* ========================================================================= */}
+      {isLogoModalOpen && selectedStoreForLogo && (
+        <div className="sa-modal-overlay" onClick={() => setIsLogoModalOpen(false)}>
+          <div className="sa-modal-card" style={{ maxWidth: "520px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="sa-modal-header">
+              <div>
+                <h3>Update Supermarket Logo</h3>
+                <p>For "{selectedStoreForLogo.name}" ({selectedStoreForLogo.code})</p>
+              </div>
+              <button
+                type="button"
+                className="sa-modal-close-btn"
+                onClick={() => setIsLogoModalOpen(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="sa-modal-body">
+              {/* Logo Preview Box */}
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px", padding: "12px", background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                <div
+                  style={{
+                    width: "64px",
+                    height: "64px",
+                    borderRadius: "14px",
+                    background: "#ffffff",
+                    border: "2px solid #cbd5e1",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                  }}
+                >
+                  {logoInputUrl && !logoPreviewError ? (
+                    <img
+                      src={cleanAndExtractImageUrl(logoInputUrl)}
+                      alt="Logo preview"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      onError={() => setLogoPreviewError(true)}
+                      onLoad={() => setLogoPreviewError(false)}
+                    />
+                  ) : (
+                    <span style={{ fontSize: "24px", fontWeight: 800, color: "#16a34a" }}>
+                      {selectedStoreForLogo.name ? selectedStoreForLogo.name[0].toUpperCase() : "S"}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <strong style={{ display: "block", fontSize: "14px", color: "#0f172a" }}>
+                    {selectedStoreForLogo.name}
+                  </strong>
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>
+                    {logoInputUrl ? (logoPreviewError ? "⚠️ Image URL failed to load" : "✓ Logo preview loaded") : "No custom logo set"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Paste URL Input */}
+              <div className="sa-form-group">
+                <label className="sa-form-label">
+                  Logo Image URL (Direct Link or Google Images)
+                </label>
+                <input
+                  type="text"
+                  className="sa-form-input"
+                  value={logoInputUrl.startsWith("data:") ? "[Local file uploaded]" : logoInputUrl}
+                  onChange={(e) => {
+                    setLogoInputUrl(e.target.value);
+                    setLogoPreviewError(false);
+                  }}
+                  placeholder="https://example.com/logo.png"
+                />
+              </div>
+
+              {/* File Upload Option */}
+              <input
+                type="file"
+                ref={logoFilePickerRef}
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleLogoFileSelect}
+              />
+              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                <button
+                  type="button"
+                  className="sa-btn-secondary"
+                  onClick={() => logoFilePickerRef.current?.click()}
+                  style={{ flex: 1, padding: "8px 12px", fontSize: "12px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                >
+                  <Sparkles size={14} />
+                  <span>Upload Image File</span>
+                </button>
+                {logoInputUrl && (
+                  <button
+                    type="button"
+                    className="sa-btn-secondary"
+                    onClick={() => { setLogoInputUrl(""); setLogoPreviewError(false); }}
+                    style={{ padding: "8px 12px", fontSize: "12px", color: "#ef4444" }}
+                  >
+                    Clear Logo
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Preset Supermarket Logos */}
+              <div style={{ marginTop: "16px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "8px" }}>
+                  Or pick a ready-made supermarket logo:
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+                  {[
+                    { label: "Fresh Market", url: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&auto=format&fit=crop&q=80" },
+                    { label: "Organic Mart", url: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=200&auto=format&fit=crop&q=80" },
+                    { label: "Smart Retail", url: "https://images.unsplash.com/photo-1534723452862-4c874018d66d?w=200&auto=format&fit=crop&q=80" },
+                    { label: "Daily Needs", url: "https://images.unsplash.com/photo-1608686207856-001b95cf60ca?w=200&auto=format&fit=crop&q=80" },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => { setLogoInputUrl(preset.url); setLogoPreviewError(false); }}
+                      style={{
+                        padding: "6px 8px",
+                        borderRadius: "8px",
+                        border: logoInputUrl === preset.url ? "2px solid #16a34a" : "1px solid #cbd5e1",
+                        background: logoInputUrl === preset.url ? "#f0fdf4" : "#ffffff",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <img src={preset.url} alt={preset.label} style={{ width: "28px", height: "28px", borderRadius: "6px", objectFit: "cover" }} />
+                      <span style={{ fontSize: "10px", fontWeight: 600, color: "#334155" }}>{preset.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="sa-modal-footer">
+              <button
+                type="button"
+                className="sa-btn-secondary"
+                onClick={() => setIsLogoModalOpen(false)}
+                disabled={isSavingLogo}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="sa-btn-primary"
+                onClick={handleSaveLogo}
+                disabled={isSavingLogo}
+              >
+                {isSavingLogo ? "Saving Logo..." : "Save Logo"}
+              </button>
+            </div>
           </div>
         </div>
       )}

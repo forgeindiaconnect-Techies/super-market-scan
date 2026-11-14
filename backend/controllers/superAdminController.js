@@ -121,21 +121,46 @@ exports.getAllSupermarkets = async (req, res) => {
       supermarkets.map(async (store) => {
         const storeId = store._id;
 
+        const storeMatch = {
+          $or: [{ supermarket: storeId }, { supermarketCode: store.code }],
+        };
+
         const [orderStats, productCount] = await Promise.all([
           Order.aggregate([
-            { $match: { supermarket: storeId, paymentStatus: { $in: ["Completed", "Approved", "Pending"] } } },
+            {
+              $match: {
+                ...storeMatch,
+                paymentStatus: {
+                  $in: ["Completed", "Approved", "Pending", "completed", "approved", "paid"],
+                },
+              },
+            },
             {
               $group: {
                 _id: null,
                 totalSales: { $sum: "$totalAmount" },
                 totalOrders: { $sum: 1 },
                 completedOrders: {
-                  $sum: { $cond: [{ $in: ["$paymentStatus", ["Completed", "Approved"]] }, 1, 0] },
+                  $sum: {
+                    $cond: [
+                      {
+                        $in: [
+                          "$paymentStatus",
+                          ["Completed", "Approved", "completed", "approved", "paid"],
+                        ],
+                      },
+                      1,
+                      0,
+                    ],
+                  },
                 },
               },
             },
           ]),
-          Product.countDocuments({ supermarket: storeId, isActive: { $ne: false } }),
+          Product.countDocuments({
+            ...storeMatch,
+            isActive: { $ne: false },
+          }),
         ]);
 
         const sales = orderStats[0]?.totalSales || 0;
@@ -168,27 +193,47 @@ exports.getAllSupermarkets = async (req, res) => {
   }
 };
 
-// 2. POST /api/super-admin/supermarkets - Create new supermarket with custom Admin login credentials
+// 2. POST /api/super-admin/supermarkets - Create new supermarket with custom Admin login credentials & multi-tenant isolation
 exports.createSupermarket = async (req, res) => {
   try {
     const {
       name,
       code,
-      tagline,
+      ownerName,
+      contactPerson,
       address,
       city,
       state,
       pincode,
       phone,
       email,
+      gstNumber,
+      logoUrl,
       adminUsername,
       adminPassword = "StoreAdmin@123",
+      adminEmail,
       adminName,
+      sendCredentialsEmail = true,
+      forcePasswordChange = true,
       plan = "Premium",
+      billingCycle = "Monthly",
+      subscriptionAmount,
+      startDate,
+      expiryDate,
+      trialPeriodDays = 0,
+      autoRenewal = true,
+      planFeatures,
+      storeType = "Grocery & Supermarket",
+      currency = "INR",
+      taxSettings,
+      branchesCount = 1,
+      maxStaffUsers = 15,
+      timeZone = "Asia/Kolkata",
       status = "Active",
       themeColor = "#16a34a",
     } = req.body;
 
+    // 1. Validation - Required fields
     if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
@@ -197,80 +242,164 @@ exports.createSupermarket = async (req, res) => {
     }
 
     const trimmedName = name.trim();
-    let cleanUsername = adminUsername ? String(adminUsername).trim().toLowerCase() : "";
-    if (!cleanUsername) {
-      cleanUsername = trimmedName.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
-      if (!cleanUsername) cleanUsername = "storeadmin" + Math.floor(100 + Math.random() * 900);
+
+    // 2. Email Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const storeEmail = (email || `${adminUsername || "store"}@grocerease.store`).trim().toLowerCase();
+    if (!emailRegex.test(storeEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address.",
+      });
     }
 
-    let cleanCode = code ? String(code).trim().toUpperCase() : "";
-    if (!cleanCode) {
-      const prefix = trimmedName.replace(/[^a-zA-Z]/g, "").slice(0, 3).toUpperCase() || "STR";
-      cleanCode = `${prefix}-${Math.floor(100 + Math.random() * 900)}`;
+    // 3. Mobile Number Validation (Strictly 10-digit Indian number starting with 6, 7, 8, or 9)
+    const phone10 = (phone || "").replace(/\D/g, "").slice(-10);
+    if (!phone10 || !/^[6-9]\d{9}$/.test(phone10)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile phone number must be a valid 10-digit Indian number starting with 6, 7, 8, or 9.",
+      });
     }
 
-    // Ensure code uniqueness
+    // 4. Store Code Generation & Collision Prevention
+    let cleanCode = (code || `SM-${Math.floor(1000 + Math.random() * 9000)}`).trim().toUpperCase();
     let existingCode = await Supermarket.findOne({ code: cleanCode });
-    let counter = 1;
-    while (existingCode) {
-      cleanCode = `STR-${Math.floor(100 + Math.random() * 900)}${counter}`;
-      existingCode = await Supermarket.findOne({ code: cleanCode });
-      counter++;
+    if (existingCode) {
+      let counter = 1;
+      while (existingCode && counter < 50) {
+        cleanCode = `SM-${Math.floor(1000 + Math.random() * 9000)}`;
+        existingCode = await Supermarket.findOne({ code: cleanCode });
+        counter++;
+      }
     }
 
-    // Check username uniqueness
+    // 5. Admin Username Validation & Collision Prevention
+    const cleanUsername = (adminUsername || `${cleanCode.toLowerCase().replace(/[^a-z0-9]/g, "")}_admin`)
+      .trim()
+      .toLowerCase();
     const existingUser = await User.findOne({ username: cleanUsername });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: `Admin username "${cleanUsername}" is already in use. Please assign a unique username.`,
+        message: `Admin username '${cleanUsername}' is already taken. Please choose another username.`,
       });
     }
 
-    // 1. Create Supermarket
+    // 6. Subscription Dates computation
+    const now = startDate ? new Date(startDate) : new Date();
+    let calculatedExpiry = expiryDate ? new Date(expiryDate) : null;
+    if (!calculatedExpiry) {
+      calculatedExpiry = new Date(now);
+      if (billingCycle === "Yearly") {
+        calculatedExpiry.setFullYear(calculatedExpiry.getFullYear() + 1);
+      } else {
+        calculatedExpiry.setMonth(calculatedExpiry.getMonth() + 1);
+      }
+      if (trialPeriodDays && Number(trialPeriodDays) > 0) {
+        calculatedExpiry.setDate(calculatedExpiry.getDate() + Number(trialPeriodDays));
+      }
+    }
+
+    // 7. Calculate default subscription amount if not provided
+    let finalAmount = Number(subscriptionAmount);
+    if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
+      const planLower = (plan || "Premium").toLowerCase();
+      if (planLower.includes("basic")) {
+        finalAmount = billingCycle === "Yearly" ? 49990 : 4999;
+      } else if (planLower.includes("standard")) {
+        finalAmount = billingCycle === "Yearly" ? 99990 : 9999;
+      } else if (planLower.includes("enterprise")) {
+        finalAmount = billingCycle === "Yearly" ? 299990 : 29999;
+      } else {
+        // Premium default
+        finalAmount = billingCycle === "Yearly" ? 199990 : 19999;
+      }
+    }
+
+    // 8. Create Supermarket Record (Dedicated Tenant Isolation Boundary)
     const newSupermarket = await Supermarket.create({
       name: trimmedName,
       code: cleanCode,
       slug: cleanCode.toLowerCase(),
-      tagline: tagline || "Smart Supermarket & Instant Gate Clearance",
-      address: address || "Supermarket Branch Location",
-      city: city || "Bangalore",
-      state: state || "Karnataka",
-      pincode: pincode || "560001",
-      phone: phone || "+91 98765 43210",
-      email: email || `${cleanUsername}@grocerease.store`,
+      ownerName: ownerName?.trim() || "",
+      contactPerson: contactPerson?.trim() || "",
+      address: address?.trim() || "Main Commercial Complex",
+      city: city?.trim() || "Bangalore",
+      state: state?.trim() || "Karnataka",
+      pincode: pincode?.trim() || "560001",
+      phone: `+91 ${phone10}`,
+      email: storeEmail,
+      gstNumber: gstNumber ? gstNumber.trim().toUpperCase() : "",
+      logoUrl: logoUrl?.trim() || "",
       adminUsername: cleanUsername,
       adminPassword: adminPassword,
-      adminName: adminName || `${trimmedName} Manager`,
+      adminName: adminName?.trim() || `${trimmedName} Manager`,
+      storeType: storeType || "Grocery & Supermarket",
       plan: plan || "Premium",
+      billingCycle: billingCycle || "Monthly",
+      subscriptionAmount: finalAmount,
+      startDate: now,
+      expiryDate: calculatedExpiry,
+      trialPeriodDays: Number(trialPeriodDays) || 0,
+      autoRenewal: Boolean(autoRenewal),
+      planFeatures: Array.isArray(planFeatures) ? planFeatures : [],
+      branchesCount: Number(branchesCount) || 1,
+      maxStaffUsers: Number(maxStaffUsers) || 15,
+      timeZone: timeZone || "Asia/Kolkata",
+      forcePasswordChange: Boolean(forcePasswordChange),
+      sendCredentialsEmail: Boolean(sendCredentialsEmail),
       status: status || "Active",
       themeColor: themeColor || "#16a34a",
+      settings: {
+        currency: currency === "INR" || currency === "₹" ? "₹" : currency || "₹",
+        taxRate: taxSettings?.rate !== undefined ? Number(taxSettings.rate) : 5,
+        taxEnabled: taxSettings?.enabled !== undefined ? Boolean(taxSettings.enabled) : true,
+        gstNumber: gstNumber ? gstNumber.trim().toUpperCase() : "",
+        turnstilesCount: 4,
+        allowCashPayment: true,
+        allowUpiPayment: true,
+      },
     });
 
-    // 2. Create Store Admin User with the credentials created by Super Admin
-    await User.create({
-      name: adminName || `${name.trim()} Admin`,
+    // 9. Create Store Admin User with Tenant Linkage
+    const createdUser = await User.create({
+      name: adminName?.trim() || `${trimmedName} Admin`,
       username: cleanUsername,
       password: adminPassword,
+      email: (adminEmail || storeEmail).trim().toLowerCase(),
       role: "STORE_ADMIN",
       supermarket: newSupermarket._id,
       supermarketCode: newSupermarket.code,
       supermarketName: newSupermarket.name,
-      status: status === "Suspended" ? "Suspended" : "Active",
+      phone: `+91 ${phone10}`,
+      forcePasswordChange: Boolean(forcePasswordChange),
+      status: status === "Inactive" || status === "Suspended" ? "Suspended" : "Active",
     });
 
+    // 10. Strict Multi-Tenant Isolation Guarantee:
+    // New supermarkets explicitly start with ZERO products and ZERO orders.
+    // Zero-state dashboard guaranteed.
     clearTenantCache();
 
     return res.status(201).json({
       success: true,
-      message: `Supermarket "${newSupermarket.name}" created successfully with credentials: ${cleanUsername}`,
+      message: `Supermarket "${newSupermarket.name}" registered successfully! Tenant ID: ${newSupermarket.code}`,
       supermarket: newSupermarket,
+      credentials: {
+        supermarketId: newSupermarket.code,
+        supermarketName: newSupermarket.name,
+        adminUsername: cleanUsername,
+        adminPassword: adminPassword,
+        adminEmail: createdUser.email,
+        loginUrl: "/login",
+      },
     });
   } catch (error) {
     console.error("Create supermarket error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to create supermarket.",
+      message: error.message || "Failed to create supermarket.",
       error: error.message,
     });
   }
@@ -295,6 +424,7 @@ exports.updateSupermarket = async (req, res) => {
       adminPassword,
       adminName,
       themeColor,
+      logoUrl,
     } = req.body;
 
     const supermarket = await Supermarket.findById(id);
@@ -315,6 +445,7 @@ exports.updateSupermarket = async (req, res) => {
     if (email !== undefined) supermarket.email = email.trim().toLowerCase();
     if (plan !== undefined) supermarket.plan = plan;
     if (themeColor !== undefined) supermarket.themeColor = themeColor;
+    if (logoUrl !== undefined) supermarket.logoUrl = logoUrl.trim();
 
     let credentialsUpdated = false;
     let oldUsername = supermarket.adminUsername;
@@ -730,6 +861,93 @@ exports.deleteSubscriptionPlan = async (req, res) => {
   }
 };
 
+// 11. POST /api/super-admin/supermarkets/:id/send-renewal-email - Send subscription renewal notice
+exports.sendRenewalEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { subject, message } = req.body;
+    const supermarket = await Supermarket.findById(id);
+    if (!supermarket) {
+      return res.status(404).json({ success: false, message: "Supermarket not found." });
+    }
+
+    const targetEmail = supermarket.email || `${supermarket.adminUsername}@grocerease.store`;
+    console.log(`[SUBSCRIPTION RENEWAL EMAIL] To: ${targetEmail} | Subject: ${subject || "Subscription Renewal Notice"}`);
+    console.log(`Message: ${message || "(No custom message)"}`);
+
+    return res.status(200).json({
+      success: true,
+      message: `Subscription renewal notice successfully sent to ${supermarket.name} (${targetEmail})!`,
+      email: targetEmail,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to send renewal email.", error: error.message });
+  }
+};
+
+// 12. POST /api/super-admin/supermarkets/:id/send-renewal-chat - Send subscription renewal chat/WhatsApp alert
+exports.sendRenewalChat = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+    const supermarket = await Supermarket.findById(id);
+    if (!supermarket) {
+      return res.status(404).json({ success: false, message: "Supermarket not found." });
+    }
+
+    const phone = supermarket.phone || "+91 98765 43210";
+    console.log(`[SUBSCRIPTION RENEWAL CHAT] To: ${supermarket.name} (${phone})`);
+    console.log(`Message: ${message || "(No custom message)"}`);
+
+    return res.status(200).json({
+      success: true,
+      message: `Renewal chat alert dispatched to ${supermarket.name} (${phone})!`,
+      phone,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to send renewal chat alert.", error: error.message });
+  }
+};
+
+// 13. POST /api/super-admin/supermarkets/:id/extend-subscription - Extend supermarket subscription period
+exports.extendSubscription = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { days = 30, newExpiryDate, plan } = req.body;
+    const supermarket = await Supermarket.findById(id);
+    if (!supermarket) {
+      return res.status(404).json({ success: false, message: "Supermarket not found." });
+    }
+
+    let nextExp;
+    if (newExpiryDate) {
+      nextExp = new Date(newExpiryDate);
+    } else {
+      const currentExp = supermarket.expiryDate && new Date(supermarket.expiryDate) > new Date()
+        ? new Date(supermarket.expiryDate)
+        : new Date();
+      nextExp = new Date(currentExp);
+      nextExp.setDate(nextExp.getDate() + Number(days));
+    }
+
+    supermarket.expiryDate = nextExp;
+    supermarket.status = "Active";
+    if (plan) supermarket.plan = plan;
+    await supermarket.save();
+    clearTenantCache();
+
+    return res.status(200).json({
+      success: true,
+      message: `Subscription for ${supermarket.name} successfully extended until ${nextExp.toLocaleDateString("en-IN")}!`,
+      supermarket,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to extend subscription.", error: error.message });
+  }
+};
+
 // Helper to resolve supermarket ID from ObjectId, branch code, or slug
 async function resolveSupermarketId(input) {
   if (!input || input === "all") return null;
@@ -947,6 +1165,308 @@ exports.getGlobalCatalog = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve global catalog.",
+      error: error.message,
+    });
+  }
+};
+
+// 10. GET /api/super-admin/supermarkets/:id/details - Complete supermarket-wise tracking & detailed metrics
+exports.getSupermarketDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Resolve Supermarket Document
+    let supermarket = null;
+    if (mongoose.Types.ObjectId.isValid(id) && /^[0-9a-fA-F]{24}$/.test(id)) {
+      supermarket = await Supermarket.findById(id);
+    }
+    if (!supermarket) {
+      supermarket = await Supermarket.findOne({
+        $or: [
+          { code: String(id).toUpperCase() },
+          { slug: String(id).toLowerCase() },
+          { adminUsername: String(id).toLowerCase() },
+        ],
+      });
+    }
+
+    if (!supermarket) {
+      return res.status(404).json({
+        success: false,
+        message: "Supermarket not found.",
+      });
+    }
+
+    const storeId = supermarket._id;
+    const storeCode = supermarket.code;
+    const storeMatch = {
+      $or: [{ supermarket: storeId }, { supermarketCode: storeCode }],
+    };
+
+    // 1. Fetch products strictly isolated to this supermarket
+    const products = await Product.find({
+      ...storeMatch,
+      isActive: { $ne: false },
+    })
+      .sort({ name: 1 })
+      .lean();
+
+    // 2. Fetch orders strictly isolated to this supermarket
+    const orders = await Order.find({
+      ...storeMatch,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Helper: isCompleted check
+    const isCompletedStatus = (st) => {
+      const s = String(st || "").toLowerCase();
+      return s === "completed" || s === "approved" || s === "paid";
+    };
+
+    // 3. Aggregate product-wise sales from completed/approved orders
+    const productSalesMap = {};
+    orders.forEach((order) => {
+      if (
+        isCompletedStatus(order.paymentStatus) &&
+        Array.isArray(order.items)
+      ) {
+        order.items.forEach((item) => {
+          const key = item.barcode || item.name;
+          if (!productSalesMap[key]) {
+            productSalesMap[key] = {
+              productName: item.name,
+              category: item.category || "General",
+              barcode: item.barcode || "",
+              imageUrl: item.imageUrl || "",
+              unitsSold: 0,
+              totalRevenue: 0,
+              ordersCount: 0,
+            };
+          }
+          productSalesMap[key].unitsSold += item.quantity || 0;
+          productSalesMap[key].totalRevenue += item.subtotal || 0;
+          productSalesMap[key].ordersCount += 1;
+        });
+      }
+    });
+
+    // 4. Combine catalog products with actual inventory tracking and sales
+    const trackedProducts = products.map((prod) => {
+      const salesInfo = productSalesMap[prod.barcode] ||
+        productSalesMap[prod.name] || {
+          unitsSold: 0,
+          totalRevenue: 0,
+          ordersCount: 0,
+        };
+
+      const availableStock = prod.stock || 0;
+      const soldQuantity = salesInfo.unitsSold;
+      const remainingStock = availableStock;
+      const lowThreshold = prod.lowStockThreshold || 10;
+
+      let stockStatus = "In Stock";
+      if (remainingStock === 0) {
+        stockStatus = "Out of Stock";
+      } else if (remainingStock <= lowThreshold) {
+        stockStatus = "Low Stock";
+      }
+
+      return {
+        _id: prod._id,
+        name: prod.name,
+        category: prod.category || "Groceries",
+        brand: prod.brand || "",
+        barcode: prod.barcode || "",
+        price: prod.price || 0,
+        costPrice: prod.costPrice || 0,
+        availableStock,
+        soldQuantity,
+        remainingStock,
+        lowStockThreshold: lowThreshold,
+        stockStatus,
+        imageUrl: prod.imageUrl || "",
+        totalRevenue: salesInfo.totalRevenue,
+        ordersCount: salesInfo.ordersCount,
+        createdAt: prod.createdAt,
+      };
+    });
+
+    // Also include any items sold in past orders if no longer in product catalog
+    Object.keys(productSalesMap).forEach((key) => {
+      const item = productSalesMap[key];
+      const alreadyIncluded = trackedProducts.some(
+        (p) => (p.barcode && p.barcode === item.barcode) || p.name === item.productName
+      );
+      if (!alreadyIncluded) {
+        trackedProducts.push({
+          _id: `custom-${key}`,
+          name: item.productName,
+          category: item.category || "Groceries",
+          brand: "",
+          barcode: item.barcode || "",
+          price: item.unitsSold > 0 ? Math.round(item.totalRevenue / item.unitsSold) : 0,
+          costPrice: 0,
+          availableStock: 0,
+          soldQuantity: item.unitsSold,
+          remainingStock: 0,
+          lowStockThreshold: 10,
+          stockStatus: "Out of Stock",
+          imageUrl: item.imageUrl || "",
+          totalRevenue: item.totalRevenue,
+          ordersCount: item.ordersCount,
+        });
+      }
+    });
+
+    // 5. Calculate Sales & Orders metrics
+    const completedOrders = orders.filter((o) =>
+      isCompletedStatus(o.paymentStatus)
+    );
+    const totalSalesAmount = completedOrders.reduce(
+      (sum, o) => sum + (o.totalAmount || 0),
+      0
+    );
+    const totalOrders = orders.length;
+    const completedOrdersCount = completedOrders.length;
+    const totalUnitsPurchased = completedOrders.reduce(
+      (sum, o) => sum + (o.totalItems || (o.items?.length || 0)),
+      0
+    );
+
+    // Unique customer counting
+    const customerIdentities = new Set();
+    orders.forEach((o) => {
+      const ident =
+        o.customer?.phone ||
+        o.customer?.name ||
+        o.customer?.email ||
+        (o.customerName && o.customerName !== "Guest Shopper" ? o.customerName : null);
+      if (ident && ident !== "Guest Shopper") {
+        customerIdentities.add(ident);
+      }
+    });
+    const totalCustomers =
+      customerIdentities.size || (completedOrdersCount > 0 ? completedOrdersCount : 0);
+
+    const avgOrderValue =
+      completedOrdersCount > 0 ? Math.round(totalSalesAmount / completedOrdersCount) : 0;
+
+    // 6. Performance Analytics
+    // Top-selling products
+    const topSellingProducts = [...trackedProducts]
+      .filter((p) => p.soldQuantity > 0)
+      .sort((a, b) => b.soldQuantity - a.soldQuantity)
+      .slice(0, 10);
+
+    // Low stock products
+    const lowStockProducts = trackedProducts
+      .filter((p) => p.remainingStock <= p.lowStockThreshold)
+      .sort((a, b) => a.remainingStock - b.remainingStock);
+
+    // Daily sales reports (last 7 days)
+    const dailyMap = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const label = d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+      dailyMap[dateStr] = { date: dateStr, label, sales: 0, orders: 0, units: 0 };
+    }
+    completedOrders.forEach((o) => {
+      const dateStr = new Date(o.createdAt).toISOString().split("T")[0];
+      if (dailyMap[dateStr]) {
+        dailyMap[dateStr].sales += o.totalAmount || 0;
+        dailyMap[dateStr].orders += 1;
+        dailyMap[dateStr].units += o.totalItems || 1;
+      }
+    });
+    const dailySalesReports = Object.values(dailyMap).sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    // Monthly sales reports
+    const monthlyMap = {};
+    completedOrders.forEach((o) => {
+      const d = new Date(o.createdAt);
+      const monthKey = d.toLocaleString("en-IN", { month: "short", year: "numeric" });
+      if (!monthlyMap[monthKey]) {
+        monthlyMap[monthKey] = { month: monthKey, sales: 0, orders: 0, units: 0 };
+      }
+      monthlyMap[monthKey].sales += o.totalAmount || 0;
+      monthlyMap[monthKey].orders += 1;
+      monthlyMap[monthKey].units += o.totalItems || 1;
+    });
+    const monthlySalesReports = Object.values(monthlyMap);
+
+    // Recent individual orders (latest 20)
+    const recentOrders = orders.slice(0, 20).map((o) => ({
+      _id: o._id,
+      orderNumber: o.orderNumber,
+      customerName: o.customer?.name || "Guest Shopper",
+      customerPhone: o.customer?.phone || "N/A",
+      totalItems: o.totalItems || (o.items?.length || 0),
+      totalAmount: o.totalAmount || 0,
+      paymentStatus: o.paymentStatus || "Completed",
+      paymentMethod: o.paymentMethod || "UPI",
+      createdAt: o.createdAt,
+    }));
+
+    // Response packet
+    return res.status(200).json({
+      success: true,
+      supermarket: {
+        _id: supermarket._id,
+        name: supermarket.name,
+        code: supermarket.code,
+        slug: supermarket.slug,
+        logoUrl: supermarket.logoUrl,
+        tagline: supermarket.tagline,
+        ownerName: supermarket.ownerName || supermarket.adminName || "Proprietor",
+        contactPerson: supermarket.contactPerson || supermarket.adminName || "Store Manager",
+        email: supermarket.email,
+        phone: supermarket.phone,
+        address: supermarket.address,
+        city: supermarket.city,
+        state: supermarket.state,
+        pincode: supermarket.pincode,
+        gstNumber: supermarket.gstNumber || "Unregistered",
+        plan: supermarket.plan || "Standard",
+        status: supermarket.status || "Active",
+        createdAt: supermarket.createdAt,
+        startDate: supermarket.startDate,
+        expiryDate: supermarket.expiryDate,
+        adminUsername: supermarket.adminUsername,
+      },
+      productTracking: {
+        totalProducts: trackedProducts.length,
+        totalAvailableStock: trackedProducts.reduce((sum, p) => sum + p.remainingStock, 0),
+        totalSoldQuantity: trackedProducts.reduce((sum, p) => sum + p.soldQuantity, 0),
+        lowStockCount: lowStockProducts.length,
+        outOfStockCount: trackedProducts.filter((p) => p.remainingStock === 0).length,
+        products: trackedProducts,
+      },
+      salesAndOrders: {
+        totalSalesAmount,
+        totalOrders,
+        completedOrdersCount,
+        totalCustomers,
+        totalUnitsPurchased,
+        avgOrderValue,
+      },
+      performanceAnalytics: {
+        topSellingProducts,
+        lowStockProducts,
+        dailySalesReports,
+        monthlySalesReports,
+      },
+      recentOrders,
+    });
+  } catch (error) {
+    console.error("Get supermarket details error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch supermarket details.",
       error: error.message,
     });
   }

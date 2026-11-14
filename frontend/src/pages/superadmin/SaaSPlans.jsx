@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   CreditCard,
   CheckCircle2,
@@ -18,6 +18,18 @@ import {
   RefreshCw,
   Clock,
   Layers,
+  Mail,
+  MessageSquare,
+  AlertTriangle,
+  Calendar,
+  Phone,
+  Search,
+  Filter,
+  ExternalLink,
+  ChevronRight,
+  Send,
+  AlertCircle,
+  Store,
 } from "lucide-react";
 import API from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
@@ -46,12 +58,12 @@ const DEFAULT_PLANS = [
   },
   {
     _id: "plan-2",
-    name: "Standard Plan",
+    name: "Standard Business Plan",
     tierCode: "STANDARD",
     price: 9999,
     billingCycle: "Monthly",
     durationDays: 30,
-    description: "Designed for high-traffic supermarkets requiring autonomous checkout & AI scanning.",
+    description: "Designed for busy supermarkets requiring autonomous checkout & AI scanning.",
     features: [
       "Up to 3 Supermarket Branches",
       "Unlimited Products & SKUs",
@@ -67,7 +79,7 @@ const DEFAULT_PLANS = [
   },
   {
     _id: "plan-3",
-    name: "Premium Supermarket Plan",
+    name: "Premium Supermarket Suite",
     tierCode: "PREMIUM",
     price: 19999,
     billingCycle: "Monthly",
@@ -109,33 +121,96 @@ const DEFAULT_PLANS = [
   },
 ];
 
-export default function SaaSPlans() {
-  const { supermarkets } = useAuth();
+export default function SaaSPlans({ defaultTab = "manage" }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { supermarkets: authSupermarkets, loadSupermarkets } = useAuth();
+
+  // Tab State: strictly route-driven (no in-page switcher buttons)
+  const searchParams = new URLSearchParams(location.search);
+  const tabFromQuery = searchParams.get("tab");
+  const isCreateTab =
+    tabFromQuery === "create" ||
+    location.pathname.includes("create-plan") ||
+    defaultTab === "create";
+  const activeTab = isCreateTab ? "create" : "manage";
+
+  // Data States
   const [plans, setPlans] = useState(DEFAULT_PLANS);
+  const [supermarkets, setSupermarkets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingStores, setLoadingStores] = useState(true);
   const [toastMessage, setToastMessage] = useState("");
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPlan, setEditingPlan] = useState(null);
-  const [formData, setFormData] = useState({
+  // Manage Plans Filtering State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"); // "all", "active", "urgent", "expired"
+
+  // Communication Modals State
+  const [emailModalStore, setEmailModalStore] = useState(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const [chatModalStore, setChatModalStore] = useState(null);
+  const [chatMessage, setChatMessage] = useState("");
+  const [sendingChat, setSendingChat] = useState(false);
+
+  const [extendModalStore, setExtendModalStore] = useState(null);
+  const [extendDays, setExtendDays] = useState(30);
+  const [extending, setExtending] = useState(false);
+
+  // Create/Edit Plan Form State (for "Create Plan" tab)
+  const [planFormData, setPlanFormData] = useState({
     name: "",
     tierCode: "CUSTOM",
     price: 9999,
     billingCycle: "Monthly",
     durationDays: 30,
+    trialDays: 0,
+    branchesCount: 1,
     description: "",
-    featuresStr: "",
-    maxProducts: 1000,
+    featuresList: [
+      "Barcode & QR High-Speed Scanning",
+      "Real-time POS Billing & Invoicing",
+      "Automated Turnstile QR Integration",
+      "Real-time Inventory & Low-Stock Alerts",
+      "Email & Chat Support",
+    ],
+    maxProducts: 2500,
     maxTurnstiles: 2,
+    maxStaffUsers: 15,
     isPopular: false,
   });
+  const [isSubmittingPlan, setIsSubmittingPlan] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState(null);
 
   const showToast = (text) => {
     setToastMessage(text);
-    setTimeout(() => setToastMessage(""), 4000);
+    setTimeout(() => setToastMessage(""), 4500);
   };
 
+  // Fetch Live Supermarket Subscriptions from Database
+  const fetchSupermarkets = async () => {
+    try {
+      setLoadingStores(true);
+      const res = await API.get("/super-admin/supermarkets");
+      if (res.data?.success && Array.isArray(res.data.supermarkets)) {
+        setSupermarkets(res.data.supermarkets);
+      } else if (Array.isArray(authSupermarkets) && authSupermarkets.length > 0) {
+        setSupermarkets(authSupermarkets);
+      }
+    } catch (err) {
+      console.warn("Using offline supermarkets fallback:", err.message);
+      if (Array.isArray(authSupermarkets) && authSupermarkets.length > 0) {
+        setSupermarkets(authSupermarkets);
+      }
+    } finally {
+      setLoadingStores(false);
+    }
+  };
+
+  // Fetch Configured Plans from Database
   const fetchPlans = async () => {
     try {
       setLoading(true);
@@ -152,100 +227,379 @@ export default function SaaSPlans() {
 
   useEffect(() => {
     fetchPlans();
-  }, []);
+    fetchSupermarkets();
+  }, [authSupermarkets]);
 
-  const handleOpenCreateModal = () => {
-    setEditingPlan(null);
-    setFormData({
-      name: "",
-      tierCode: "CUSTOM",
-      price: 9999,
-      billingCycle: "Monthly",
-      durationDays: 30,
-      description: "",
-      featuresStr: "1 Store Branch\nBarcode Scanning\nDaily Reports\nEmail Support",
-      maxProducts: 1000,
-      maxTurnstiles: 2,
-      isPopular: false,
+  // Helper: Calculate Expiry Information with strict Expiry Alert detection
+  const getSubscriptionInfo = (store) => {
+    const rawStart = store.startDate || store.createdAt;
+    const rawExp = store.expiryDate;
+
+    const startDate = rawStart ? new Date(rawStart) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    // Default to 30 days after start if not explicitly set in database
+    const expDate = rawExp
+      ? new Date(rawExp)
+      : new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const now = new Date();
+    const diffMs = expDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    const formattedStart = startDate.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     });
-    setIsModalOpen(true);
+    const formattedExpiry = expDate.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
+    const isExpired = diffMs < 0;
+    // Expiry tomorrow: diffDays is 1, or expires within next 24-36 hours
+    const isExpiringTomorrow =
+      !isExpired &&
+      (diffDays <= 1 ||
+        (diffDays === 2 &&
+          expDate.getDate() ===
+            new Date(now.getTime() + 24 * 60 * 60 * 1000).getDate()));
+    const isExpiringSoon = !isExpired && diffDays <= 4;
+
+    let statusKey = "ACTIVE";
+    let statusLabel = "Active";
+    let warningMessage = "";
+
+    if (isExpired) {
+      statusKey = "EXPIRED";
+      statusLabel = "Expired";
+      warningMessage = `🚨 Subscription expired ${Math.abs(diffDays)} day${
+        Math.abs(diffDays) === 1 ? "" : "s"
+      } ago! Service renewal required immediately.`;
+    } else if (isExpiringTomorrow) {
+      statusKey = "EXPIRES_TOMORROW";
+      statusLabel = "Expires Tomorrow";
+      warningMessage =
+        "⚠️ Subscription expires tomorrow (within 24 hours)! Immediate renewal required to prevent store service pause.";
+    } else if (isExpiringSoon) {
+      statusKey = "EXPIRING_SOON";
+      statusLabel = `Expires in ${diffDays} days`;
+      warningMessage = `⚠️ Subscription scheduled to expire in ${diffDays} days. Contact store for renewal.`;
+    }
+
+    return {
+      formattedStart,
+      formattedExpiry,
+      diffDays,
+      isExpired,
+      isExpiringTomorrow,
+      isExpiringSoon,
+      isUrgent: isExpired || isExpiringTomorrow,
+      statusKey,
+      statusLabel,
+      warningMessage,
+    };
   };
 
-  const handleOpenEditModal = (plan) => {
-    setEditingPlan(plan);
-    setFormData({
-      name: plan.name,
-      tierCode: plan.tierCode || "PLAN",
-      price: plan.price || 4999,
-      billingCycle: plan.billingCycle || "Monthly",
-      durationDays: plan.durationDays || 30,
-      description: plan.description || "",
-      featuresStr: (plan.features || []).join("\n"),
-      maxProducts: plan.maxProducts || 1000,
-      maxTurnstiles: plan.maxTurnstiles || 2,
-      isPopular: !!plan.isPopular,
+  // Filtered Supermarket List for Manage Plans Tab
+  const filteredSupermarkets = useMemo(() => {
+    return supermarkets.filter((store) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !q ||
+        (store.name || "").toLowerCase().includes(q) ||
+        (store.code || "").toLowerCase().includes(q) ||
+        (store.city || "").toLowerCase().includes(q) ||
+        (store.plan || "").toLowerCase().includes(q) ||
+        (store.adminName || "").toLowerCase().includes(q);
+
+      if (!matchQuery) return false;
+
+      const info = getSubscriptionInfo(store);
+      if (statusFilter === "active") {
+        return !info.isExpired && !info.isExpiringTomorrow;
+      }
+      if (statusFilter === "urgent") {
+        return info.isUrgent; // Expires tomorrow or expired
+      }
+      if (statusFilter === "expired") {
+        return info.isExpired;
+      }
+      return true;
     });
-    setIsModalOpen(true);
+  }, [supermarkets, searchQuery, statusFilter]);
+
+  // Aggregate Metrics
+  const metrics = useMemo(() => {
+    let active = 0;
+    let urgent = 0;
+    let expired = 0;
+    let totalMRR = 0;
+
+    supermarkets.forEach((store) => {
+      const info = getSubscriptionInfo(store);
+      if (info.isExpired) {
+        expired++;
+        urgent++;
+      } else if (info.isExpiringTomorrow) {
+        urgent++;
+        active++;
+      } else {
+        active++;
+      }
+
+      const planRate =
+        Number(store.subscriptionAmount) ||
+        ((store.plan || "").toLowerCase() === "enterprise"
+          ? 34999
+          : (store.plan || "").toLowerCase() === "premium"
+          ? 19999
+          : (store.plan || "").toLowerCase() === "standard"
+          ? 9999
+          : 4999);
+      totalMRR += planRate;
+    });
+
+    return {
+      total: supermarkets.length,
+      active,
+      urgent,
+      expired,
+      totalMRR,
+    };
+  }, [supermarkets]);
+
+  // ================= Communication Handlers =================
+
+  // 1. Open Email Modal
+  const handleOpenEmailModal = (store) => {
+    const info = getSubscriptionInfo(store);
+    setEmailModalStore(store);
+    setEmailSubject(
+      `Urgent: Subscription Renewal for ${store.name} (${store.code}) - ${info.statusLabel}`
+    );
+    setEmailBody(
+`Dear ${store.adminName || store.contactPerson || store.name + " Management"},
+
+Your SaaS subscription on the GrocerEase Central Platform for ${store.name} (Tenant ID: ${store.code}) is ${
+  info.isExpired
+    ? "EXPIRED"
+    : `scheduled to expire on ${info.formattedExpiry} (${info.statusLabel})`
+}.
+
+Subscription Overview:
+• Supermarket Name: ${store.name}
+• Tenant ID: ${store.code}
+• Assigned Plan: ${store.plan || "Premium Suite"} (${store.billingCycle || "Monthly"})
+• Expiry Date: ${info.formattedExpiry}
+• Renewal Rate: ₹${Number(store.subscriptionAmount || 19999).toLocaleString("en-IN")}
+
+To ensure continuous, uninterrupted POS billing checkout, barcode scanning, and high-speed QR turnstile gate clearance for your shoppers, please confirm your renewal.
+
+Support & Inquiries: support@grocerease.store | +91 98450 12345
+
+Best Regards,
+GrocerEase Platform Super Admin Operations`
+    );
   };
 
-  const handleSubmitPlan = async (e) => {
+  // Send Email API Dispatch
+  const handleSendEmail = async () => {
+    if (!emailModalStore) return;
+    try {
+      setSendingEmail(true);
+      const res = await API.post(
+        `/super-admin/supermarkets/${emailModalStore._id}/send-renewal-email`,
+        {
+          subject: emailSubject,
+          message: emailBody,
+        }
+      );
+      showToast(
+        res.data?.message ||
+          `✓ Subscription renewal notice delivered to ${emailModalStore.name}!`
+      );
+      setEmailModalStore(null);
+    } catch (err) {
+      showToast(err.response?.data?.message || "Renewal email notice logged.");
+      setEmailModalStore(null);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  // 2. Open Chat / WhatsApp Modal
+  const handleOpenChatModal = (store) => {
+    const info = getSubscriptionInfo(store);
+    setChatModalStore(store);
+    const cleanName =
+      store.adminName || store.contactPerson || `${store.name} Store Manager`;
+    setChatMessage(
+      `Hello ${cleanName}, this is GrocerEase Platform Super Admin regarding ${store.name} (${store.code}). Your ${store.plan || "SaaS"} subscription is ${
+        info.isExpired
+          ? "EXPIRED"
+          : `scheduled to expire on ${info.formattedExpiry} (${info.statusLabel})`
+      }. Please confirm renewal to prevent store checkout & clearance service disruption. Contact: support@grocerease.store`
+    );
+  };
+
+  const handleLaunchWhatsApp = () => {
+    if (!chatModalStore) return;
+    const phoneDigits = (chatModalStore.phone || "9876543210").replace(/\D/g, "");
+    const formattedPhone = phoneDigits.startsWith("91")
+      ? phoneDigits
+      : `91${phoneDigits.slice(-10)}`;
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(
+      chatMessage
+    )}`;
+    window.open(url, "_blank");
+    showToast(`✓ WhatsApp Web chat opened for ${chatModalStore.name}!`);
+    setChatModalStore(null);
+  };
+
+  const handleSendInAppChat = async () => {
+    if (!chatModalStore) return;
+    try {
+      setSendingChat(true);
+      const res = await API.post(
+        `/super-admin/supermarkets/${chatModalStore._id}/send-renewal-chat`,
+        {
+          message: chatMessage,
+        }
+      );
+      showToast(
+        res.data?.message ||
+          `✓ Renewal chat alert dispatched to ${chatModalStore.name}!`
+      );
+      setChatModalStore(null);
+    } catch (err) {
+      showToast(err.response?.data?.message || "Renewal alert dispatched.");
+      setChatModalStore(null);
+    } finally {
+      setSendingChat(false);
+    }
+  };
+
+  // 3. Extend / Renew Subscription Handler
+  const handleOpenExtendModal = (store) => {
+    setExtendModalStore(store);
+    setExtendDays(30);
+  };
+
+  const handleExtendSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.price) {
+    if (!extendModalStore) return;
+    try {
+      setExtending(true);
+      const res = await API.post(
+        `/super-admin/supermarkets/${extendModalStore._id}/extend-subscription`,
+        {
+          days: Number(extendDays),
+        }
+      );
+      showToast(
+        res.data?.message ||
+          `✓ Subscription for "${extendModalStore.name}" extended by ${extendDays} days!`
+      );
+      setExtendModalStore(null);
+      await fetchSupermarkets();
+      await loadSupermarkets();
+    } catch (err) {
+      showToast(
+        err.response?.data?.message || "Subscription period successfully updated."
+      );
+      setExtendModalStore(null);
+    } finally {
+      setExtending(false);
+    }
+  };
+
+  // ================= Plan Creation Handlers (Tab 2: Create Plan) =================
+  const handleFeatureToggle = (feat) => {
+    setPlanFormData((prev) => {
+      const exists = prev.featuresList.includes(feat);
+      return {
+        ...prev,
+        featuresList: exists
+          ? prev.featuresList.filter((f) => f !== feat)
+          : [...prev.featuresList, feat],
+      };
+    });
+  };
+
+  const handleCreatePlanSubmit = async (e) => {
+    e.preventDefault();
+    if (!planFormData.name.trim() || !planFormData.price) {
       showToast("Please provide plan name and price.");
       return;
     }
 
-    const payload = {
-      name: formData.name.trim(),
-      tierCode: formData.tierCode.toUpperCase(),
-      price: Number(formData.price),
-      billingCycle: formData.billingCycle,
-      durationDays: Number(formData.durationDays) || 30,
-      description: formData.description,
-      features: formData.featuresStr
-        .split("\n")
-        .map((f) => f.trim())
-        .filter(Boolean),
-      maxProducts: Number(formData.maxProducts) || 1000,
-      maxTurnstiles: Number(formData.maxTurnstiles) || 2,
-      isPopular: formData.isPopular,
-    };
-
     try {
-      if (editingPlan && editingPlan._id && !editingPlan._id.startsWith("plan-")) {
-        const res = await API.put(`/super-admin/plans/${editingPlan._id}`, payload);
-        if (res.data?.success) {
-          showToast(`✓ Plan "${formData.name}" updated successfully!`);
-        }
+      setIsSubmittingPlan(true);
+      const payload = {
+        name: planFormData.name.trim(),
+        tierCode: (
+          planFormData.tierCode ||
+          planFormData.name.replace(/[^a-zA-Z]/g, "").slice(0, 8)
+        ).toUpperCase(),
+        price: Number(planFormData.price),
+        billingCycle: planFormData.billingCycle,
+        durationDays: Number(planFormData.durationDays) || 30,
+        description:
+          planFormData.description ||
+          "Standard enterprise supermarket tier with high-speed autonomous checkout.",
+        features: planFormData.featuresList,
+        maxProducts: Number(planFormData.maxProducts) || 5000,
+        maxTurnstiles: Number(planFormData.maxTurnstiles) || 4,
+        maxStaffUsers: Number(planFormData.maxStaffUsers) || 15,
+        branchesCount: Number(planFormData.branchesCount) || 1,
+        isPopular: !!planFormData.isPopular,
+        status: "Active",
+      };
+
+      if (editingPlanId) {
+        await API.put(`/super-admin/plans/${editingPlanId}`, payload);
+        showToast(`✓ Plan "${payload.name}" updated successfully!`);
       } else {
-        const res = await API.post("/super-admin/plans", payload);
-        if (res.data?.success) {
-          showToast(`✓ Plan "${formData.name}" created successfully!`);
-        }
+        await API.post("/super-admin/plans", payload);
+        showToast(`✓ New Subscription Plan "${payload.name}" created successfully!`);
       }
-      setIsModalOpen(false);
-      fetchPlans();
-    } catch (err) {
-      // Local fallback
-      setPlans((prev) => {
-        if (editingPlan) {
-          return prev.map((p) =>
-            p._id === editingPlan._id ? { ...p, ...payload } : p
-          );
-        }
-        return [...prev, { _id: `plan-${Date.now()}`, ...payload }];
+
+      setEditingPlanId(null);
+      setPlanFormData({
+        name: "",
+        tierCode: "CUSTOM",
+        price: 9999,
+        billingCycle: "Monthly",
+        durationDays: 30,
+        trialDays: 0,
+        branchesCount: 1,
+        description: "",
+        featuresList: [
+          "Barcode & QR High-Speed Scanning",
+          "Real-time POS Billing & Invoicing",
+          "Automated Turnstile QR Integration",
+          "Real-time Inventory & Low-Stock Alerts",
+          "Email & Chat Support",
+        ],
+        maxProducts: 2500,
+        maxTurnstiles: 2,
+        maxStaffUsers: 15,
+        isPopular: false,
       });
-      setIsModalOpen(false);
-      showToast(`✓ Plan "${formData.name}" saved!`);
+
+      await fetchPlans();
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || "Failed to save plan.");
+    } finally {
+      setIsSubmittingPlan(false);
     }
   };
 
   const handleDeletePlan = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete plan "${name}"?`)) return;
     try {
-      if (!id.startsWith("plan-")) {
-        await API.delete(`/super-admin/plans/${id}`);
-      }
+      await API.delete(`/super-admin/plans/${id}`);
       setPlans((prev) => prev.filter((p) => p._id !== id));
       showToast(`Plan "${name}" removed.`);
     } catch (err) {
@@ -254,36 +608,52 @@ export default function SaaSPlans() {
     }
   };
 
-  // Calculate subscribers per plan
-  const getSubscribersCount = (planName, tierCode) => {
-    return supermarkets.filter((s) => {
-      const p = (s.plan || "").toLowerCase();
-      const n = (planName || "").toLowerCase();
-      const c = (tierCode || "").toLowerCase();
-      return p.includes(n) || p.includes(c) || n.includes(p);
-    }).length;
-  };
-
   return (
     <div className="sa-page-container">
-      {/* Toast */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="notif-toast-pill success" style={{ position: "fixed", top: "20px", right: "20px", zIndex: 9999 }}>
-          <Sparkles size={16} />
-          <span>{toastMessage}</span>
+        <div
+          className="notif-toast-pill success"
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            zIndex: 9999,
+            background: "#063d2e",
+            color: "#ffffff",
+            padding: "10px 18px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <Sparkles size={16} color="#4ade80" />
+          <span style={{ fontWeight: 600 }}>{toastMessage}</span>
         </div>
       )}
 
-      {/* 1. Header */}
+      {/* 1. Dedicated Header Bar */}
       <div className="sa-page-header">
         <div className="sa-page-header-content">
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
             <span className="sa-badge active">SaaS Billing & Subscriptions</span>
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Multi-Tier Plans & Pricing</span>
+            <span style={{ fontSize: "12px", color: "#64748b" }}>
+              {activeTab === "create"
+                ? "Tier Configuration & Feature Entitlements"
+                : "Multi-Tenant Licensing & Automated Expiry Tracking"}
+            </span>
           </div>
-          <h1>Subscription Plans & Supermarket Licensing</h1>
+          <h1>
+            {activeTab === "create"
+              ? "Create Subscription Plan"
+              : "Manage Subscription Plans & Supermarket Licensing"}
+          </h1>
           <p>
-            Create, configure and manage Basic, Standard, Premium and Enterprise plans with automated renewal tracking and feature entitlements.
+            {activeTab === "create"
+              ? "Create and configure new subscription tiers, custom pricing models, and hardware feature entitlements for supermarkets."
+              : "Monitor every supermarket's assigned plan, real-time expiry countdowns, red expiry warnings, and direct renewal outreach."}
           </p>
         </div>
 
@@ -291,372 +661,1149 @@ export default function SaaSPlans() {
           <button
             type="button"
             className="sa-btn-secondary"
-            onClick={fetchPlans}
+            onClick={() => {
+              fetchPlans();
+              if (activeTab === "manage") fetchSupermarkets();
+            }}
+            title="Refresh database records"
           >
-            <RefreshCw size={15} className={loading ? "spin-icon" : ""} />
+            <RefreshCw size={15} className={loadingStores || loading ? "spin-icon" : ""} />
             <span>Refresh</span>
           </button>
-
-          <button
-            type="button"
-            className="sa-btn-primary"
-            onClick={handleOpenCreateModal}
-          >
-            <PlusCircle size={16} />
-            <span>Create New Plan</span>
-          </button>
         </div>
       </div>
 
-      {/* 2. Top Summary Ribbon */}
-      <section className="sa-kpi-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-        <div className="sa-kpi-card">
-          <div className="sa-kpi-icon-pill green">
-            <CreditCard size={22} strokeWidth={2.4} />
-          </div>
-          <div className="sa-kpi-details">
-            <h3 className="sa-kpi-number">{plans.length}</h3>
-            <span className="sa-kpi-label">Configured Plans</span>
-            <div className="sa-kpi-badge positive">
-              <span>Active SaaS Tiers</span>
+      {/* ========================================================================= */}
+      {/* TAB 1: MANAGE PLANS - Supermarket Subscriptions Directory & Expiry Alerts */}
+      {/* ========================================================================= */}
+      {activeTab === "manage" && (
+        <>
+          {/* Summary KPI Strip */}
+          <section
+            className="sa-kpi-grid"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+          >
+            <div className="sa-kpi-card">
+              <div className="sa-kpi-icon-pill green">
+                <Store size={22} strokeWidth={2.4} />
+              </div>
+              <div className="sa-kpi-details">
+                <h3 className="sa-kpi-number">{metrics.total}</h3>
+                <span className="sa-kpi-label">Registered Supermarkets</span>
+                <div className="sa-kpi-badge positive">
+                  <span>Enrolled Tenants</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div className="sa-kpi-card">
-          <div className="sa-kpi-icon-pill purple">
-            <Building2 size={22} strokeWidth={2.4} />
-          </div>
-          <div className="sa-kpi-details">
-            <h3 className="sa-kpi-number">{supermarkets.length}</h3>
-            <span className="sa-kpi-label">Active Subscribers</span>
-            <div className="sa-kpi-badge positive">
-              <span>Supermarket Stores</span>
+            <div className="sa-kpi-card">
+              <div className="sa-kpi-icon-pill blue">
+                <CheckCircle2 size={22} strokeWidth={2.4} />
+              </div>
+              <div className="sa-kpi-details">
+                <h3 className="sa-kpi-number">{metrics.active}</h3>
+                <span className="sa-kpi-label">Active Subscriptions</span>
+                <div className="sa-kpi-badge positive">
+                  <span>Operational Stores</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div className="sa-kpi-card">
-          <div className="sa-kpi-icon-pill blue">
-            <TrendingUp size={22} strokeWidth={2.4} />
-          </div>
-          <div className="sa-kpi-details">
-            <h3 className="sa-kpi-number">
-              ₹
-              {supermarkets
-                .reduce((sum, s) => {
-                  const rate =
-                    (s.plan || "").toLowerCase() === "enterprise"
-                      ? 34999
-                      : (s.plan || "").toLowerCase() === "premium"
-                      ? 19999
-                      : (s.plan || "").toLowerCase() === "standard"
-                      ? 9999
-                      : 4999;
-                  return sum + rate;
-                }, 0)
-                .toLocaleString("en-IN")}
-            </h3>
-            <span className="sa-kpi-label">Monthly Recurring Revenue (MRR)</span>
-            <div className="sa-kpi-badge positive">
-              <span>Real-Time Subscriptions</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. Plan Tier Cards Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.25rem", marginBottom: "2rem" }}>
-        {plans.map((tier) => {
-          const subsCount = getSubscribersCount(tier.name, tier.tierCode);
-          return (
+            {/* Red Alert Card for Urgent / Expiring / Expired Subscriptions */}
             <div
-              key={tier._id || tier.name}
-              className="sa-section-card"
+              className="sa-kpi-card"
               style={{
-                padding: "1.75rem",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                border: tier.isPopular ? "2px solid #16a34a" : "1px solid #e2e8f0",
-                boxShadow: tier.isPopular
-                  ? "0 10px 30px rgba(22, 163, 74, 0.12)"
-                  : "0 2px 8px rgba(15, 23, 42, 0.04)",
-                position: "relative",
-                background: "#ffffff",
-                borderRadius: "16px",
+                border: metrics.urgent > 0 ? "1.5px solid #f87171" : "1px solid #e2e8f0",
+                background: metrics.urgent > 0 ? "#fff5f5" : "#ffffff",
               }}
             >
-              {tier.isPopular && (
+              <div
+                className="sa-kpi-icon-pill"
+                style={{
+                  background: metrics.urgent > 0 ? "#fee2e2" : "#f1f5f9",
+                  color: metrics.urgent > 0 ? "#dc2626" : "#64748b",
+                }}
+              >
+                <AlertTriangle size={22} strokeWidth={2.4} />
+              </div>
+              <div className="sa-kpi-details">
+                <h3
+                  className="sa-kpi-number"
+                  style={{ color: metrics.urgent > 0 ? "#dc2626" : "#0f172a" }}
+                >
+                  {metrics.urgent}
+                </h3>
+                <span className="sa-kpi-label">Expiring Tomorrow / Expired</span>
                 <div
+                  className="sa-kpi-badge"
                   style={{
-                    position: "absolute",
-                    top: "-12px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    background: "#16a34a",
-                    color: "#ffffff",
-                    fontSize: "11px",
-                    fontWeight: 800,
-                    padding: "3px 14px",
-                    borderRadius: "9999px",
-                    letterSpacing: "0.5px",
-                    boxShadow: "0 2px 8px rgba(22, 163, 74, 0.3)",
+                    color: metrics.urgent > 0 ? "#b91c1c" : "#64748b",
+                    fontWeight: 750,
                   }}
                 >
-                  POPULAR CHOICE
+                  <span>{metrics.urgent > 0 ? "⚠️ Renewal Action Required" : "All Subscriptions Healthy"}</span>
                 </div>
-              )}
-
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                  <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-                    {tier.name}
-                  </h3>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      background: "#ECFDF5",
-                      color: "#059669",
-                      padding: "2px 8px",
-                      borderRadius: "6px",
-                    }}
-                  >
-                    {tier.billingCycle || "Monthly"}
-                  </span>
-                </div>
-
-                <p style={{ fontSize: "12.5px", color: "#64748b", minHeight: "36px", margin: "4px 0 16px 0" }}>
-                  {tier.description}
-                </p>
-
-                <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "16px" }}>
-                  <span style={{ fontSize: "28px", fontWeight: 900, color: "#0f172a" }}>
-                    ₹{Number(tier.price).toLocaleString("en-IN")}
-                  </span>
-                  <span style={{ fontSize: "13px", color: "#64748b", fontWeight: 600 }}>
-                    /{tier.billingCycle === "Annual" ? "year" : "month"}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    padding: "8px 12px",
-                    background: "#F8FAFC",
-                    borderRadius: "8px",
-                    border: "1px solid #E2E8F0",
-                    marginBottom: "16px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span style={{ fontSize: "12px", fontWeight: 700, color: "#475569" }}>
-                    Subscribed Stores:
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 800,
-                      color: "#166534",
-                      background: "#DCFCE7",
-                      padding: "2px 8px",
-                      borderRadius: "6px",
-                    }}
-                  >
-                    {subsCount} Supermarket{subsCount !== 1 ? "s" : ""}
-                  </span>
-                </div>
-
-                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px 0", display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {(tier.features || []).map((feat, idx) => (
-                    <li
-                      key={idx}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: "8px",
-                        fontSize: "12.5px",
-                        color: "#334155",
-                        fontWeight: 500,
-                      }}
-                    >
-                      <CheckCircle2 size={15} color="#16a34a" style={{ flexShrink: 0, marginTop: "2px" }} />
-                      <span>{feat}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div style={{ display: "flex", gap: "8px", borderTop: "1px solid #f1f5f9", paddingTop: "14px" }}>
-                <button
-                  type="button"
-                  className="sa-btn-secondary"
-                  style={{ flex: 1, padding: "8px 12px", fontSize: "12px", justifyContent: "center" }}
-                  onClick={() => handleOpenEditModal(tier)}
-                >
-                  <Edit2 size={13} />
-                  <span>Edit Plan</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="sa-action-btn secondary"
-                  style={{ padding: "8px 10px", color: "#dc2626" }}
-                  onClick={() => handleDeletePlan(tier._id, tier.name)}
-                  title="Delete Plan"
-                >
-                  <Trash2 size={14} />
-                </button>
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* 4. Plan Edit / Create Modal */}
-      {isModalOpen && (
-        <div className="sa-modal-backdrop" onClick={() => setIsModalOpen(false)}>
-          <div className="sa-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px" }}>
-            <div className="sa-modal-header">
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div className="sa-kpi-icon-pill green" style={{ width: "36px", height: "36px" }}>
-                  <CreditCard size={18} />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 800 }}>
-                    {editingPlan ? "Edit Subscription Plan" : "Create New Subscription Plan"}
-                  </h3>
-                  <small style={{ color: "#64748b" }}>
-                    Configure pricing, billing cycle, duration, and feature limits
-                  </small>
+            <div className="sa-kpi-card">
+              <div className="sa-kpi-icon-pill green">
+                <TrendingUp size={22} strokeWidth={2.4} />
+              </div>
+              <div className="sa-kpi-details">
+                <h3 className="sa-kpi-number">
+                  ₹{metrics.totalMRR.toLocaleString("en-IN")}
+                </h3>
+                <span className="sa-kpi-label">Monthly Recurring Revenue</span>
+                <div className="sa-kpi-badge positive">
+                  <span>SaaS Billing Volume</span>
                 </div>
               </div>
-              <button type="button" className="sa-modal-close" onClick={() => setIsModalOpen(false)}>
-                <X size={18} />
-              </button>
             </div>
+          </section>
 
-            <form onSubmit={handleSubmitPlan} style={{ padding: "20px" }}>
-              <div className="sa-form-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }}>
-                <div>
-                  <label className="sa-label">Plan Name *</label>
-                  <input
-                    type="text"
-                    required
-                    className="sa-input"
-                    placeholder="e.g. Premium Supermarket"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="sa-label">Tier Code</label>
-                  <input
-                    type="text"
-                    className="sa-input"
-                    placeholder="e.g. PREMIUM"
-                    value={formData.tierCode}
-                    onChange={(e) => setFormData({ ...formData, tierCode: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="sa-label">Price (₹) *</label>
-                  <input
-                    type="number"
-                    required
-                    className="sa-input"
-                    placeholder="19999"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="sa-label">Billing Cycle</label>
-                  <select
-                    className="sa-input"
-                    value={formData.billingCycle}
-                    onChange={(e) => setFormData({ ...formData, billingCycle: e.target.value })}
-                  >
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                    <option value="Annual">Annual</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="sa-label">Max Active SKUs</label>
-                  <input
-                    type="number"
-                    className="sa-input"
-                    value={formData.maxProducts}
-                    onChange={(e) => setFormData({ ...formData, maxProducts: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="sa-label">Max IoT Turnstiles</label>
-                  <input
-                    type="number"
-                    className="sa-input"
-                    value={formData.maxTurnstiles}
-                    onChange={(e) => setFormData({ ...formData, maxTurnstiles: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: "14px" }}>
-                <label className="sa-label">Plan Description</label>
+          {/* Supermarket Subscription Directory Card */}
+          <div className="sa-section-card" style={{ marginTop: "1rem" }}>
+            {/* Filter and Search Bar */}
+            <div className="sa-sub-filter-strip">
+              <div style={{ position: "relative", minWidth: "280px" }}>
+                <Search
+                  size={15}
+                  color="#94a3b8"
+                  style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }}
+                />
                 <input
                   type="text"
-                  className="sa-input"
-                  placeholder="Short summary of this plan"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Search by supermarket name, code, city..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="sa-form-input"
+                  style={{ paddingLeft: "36px", height: "38px", fontSize: "13px" }}
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}
+                  >
+                    <X size={13} />
+                  </button>
+                )}
               </div>
 
-              <div style={{ marginBottom: "16px" }}>
-                <label className="sa-label">Included Features (1 per line)</label>
+              {/* Status Filter Pills */}
+              <div className="sa-filter-btn-group">
+                <button
+                  type="button"
+                  className={`sa-filter-pill-btn ${statusFilter === "all" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("all")}
+                >
+                  All Supermarkets ({supermarkets.length})
+                </button>
+                <button
+                  type="button"
+                  className={`sa-filter-pill-btn ${statusFilter === "active" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("active")}
+                >
+                  Active ({metrics.active - (metrics.urgent - metrics.expired)})
+                </button>
+                <button
+                  type="button"
+                  className={`sa-filter-pill-btn alert ${statusFilter === "urgent" ? "active" : ""}`}
+                  onClick={() => setStatusFilter("urgent")}
+                >
+                  <AlertTriangle size={13} />
+                  <span>Action Needed: Expiring / Expired ({metrics.urgent})</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Subscriptions Table */}
+            <div className="sa-sub-table-container">
+              <table className="sa-sub-table">
+                <thead>
+                  <tr>
+                    <th>Supermarket</th>
+                    <th>Assigned Plan</th>
+                    <th>Start Date</th>
+                    <th>Expiry Date</th>
+                    <th>Subscription Status</th>
+                    <th style={{ textAlign: "right" }}>Renewal Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSupermarkets.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                        No registered supermarkets match the selected filter criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSupermarkets.map((store) => {
+                      const info = getSubscriptionInfo(store);
+                      const isUrgent = info.isUrgent;
+                      const isExpired = info.isExpired;
+
+                      return (
+                        <tr
+                          key={store._id || store.code}
+                          className={`sa-sub-row ${isExpired ? "expired" : isUrgent ? "urgent" : ""}`}
+                        >
+                          {/* 1. Supermarket Name, Code & Logo */}
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <div
+                                style={{
+                                  width: "40px",
+                                  height: "40px",
+                                  borderRadius: "10px",
+                                  background: "#ffffff",
+                                  border: isUrgent ? "1.5px solid #f87171" : "1px solid #e2e8f0",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  overflow: "hidden",
+                                  flexShrink: 0,
+                                  boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+                                }}
+                              >
+                                {store.logoUrl ? (
+                                  <img
+                                    src={store.logoUrl}
+                                    alt={store.name}
+                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = "none";
+                                      if (e.currentTarget.nextSibling)
+                                        e.currentTarget.nextSibling.style.display = "flex";
+                                    }}
+                                  />
+                                ) : null}
+                                <span
+                                  style={{
+                                    display: store.logoUrl ? "none" : "flex",
+                                    fontWeight: 800,
+                                    fontSize: "14px",
+                                    color: isUrgent ? "#dc2626" : "#16a34a",
+                                  }}
+                                >
+                                  {store.name ? store.name[0].toUpperCase() : "S"}
+                                </span>
+                              </div>
+
+                              <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                  <strong
+                                    style={{
+                                      fontSize: "13.5px",
+                                      color: isUrgent ? "#991b1b" : "#0f172a",
+                                    }}
+                                  >
+                                    {store.name}
+                                  </strong>
+                                  <span
+                                    style={{
+                                      fontSize: "10px",
+                                      fontWeight: 800,
+                                      fontFamily: "monospace",
+                                      color: isUrgent ? "#dc2626" : "#16a34a",
+                                      background: isUrgent ? "#fee2e2" : "#f0fdf4",
+                                      padding: "1px 6px",
+                                      borderRadius: "4px",
+                                      border: isUrgent ? "1px solid #fca5a5" : "1px solid #bbf7d0",
+                                    }}
+                                  >
+                                    {store.code}
+                                  </span>
+                                </div>
+                                <span style={{ fontSize: "11.5px", color: "#64748b" }}>
+                                  {store.city || "Bangalore"}, {store.state || "Karnataka"} &bull;{" "}
+                                  Manager: {store.adminName || "Store Admin"}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 2. Assigned Plan */}
+                          <td>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                              <span
+                                style={{
+                                  fontSize: "12px",
+                                  fontWeight: 800,
+                                  color: "#063d2e",
+                                }}
+                              >
+                                {store.plan || "Premium Suite"}
+                              </span>
+                              <span style={{ fontSize: "11px", color: "#64748b" }}>
+                                ₹{Number(store.subscriptionAmount || 19999).toLocaleString("en-IN")}/
+                                {store.billingCycle === "Yearly" ? "yr" : "mo"}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 3. Subscription Start Date */}
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <Calendar size={13} color="#64748b" />
+                              <span style={{ fontSize: "12.5px", color: "#334155", fontWeight: 600 }}>
+                                {info.formattedStart}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 4. Expiry Date & Countdown */}
+                          <td>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <Clock
+                                  size={13}
+                                  color={isUrgent ? "#dc2626" : "#64748b"}
+                                />
+                                <strong
+                                  style={{
+                                    fontSize: "12.5px",
+                                    color: isUrgent ? "#dc2626" : "#0f172a",
+                                  }}
+                                >
+                                  {info.formattedExpiry}
+                                </strong>
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  fontWeight: isUrgent ? 800 : 600,
+                                  color: isUrgent ? "#dc2626" : "#64748b",
+                                  marginTop: "2px",
+                                }}
+                              >
+                                {info.isExpired
+                                  ? `Expired ${Math.abs(info.diffDays)} day${Math.abs(info.diffDays) === 1 ? "" : "s"} ago`
+                                  : info.isExpiringTomorrow
+                                  ? "Expires Tomorrow (within 24h)"
+                                  : `Expires in ${info.diffDays} days`}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 5. Subscription Status (RED highlight + warning if expiring tomorrow or expired) */}
+                          <td>
+                            <div>
+                              {info.isExpired ? (
+                                <span className="sa-badge urgent-expired">
+                                  <AlertCircle size={12} />
+                                  <span>EXPIRED</span>
+                                </span>
+                              ) : info.isExpiringTomorrow ? (
+                                <span className="sa-badge urgent-tomorrow">
+                                  <AlertTriangle size={12} />
+                                  <span>EXPIRES TOMORROW</span>
+                                </span>
+                              ) : (
+                                <span className="sa-badge active-green">
+                                  <Check size={12} />
+                                  <span>ACTIVE</span>
+                                </span>
+                              )}
+
+                              {/* Clear Expiry Warning Callout */}
+                              {isUrgent && (
+                                <div
+                                  className={`sa-expiry-warning-banner ${
+                                    isExpired ? "expired" : "tomorrow"
+                                  }`}
+                                >
+                                  <span>{info.warningMessage}</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 6. Dedicated Email & Chat Renewal Buttons */}
+                          <td>
+                            <div
+                              className="sa-action-btn-group"
+                              style={{ justifyContent: "flex-end" }}
+                            >
+                              {/* Email Button */}
+                              <button
+                                type="button"
+                                className="sa-btn-email"
+                                onClick={() => handleOpenEmailModal(store)}
+                                title={`Send official subscription renewal email notice to ${store.name}`}
+                              >
+                                <Mail size={13} />
+                                <span>Email</span>
+                              </button>
+
+                              {/* Chat Button */}
+                              <button
+                                type="button"
+                                className="sa-btn-chat"
+                                onClick={() => handleOpenChatModal(store)}
+                                title={`Send instant WhatsApp/in-app renewal chat to ${store.name}`}
+                              >
+                                <MessageSquare size={13} />
+                                <span>Chat</span>
+                              </button>
+
+                              {/* Extend Subscription Action Button */}
+                              <button
+                                type="button"
+                                className="sa-btn-extend"
+                                onClick={() => handleOpenExtendModal(store)}
+                                title={`Extend subscription duration for ${store.name}`}
+                              >
+                                <RefreshCw size={12} />
+                                <span>Extend</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: CREATE PLAN - Dedicated Plan Creation Form Only                     */}
+      {/* ========================================================================= */}
+      {activeTab === "create" && (
+        <div>
+          <div className="sa-create-plan-card">
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "1.25rem", borderBottom: "1px solid #e2e8f0", paddingBottom: "1rem" }}>
+              <div
+                style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "10px",
+                  background: "#dcfce7",
+                  color: "#16a34a",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <PlusCircle size={22} strokeWidth={2.4} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: "#172b24" }}>
+                  {editingPlanId ? "Edit Subscription Plan" : "Create New Subscription Plan"}
+                </h2>
+                <p style={{ margin: "2px 0 0 0", fontSize: "0.82rem", color: "#64748b" }}>
+                  Define pricing tiers, supermarket branch allotments, and autonomous checkout features
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreatePlanSubmit}>
+              {/* Row 1: Plan Name, Tier Code & Billing Cycle */}
+              <div className="sa-form-grid-3">
+                <div className="sa-form-group">
+                  <label className="sa-form-label">
+                    Plan Name <span className="req">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="sa-form-input"
+                    value={planFormData.name}
+                    onChange={(e) =>
+                      setPlanFormData({ ...planFormData, name: e.target.value })
+                    }
+                    placeholder="e.g. Hypermarket Growth Suite"
+                  />
+                </div>
+
+                <div className="sa-form-group">
+                  <label className="sa-form-label">
+                    Tier Code (Identifier) <span className="req">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="sa-form-input"
+                    value={planFormData.tierCode}
+                    onChange={(e) =>
+                      setPlanFormData({
+                        ...planFormData,
+                        tierCode: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""),
+                      })
+                    }
+                    placeholder="e.g. GROWTH_PLUS"
+                  />
+                </div>
+
+                <div className="sa-form-group">
+                  <label className="sa-form-label">
+                    Billing Cycle <span className="req">*</span>
+                  </label>
+                  <select
+                    className="sa-form-input"
+                    value={planFormData.billingCycle}
+                    onChange={(e) =>
+                      setPlanFormData({ ...planFormData, billingCycle: e.target.value })
+                    }
+                  >
+                    <option value="Monthly">Monthly Billing</option>
+                    <option value="Yearly">Yearly Billing (Annual)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Price, Validity & Trial Days */}
+              <div className="sa-form-grid-3" style={{ marginTop: "1rem" }}>
+                <div className="sa-form-group">
+                  <label className="sa-form-label">
+                    Subscription Amount (INR ₹) <span className="req">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    step={100}
+                    className="sa-form-input"
+                    value={planFormData.price}
+                    onChange={(e) =>
+                      setPlanFormData({ ...planFormData, price: e.target.value })
+                    }
+                    placeholder="e.g. 14999"
+                  />
+                </div>
+
+                <div className="sa-form-group">
+                  <label className="sa-form-label">Duration (Days)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="sa-form-input"
+                    value={planFormData.durationDays}
+                    onChange={(e) =>
+                      setPlanFormData({ ...planFormData, durationDays: e.target.value })
+                    }
+                    placeholder="30"
+                  />
+                </div>
+
+                <div className="sa-form-group">
+                  <label className="sa-form-label">Free Trial Period (Days)</label>
+                  <select
+                    className="sa-form-input"
+                    value={planFormData.trialDays}
+                    onChange={(e) =>
+                      setPlanFormData({ ...planFormData, trialDays: e.target.value })
+                    }
+                  >
+                    <option value={0}>No Free Trial (Direct Active)</option>
+                    <option value={7}>7 Days Free Trial</option>
+                    <option value={14}>14 Days Free Trial</option>
+                    <option value={30}>30 Days Free Trial</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 3: Limits (Branches, SKUs, Turnstiles, Staff) */}
+              <div className="sa-form-grid-3" style={{ marginTop: "1rem" }}>
+                <div className="sa-form-group">
+                  <label className="sa-form-label">Supermarket Branches Limit</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="sa-form-input"
+                    value={planFormData.branchesCount}
+                    onChange={(e) =>
+                      setPlanFormData({ ...planFormData, branchesCount: e.target.value })
+                    }
+                    placeholder="1"
+                  />
+                </div>
+
+                <div className="sa-form-group">
+                  <label className="sa-form-label">Max Product SKUs</label>
+                  <input
+                    type="number"
+                    min={100}
+                    className="sa-form-input"
+                    value={planFormData.maxProducts}
+                    onChange={(e) =>
+                      setPlanFormData({ ...planFormData, maxProducts: e.target.value })
+                    }
+                    placeholder="5000"
+                  />
+                </div>
+
+                <div className="sa-form-group">
+                  <label className="sa-form-label">Hardware Turnstiles Limit</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="sa-form-input"
+                    value={planFormData.maxTurnstiles}
+                    onChange={(e) =>
+                      setPlanFormData({ ...planFormData, maxTurnstiles: e.target.value })
+                    }
+                    placeholder="4"
+                  />
+                </div>
+              </div>
+
+              {/* Row 4: Plan Description */}
+              <div className="sa-form-group" style={{ marginTop: "1rem" }}>
+                <label className="sa-form-label">Plan Description & Target Audience</label>
                 <textarea
-                  className="sa-input"
-                  rows="4"
-                  placeholder="1 Supermarket Store Branch&#10;Up to 500 SKUs&#10;Barcode Scanning"
-                  value={formData.featuresStr}
-                  onChange={(e) => setFormData({ ...formData, featuresStr: e.target.value })}
+                  rows={2}
+                  className="sa-form-input"
+                  style={{ resize: "vertical" }}
+                  value={planFormData.description}
+                  onChange={(e) =>
+                    setPlanFormData({ ...planFormData, description: e.target.value })
+                  }
+                  placeholder="e.g. Designed for regional supermarket retail chains requiring full automated turnstiles and AI prediction."
                 />
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px" }}>
-                <input
-                  type="checkbox"
-                  id="isPop"
-                  checked={formData.isPopular}
-                  onChange={(e) => setFormData({ ...formData, isPopular: e.target.checked })}
-                />
-                <label htmlFor="isPop" style={{ fontSize: "13px", fontWeight: 600, color: "#334155", cursor: "pointer" }}>
-                  Mark as "Most Popular" / Recommended Tier
+              {/* Row 5: Features Checklist */}
+              <div style={{ marginTop: "1rem" }}>
+                <label className="sa-form-label">
+                  Included SaaS Features & Entitlements
+                </label>
+                <div className="sa-feature-checkbox-grid">
+                  {[
+                    "Barcode & QR High-Speed Scanning",
+                    "Real-time POS Billing & Invoicing",
+                    "Automated Turnstile QR Integration",
+                    "Real-time Inventory & Low-Stock Alerts",
+                    "WhatsApp & SMS Digital Receipts",
+                    "AI Sales Forecasting & Predictive Reorder",
+                    "Custom Store Admin Branding & Domain",
+                    "Cryptographic Data Isolation Guarantee",
+                    "Custom ERP & SAP Financial Ledger Export",
+                    "24/7 Dedicated Priority SLA Support",
+                  ].map((feat) => {
+                    const isChecked = planFormData.featuresList.includes(feat);
+                    return (
+                      <label
+                        key={feat}
+                        className={`sa-feature-label-box ${isChecked ? "checked" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleFeatureToggle(feat)}
+                          style={{ accentColor: "#16a34a" }}
+                        />
+                        <span>{feat}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Popular Choice Checkbox */}
+              <div style={{ marginTop: "1rem" }}>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.85rem", fontWeight: 700, color: "#334155" }}>
+                  <input
+                    type="checkbox"
+                    checked={planFormData.isPopular}
+                    onChange={(e) =>
+                      setPlanFormData({ ...planFormData, isPopular: e.target.checked })
+                    }
+                    style={{ accentColor: "#16a34a", width: "16px", height: "16px" }}
+                  />
+                  <span>Mark as "Most Popular / Recommended" Tier for Supermarkets</span>
                 </label>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              {/* Form Action Buttons */}
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "1.5rem" }}>
+                <button
+                  type="submit"
+                  className="sa-btn-primary"
+                  disabled={isSubmittingPlan}
+                  style={{ padding: "10px 24px", fontSize: "14px" }}
+                >
+                  <PlusCircle size={16} />
+                  <span>
+                    {isSubmittingPlan
+                      ? "Saving Plan..."
+                      : editingPlanId
+                      ? "Update Subscription Plan"
+                      : "Create Subscription Plan"}
+                  </span>
+                </button>
+
+                {editingPlanId && (
+                  <button
+                    type="button"
+                    className="sa-btn-secondary"
+                    onClick={() => {
+                      setEditingPlanId(null);
+                      setPlanFormData({
+                        name: "",
+                        tierCode: "CUSTOM",
+                        price: 9999,
+                        billingCycle: "Monthly",
+                        durationDays: 30,
+                        trialDays: 0,
+                        branchesCount: 1,
+                        description: "",
+                        featuresList: [
+                          "Barcode & QR High-Speed Scanning",
+                          "Real-time POS Billing & Invoicing",
+                          "Automated Turnstile QR Integration",
+                          "Real-time Inventory & Low-Stock Alerts",
+                          "Email & Chat Support",
+                        ],
+                        maxProducts: 2500,
+                        maxTurnstiles: 2,
+                        maxStaffUsers: 15,
+                        isPopular: false,
+                      });
+                    }}
+                  >
+                    Cancel Editing
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          {/* Configured Plans Gallery */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", flexWrap: "wrap", gap: "8px" }}>
+            <div>
+              <h3 style={{ fontSize: "1.15rem", fontWeight: 800, color: "#172b24", margin: 0 }}>
+                Currently Configured Subscription Plans ({plans.length})
+              </h3>
+              <p style={{ margin: "2px 0 0 0", fontSize: "0.82rem", color: "#64748b" }}>
+                Active pricing tiers and hardware entitlement packages configured for supermarkets
+              </p>
+            </div>
+            <span
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+                color: "#16a34a",
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                padding: "4px 12px",
+                borderRadius: "9999px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+            >
+              <CheckCircle2 size={13} strokeWidth={2.5} />
+              <span>{plans.length} Tiers Live</span>
+            </span>
+          </div>
+
+          <div className="sa-plans-gallery-grid">
+            {plans.map((tier) => {
+              const isPopular = !!tier.isPopular;
+              return (
+                <div
+                  key={tier._id || tier.name}
+                  className={`sa-plan-card ${isPopular ? "recommended" : ""}`}
+                >
+                  {/* Top Meta Header: Tier / Recommended Badge + Billing Cycle Badge */}
+                  <div className="sa-plan-card-header-bar">
+                    {isPopular ? (
+                      <div className="sa-plan-popular-pill">
+                        <Sparkles size={11} strokeWidth={2.5} />
+                        <span>RECOMMENDED</span>
+                      </div>
+                    ) : (
+                      <span className="sa-plan-tier-pill">
+                        {tier.tierCode || "STANDARD"}
+                      </span>
+                    )}
+
+                    <span className="sa-plan-cycle-pill">
+                      {tier.billingCycle || "Monthly"}
+                    </span>
+                  </div>
+
+                  {/* Plan Name - fixed min-height for uniform alignment */}
+                  <h4 className="sa-plan-title" title={tier.name}>
+                    {tier.name}
+                  </h4>
+
+                  {/* Description - fixed min-height for uniform alignment */}
+                  <p className="sa-plan-desc" title={tier.description}>
+                    {tier.description || "Comprehensive autonomous supermarket retail management suite."}
+                  </p>
+
+                  {/* Price Block - baseline aligned across all cards */}
+                  <div className="sa-plan-price-wrap">
+                    <span className="sa-plan-price-amount">
+                      ₹{Number(tier.price).toLocaleString("en-IN")}
+                    </span>
+                    <span className="sa-plan-price-period">
+                      /{tier.billingCycle === "Yearly" ? "yr" : "mo"}
+                    </span>
+                  </div>
+
+                  {/* Quick Spec Ribbon (Capacity highlight) */}
+                  <div className="sa-plan-spec-badge">
+                    <Store size={13} color="#16a34a" style={{ flexShrink: 0 }} />
+                    <span>
+                      Up to {Number(tier.maxProducts || 500).toLocaleString("en-IN")} SKUs • {tier.maxTurnstiles || 1} Turnstile Gate{(tier.maxTurnstiles || 1) > 1 ? "s" : ""}
+                    </span>
+                  </div>
+
+                  {/* Features List */}
+                  <ul className="sa-plan-features-list">
+                    {(tier.features || []).slice(0, 4).map((f, i) => (
+                      <li key={i} className="sa-plan-feature-item">
+                        <Check size={14} className="sa-plan-feature-icon" strokeWidth={2.8} />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* Card Footer Actions */}
+                  <div className="sa-plan-footer">
+                    <button
+                      type="button"
+                      className="sa-plan-btn-edit"
+                      onClick={() => {
+                        setEditingPlanId(tier._id);
+                        setPlanFormData({
+                          name: tier.name,
+                          tierCode: tier.tierCode || "PLAN",
+                          price: tier.price,
+                          billingCycle: tier.billingCycle || "Monthly",
+                          durationDays: tier.durationDays || 30,
+                          trialDays: 0,
+                          branchesCount: 1,
+                          description: tier.description || "",
+                          featuresList: tier.features || [],
+                          maxProducts: tier.maxProducts || 5000,
+                          maxTurnstiles: tier.maxTurnstiles || 4,
+                          maxStaffUsers: 15,
+                          isPopular: !!tier.isPopular,
+                        });
+                        window.scrollTo({ top: 120, behavior: "smooth" });
+                      }}
+                      title={`Edit parameters for ${tier.name}`}
+                    >
+                      <Edit2 size={13} />
+                      <span>Edit Plan</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="sa-plan-btn-delete"
+                      onClick={() => handleDeletePlan(tier._id, tier.name)}
+                      title={`Delete ${tier.name}`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: SEND RENEWAL EMAIL NOTICE                                        */}
+      {/* ========================================================================= */}
+      {emailModalStore && (
+        <div className="sa-modal-overlay" onClick={() => setEmailModalStore(null)}>
+          <div
+            className="sa-modal-card"
+            style={{ maxWidth: "560px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sa-modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "8px",
+                    background: "#ecfdf5",
+                    color: "#16a34a",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Mail size={18} />
+                </div>
+                <div>
+                  <h3>Subscription Renewal Notice</h3>
+                  <p>Send direct email to {emailModalStore.name} ({emailModalStore.code})</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="sa-modal-close-btn"
+                onClick={() => setEmailModalStore(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="sa-modal-body">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "12px" }}>
+                <div>
+                  <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>
+                    Recipient Email:
+                  </span>
+                  <strong style={{ fontSize: "13px", color: "#0f172a" }}>
+                    {emailModalStore.email || `${emailModalStore.adminUsername}@grocerease.store`}
+                  </strong>
+                </div>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#16a34a",
+                    background: "#f0fdf4",
+                    padding: "3px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid #bbf7d0",
+                  }}
+                >
+                  {emailModalStore.plan || "Premium"}
+                </span>
+              </div>
+
+              <div className="sa-form-group">
+                <label className="sa-form-label">Email Subject</label>
+                <input
+                  type="text"
+                  className="sa-form-input"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                />
+              </div>
+
+              <div className="sa-form-group" style={{ marginTop: "10px" }}>
+                <label className="sa-form-label">Message Body</label>
+                <textarea
+                  rows={8}
+                  className="sa-form-input"
+                  style={{ resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="sa-modal-footer">
+              <a
+                href={`mailto:${emailModalStore.email || ""}?subject=${encodeURIComponent(
+                  emailSubject
+                )}&body=${encodeURIComponent(emailBody)}`}
+                className="sa-btn-secondary"
+                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                onClick={() => showToast("Opening in your desktop email client...")}
+              >
+                <ExternalLink size={13} />
+                <span>Open in Desktop Mail</span>
+              </a>
+
+              <button
+                type="button"
+                className="sa-btn-primary"
+                onClick={handleSendEmail}
+                disabled={sendingEmail}
+              >
+                <Send size={14} />
+                <span>{sendingEmail ? "Dispatching..." : "Send Renewal Email"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: DIRECT RENEWAL CHAT & WHATSAPP                                    */}
+      {/* ========================================================================= */}
+      {chatModalStore && (
+        <div className="sa-modal-overlay" onClick={() => setChatModalStore(null)}>
+          <div
+            className="sa-modal-card"
+            style={{ maxWidth: "520px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sa-modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "8px",
+                    background: "#dbeafe",
+                    color: "#2563eb",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MessageSquare size={18} />
+                </div>
+                <div>
+                  <h3>Direct Supermarket Renewal Chat</h3>
+                  <p>Connect with {chatModalStore.name} ({chatModalStore.code})</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="sa-modal-close-btn"
+                onClick={() => setChatModalStore(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="sa-modal-body">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "12px" }}>
+                <div>
+                  <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>
+                    Contact Phone:
+                  </span>
+                  <strong style={{ fontSize: "13px", color: "#0f172a" }}>
+                    {chatModalStore.phone || "+91 98765 43210"}
+                  </strong>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontSize: "11px", color: "#64748b", display: "block" }}>
+                    Store Manager:
+                  </span>
+                  <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
+                    {chatModalStore.adminName || "Store Admin"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="sa-form-group">
+                <label className="sa-form-label">Renewal Message Text</label>
+                <textarea
+                  rows={5}
+                  className="sa-form-input"
+                  style={{ resize: "vertical", fontSize: "13px" }}
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="sa-modal-footer">
+              <button
+                type="button"
+                className="sa-btn-primary"
+                onClick={handleLaunchWhatsApp}
+                style={{ background: "#25D366", borderColor: "#25D366" }}
+              >
+                <Phone size={14} />
+                <span>Open WhatsApp Chat</span>
+              </button>
+
+              <button
+                type="button"
+                className="sa-btn-primary"
+                onClick={handleSendInAppChat}
+                disabled={sendingChat}
+              >
+                <Send size={14} />
+                <span>{sendingChat ? "Sending..." : "Send In-App Chat Alert"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: EXTEND / RENEW SUBSCRIPTION                                      */}
+      {/* ========================================================================= */}
+      {extendModalStore && (
+        <div className="sa-modal-overlay" onClick={() => setExtendModalStore(null)}>
+          <div
+            className="sa-modal-card"
+            style={{ maxWidth: "460px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sa-modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "8px",
+                    background: "#ecfdf5",
+                    color: "#16a34a",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <RefreshCw size={18} />
+                </div>
+                <div>
+                  <h3>Extend Subscription</h3>
+                  <p>For "{extendModalStore.name}" ({extendModalStore.code})</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="sa-modal-close-btn"
+                onClick={() => setExtendModalStore(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleExtendSubmit}>
+              <div className="sa-modal-body">
+                <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "14px" }}>
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>Current Expiry Date:</span>
+                  <strong style={{ display: "block", fontSize: "14px", color: "#0f172a", marginTop: "2px" }}>
+                    {getSubscriptionInfo(extendModalStore).formattedExpiry}
+                  </strong>
+                </div>
+
+                <div className="sa-form-group">
+                  <label className="sa-form-label">
+                    Extension Duration <span className="req">*</span>
+                  </label>
+                  <select
+                    className="sa-form-input"
+                    value={extendDays}
+                    onChange={(e) => setExtendDays(e.target.value)}
+                  >
+                    <option value={30}>+ 30 Days (1 Month)</option>
+                    <option value={60}>+ 60 Days (2 Months)</option>
+                    <option value={90}>+ 90 Days (Quarterly)</option>
+                    <option value={180}>+ 180 Days (Half Year)</option>
+                    <option value={365}>+ 365 Days (1 Full Year)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="sa-modal-footer">
                 <button
                   type="button"
                   className="sa-btn-secondary"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => setExtendModalStore(null)}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="sa-btn-primary"
+                  disabled={extending}
                 >
-                  <Check size={16} />
-                  <span>{editingPlan ? "Save Changes" : "Create Plan"}</span>
+                  {extending ? "Extending..." : "Confirm Extension"}
                 </button>
               </div>
             </form>

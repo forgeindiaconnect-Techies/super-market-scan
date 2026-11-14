@@ -14,6 +14,9 @@ export type CartItem = {
   imageUrl?: string;
   description?: string;
   quantity: number;
+  supermarket?: string;
+  supermarketCode?: string;
+  supermarketName?: string;
 };
 
 export type OrderRecord = {
@@ -61,7 +64,7 @@ type CartContextType = {
 
 const CartContext = createContext<CartContextType | null>(null);
 
-// Helper to notify backend Admin Dashboard of live cart changes
+// Helper to notify backend Admin Dashboard of live cart changes with strict tenant isolation
 const notifyAdminCartActivity = (data: {
   productName: string;
   productId?: string;
@@ -72,6 +75,8 @@ const notifyAdminCartActivity = (data: {
   totalCartAmount: number;
   customerName?: string;
   customerPhone?: string;
+  supermarketId?: string;
+  supermarketCode?: string;
 }) => {
   if (!API_URL) return;
   fetch(`${API_URL}/orders/cart-activity`, {
@@ -160,6 +165,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             imageUrl: product.imageUrl || "",
             description: product.description || "",
             quantity: addQty,
+            supermarket: typeof product.supermarket === "object" ? product.supermarket?._id : product.supermarket || undefined,
+            supermarketCode: typeof product.supermarket === "object" ? product.supermarket?.code : product.supermarketCode || undefined,
+            supermarketName: typeof product.supermarket === "object" ? product.supermarket?.name : product.supermarketName || undefined,
           },
         ];
       }
@@ -173,6 +181,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         cart.reduce((sum, it) => sum + it.effectivePrice * it.quantity, 0) +
         effectivePrice * addQty;
 
+      const targetSupermarketId =
+        typeof product.supermarket === "object"
+          ? product.supermarket?._id
+          : product.supermarket || undefined;
+      const targetSupermarketCode =
+        typeof product.supermarket === "object"
+          ? product.supermarket?.code
+          : product.supermarketCode || undefined;
+
       notifyAdminCartActivity({
         productName: product.name,
         productId: product._id,
@@ -183,6 +200,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         totalCartAmount: newTotalAmount,
         customerName: customerInfo?.name,
         customerPhone: customerInfo?.phone,
+        supermarketId: targetSupermarketId,
+        supermarketCode: targetSupermarketCode,
       });
     }
 
@@ -213,15 +232,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       if (affectedItem) {
         notifyAdminCartActivity({
-          productName: affectedItem.name,
-          productId: affectedItem._id,
+          productName: (affectedItem as CartItem).name,
+          productId: (affectedItem as CartItem)._id,
           quantity: delta,
-          price: affectedItem.effectivePrice,
+          price: (affectedItem as CartItem).effectivePrice,
           action: "updated",
           totalCartItems: newTotalItems,
           totalCartAmount: newTotalAmount,
           customerName: customerInfo?.name,
           customerPhone: customerInfo?.phone,
+          supermarketId: (affectedItem as CartItem).supermarket,
+          supermarketCode: (affectedItem as CartItem).supermarketCode,
         });
       }
 
@@ -251,6 +272,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           totalCartAmount: newTotalAmount,
           customerName: customerInfo?.name,
           customerPhone: customerInfo?.phone,
+          supermarketId: item.supermarket,
+          supermarketCode: item.supermarketCode,
         });
       }
 

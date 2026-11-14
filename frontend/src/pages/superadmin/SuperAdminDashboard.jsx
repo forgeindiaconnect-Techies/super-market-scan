@@ -3,62 +3,29 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Store,
   Crown,
-  CreditCard,
   TrendingUp,
-  BarChart3,
-  Plus,
-  Users,
-  Lock,
-  Eye,
-  EyeOff,
-  ShieldCheck,
-  Check,
-  CheckCircle2,
+  Share2,
+  Boxes,
   Zap,
-  MoreHorizontal,
-  ArrowRight,
-  ExternalLink,
-  KeyRound,
+  CheckCircle2,
+  BarChart2,
+  PlusCircle,
+  FileText,
   RefreshCw,
-  AlertCircle,
-  Sparkles,
+  Eye,
+  Wifi,
 } from "lucide-react";
 import API from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
-import modernSupermarketBanner from "C:/Users/Forgeindiaconnect/.gemini/antigravity/brain/ea64ddf2-7b46-4b95-b6c4-9ce99c9e82b3/supermarket_card_banner_1794572842698.jpg";
 import "./SuperAdmin.css";
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
-  const { supermarkets, currentSupermarket, switchSupermarket, loadSupermarkets } = useAuth();
+  const { supermarkets, loadSupermarkets } = useAuth();
 
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState({ type: "", message: "" });
-
-  // Quick Add Supermarket Form State (explicitly blank)
-  const [supermarketName, setSupermarketName] = useState("");
-  const [adminUsername, setAdminUsername] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState("Premium");
-  const [showPassword, setShowPassword] = useState(false);
-
-  // Active Ribbon Tab State
-  const [activeTab, setActiveTab] = useState("add");
-
-  // Ensure fields are completely empty on mount & block browser autofill
-  useEffect(() => {
-    setSupermarketName("");
-    setAdminUsername("");
-    setAdminPassword("");
-    const timer = setTimeout(() => {
-      setSupermarketName("");
-      setAdminUsername("");
-      setAdminPassword("");
-    }, 120);
-    return () => clearTimeout(timer);
-  }, []);
+  const [salesRange, setSalesRange] = useState("7d"); // "7d" or "30d"
 
   // Fetch Central Platform Analytics & Registered Supermarkets
   const fetchAnalytics = async () => {
@@ -80,120 +47,57 @@ export default function SuperAdminDashboard() {
     if (loadSupermarkets) loadSupermarkets();
   }, []);
 
-  // Handle Quick Supermarket Creation
-  const handleCreateSupermarket = async (e) => {
-    e.preventDefault();
-    setFeedback({ type: "", message: "" });
-
-    if (!supermarketName.trim()) {
-      setFeedback({ type: "error", message: "Please enter a supermarket name." });
-      return;
-    }
-    if (!adminUsername.trim()) {
-      setFeedback({ type: "error", message: "Please enter an admin username." });
-      return;
-    }
-    if (!adminPassword.trim() || adminPassword.length < 6) {
-      setFeedback({ type: "error", message: "Password must be at least 6 characters long." });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const payload = {
-        name: supermarketName.trim(),
-        adminUsername: adminUsername.trim().toLowerCase(),
-        adminPassword: adminPassword,
-        adminName: `${supermarketName.trim()} Admin`,
-        plan: selectedPlan || "Premium",
-        status: "Active",
-      };
-
-      const res = await API.post("/super-admin/supermarkets", payload);
-
-      if (res.data?.success) {
-        setFeedback({
-          type: "success",
-          message: `Supermarket "${res.data.supermarket?.name || supermarketName}" registered successfully! Admin login: ${payload.adminUsername}`,
-        });
-        // Reset form
-        setSupermarketName("");
-        setAdminUsername("");
-        setAdminPassword("");
-        setSelectedPlan("Premium");
-
-        // Refresh stores & platform counters
-        if (loadSupermarkets) await loadSupermarkets();
-        await fetchAnalytics();
-      } else {
-        setFeedback({
-          type: "error",
-          message: res.data?.message || "Failed to create supermarket.",
-        });
-      }
-    } catch (err) {
-      setFeedback({
-        type: "error",
-        message: err.response?.data?.message || "Network error while registering supermarket.",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleLaunchStore = (store) => {
-    if (switchSupermarket) {
-      switchSupermarket(store);
-      navigate("/admin");
-    }
+    navigate(`/super-admin/registered-supermarkets?store=${store._id || store.code}`);
   };
 
-  // Compute live KPI counters with resilient fallbacks
+  // Live KPI counters matching exact reference values
   const totalStoresCount =
-    analytics?.summary?.totalSupermarkets ?? (supermarkets?.length ? supermarkets.length : 2);
+    analytics?.summary?.totalSupermarkets ?? (supermarkets?.length ? supermarkets.length : 3);
   const activeSubsCount =
     analytics?.summary?.activeSubscriptions ??
-    (supermarkets?.length ? supermarkets.filter((s) => s.status === "Active").length : 2);
+    (supermarkets?.length ? supermarkets.filter((s) => s.status === "Active").length : 3);
   const totalPlatformRevenue =
-    analytics?.summary?.totalRevenue ?? 35628;
+    analytics?.summary?.totalRevenue ?? 61067;
   const platformGrowthRate =
     analytics?.summary?.platformGrowth ?? 25;
 
-  // Recent Supermarkets List (from API analytics or seeded stores)
+  // Recent Supermarkets List matching exact reference order
   const recentStoresList =
-    analytics?.recentSupermarkets?.length > 0
-      ? analytics.recentSupermarkets
-      : supermarkets?.length > 0
+    supermarkets?.length > 0
       ? supermarkets.slice(0, 5)
       : [
           {
             _id: "store-1",
-            name: "FreshMart Supermarket",
-            adminUsername: "john@freshmart.com",
-            plan: "Premium",
+            name: "Akshaya",
+            code: "SM-7087",
+            adminUsername: "akshaya",
+            plan: "Basic",
             status: "Active",
-            createdAt: "2025-11-10T10:00:00.000Z",
+            createdAt: "2026-11-14T10:00:00.000Z",
           },
           {
             _id: "store-2",
-            name: "Sri Balaji Supermarket",
-            adminUsername: "admin@balaji.com",
-            plan: "Business",
+            name: "FreshMart Supermarket",
+            code: "SM-4812",
+            adminUsername: "storeb",
+            plan: "Professional",
             status: "Active",
-            createdAt: "2025-11-09T10:00:00.000Z",
+            createdAt: "2026-11-13T10:00:00.000Z",
           },
           {
             _id: "store-3",
-            name: "Galaxy Supermarket",
-            adminUsername: "galaxy@store.com",
-            plan: "Basic",
+            name: "GrocerEase Supermarket",
+            code: "SM-7391",
+            adminUsername: "pooja",
+            plan: "Enterprise",
             status: "Active",
-            createdAt: "2025-11-08T10:00:00.000Z",
+            createdAt: "2026-11-13T10:00:00.000Z",
           },
         ];
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return "2025-11-10";
+    if (!dateStr) return "2026-11-14";
     try {
       const d = new Date(dateStr);
       const year = d.getFullYear();
@@ -201,569 +105,481 @@ export default function SuperAdminDashboard() {
       const day = String(d.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     } catch (_) {
-      return "2025-11-10";
+      return "2026-11-14";
     }
   };
 
   return (
-    <div className="sa-dashboard-container">
-      {/* ================= 1. Top 4 Highly Vibrant & Highlighted KPI Cards ================= */}
-      <section className="sa-kpi-row">
+    <div className="sa-ref-dashboard-container">
+      {/* ================= 1. Top Row: 4 Metric KPI Cards ================= */}
+      <section className="sa-ref-kpi-grid">
         {/* Card 1: Total Supermarkets */}
-        <div className="sa-kpi-card-v2 green-highlight">
-          <div className="sa-kpi-v2-main">
-            <div className="sa-kpi-v2-icon green">
-              <Store size={24} strokeWidth={2.4} />
+        <div className="sa-ref-kpi-card">
+          <div className="sa-ref-kpi-left">
+            <div className="sa-ref-icon-mint">
+              <Store size={22} color="#059669" strokeWidth={2.4} />
             </div>
-            <div className="sa-kpi-v2-info">
-              <span className="sa-kpi-v2-label">Total Supermarkets</span>
-              <div className="sa-kpi-v2-val-row">
-                <span className="sa-kpi-v2-value">{totalStoresCount}</span>
-                <span className="sa-kpi-v2-pill green">&uarr; +1</span>
+            <div className="sa-ref-kpi-text">
+              <span className="sa-ref-kpi-label">Total Supermarkets</span>
+              <div className="sa-ref-kpi-val-row">
+                <span className="sa-ref-kpi-val">{totalStoresCount}</span>
+                <span className="sa-ref-pill-mint">&uarr; +1</span>
               </div>
             </div>
           </div>
-          {/* Glowing Green Wave Sparkline */}
-          <div className="sa-kpi-sparkline green">
-            <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="sa-sparkline-svg">
+          {/* Subtle Green Sparkline Wave */}
+          <div className="sa-ref-kpi-spark">
+            <svg viewBox="0 0 70 34" fill="none" className="sa-spark-svg">
+              <path
+                d="M2 28 Q18 26 28 18 T48 16 T68 6"
+                stroke="#10b981"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                fill="none"
+              />
+              <path
+                d="M2 28 Q18 26 28 18 T48 16 T68 6 L68 34 L2 34 Z"
+                fill="url(#greenWaveGrad1)"
+                opacity="0.25"
+              />
               <defs>
-                <linearGradient id="greenSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.45" />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                <linearGradient id="greenWaveGrad1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
                 </linearGradient>
               </defs>
-              <path
-                d="M0,34 Q25,28 50,18 T100,6 L100,42 L0,42 Z"
-                fill="url(#greenSparkGrad)"
-              />
-              <path
-                d="M0,34 Q25,28 50,18 T100,6"
-                fill="none"
-                stroke="#10b981"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-              />
             </svg>
           </div>
         </div>
 
         {/* Card 2: Active Subscriptions */}
-        <div className="sa-kpi-card-v2 purple-highlight">
-          <div className="sa-kpi-v2-main">
-            <div className="sa-kpi-v2-icon purple">
-              <Crown size={24} strokeWidth={2.4} />
+        <div className="sa-ref-kpi-card">
+          <div className="sa-ref-kpi-left">
+            <div className="sa-ref-icon-mint">
+              <Crown size={22} color="#059669" strokeWidth={2.4} />
             </div>
-            <div className="sa-kpi-v2-info">
-              <span className="sa-kpi-v2-label">Active Subscriptions</span>
-              <div className="sa-kpi-v2-val-row">
-                <span className="sa-kpi-v2-value">{activeSubsCount}</span>
-                <span className="sa-kpi-v2-pill green">&uarr; +1</span>
+            <div className="sa-ref-kpi-text">
+              <span className="sa-ref-kpi-label">Active Subscriptions</span>
+              <div className="sa-ref-kpi-val-row">
+                <span className="sa-ref-kpi-val">{activeSubsCount}</span>
+                <span className="sa-ref-pill-mint">&uarr; +1</span>
               </div>
             </div>
           </div>
-          {/* Glowing Purple Wave Sparkline */}
-          <div className="sa-kpi-sparkline purple">
-            <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="sa-sparkline-svg">
+          <div className="sa-ref-kpi-spark">
+            <svg viewBox="0 0 70 34" fill="none" className="sa-spark-svg">
+              <path
+                d="M2 28 Q18 24 32 19 T50 14 T68 7"
+                stroke="#10b981"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                fill="none"
+              />
+              <path
+                d="M2 28 Q18 24 32 19 T50 14 T68 7 L68 34 L2 34 Z"
+                fill="url(#greenWaveGrad2)"
+                opacity="0.25"
+              />
               <defs>
-                <linearGradient id="purpleSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.45" />
-                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.0" />
+                <linearGradient id="greenWaveGrad2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
                 </linearGradient>
               </defs>
-              <path
-                d="M0,32 Q20,36 45,20 T80,12 T100,6 L100,42 L0,42 Z"
-                fill="url(#purpleSparkGrad)"
-              />
-              <path
-                d="M0,32 Q20,36 45,20 T80,12 T100,6"
-                fill="none"
-                stroke="#8b5cf6"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-              />
             </svg>
           </div>
         </div>
 
         {/* Card 3: Total Revenue */}
-        <div className="sa-kpi-card-v2 blue-highlight">
-          <div className="sa-kpi-v2-main">
-            <div className="sa-kpi-v2-icon blue">
-              <CreditCard size={24} strokeWidth={2.4} />
+        <div className="sa-ref-kpi-card">
+          <div className="sa-ref-kpi-left">
+            <div className="sa-ref-icon-circle-green">
+              <span>&#8377;</span>
             </div>
-            <div className="sa-kpi-v2-info">
-              <span className="sa-kpi-v2-label">Total Revenue</span>
-              <div className="sa-kpi-v2-val-row">
-                <span className="sa-kpi-v2-value">
+            <div className="sa-ref-kpi-text">
+              <span className="sa-ref-kpi-label">Total Revenue</span>
+              <div className="sa-ref-kpi-val-row">
+                <span className="sa-ref-kpi-val">
                   &#8377;{Number(totalPlatformRevenue).toLocaleString("en-IN")}
                 </span>
-                <span className="sa-kpi-v2-pill green">&uarr; +12%</span>
+                <span className="sa-ref-pill-mint">&uarr; +12%</span>
               </div>
             </div>
           </div>
-          {/* Glowing Blue Wave Sparkline */}
-          <div className="sa-kpi-sparkline blue">
-            <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="sa-sparkline-svg">
-              <defs>
-                <linearGradient id="blueSparkGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.45" />
-                  <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M0,36 Q22,18 45,28 T78,10 T100,6 L100,42 L0,42 Z"
-                fill="url(#blueSparkGrad)"
-              />
-              <path
-                d="M0,36 Q22,18 45,28 T78,10 T100,6"
-                fill="none"
-                stroke="#0284c7"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-              />
-            </svg>
+          {/* Ascending Green Mini Bars */}
+          <div className="sa-ref-mini-bars">
+            <span className="sa-mbar b1" />
+            <span className="sa-mbar b2" />
+            <span className="sa-mbar b3" />
+            <span className="sa-mbar b4" />
+            <span className="sa-mbar b5" />
           </div>
         </div>
 
         {/* Card 4: Platform Growth */}
-        <div className="sa-kpi-card-v2 orange-highlight">
-          <div className="sa-kpi-v2-main">
-            <div className="sa-kpi-v2-icon orange">
-              <BarChart3 size={24} strokeWidth={2.4} />
+        <div className="sa-ref-kpi-card">
+          <div className="sa-ref-kpi-left">
+            <div className="sa-ref-icon-mint">
+              <TrendingUp size={22} color="#059669" strokeWidth={2.4} />
             </div>
-            <div className="sa-kpi-v2-info">
-              <span className="sa-kpi-v2-label">Platform Growth</span>
-              <div className="sa-kpi-v2-val-row">
-                <span className="sa-kpi-v2-value">{platformGrowthRate}%</span>
-                <span className="sa-kpi-v2-pill green">&uarr; +5%</span>
+            <div className="sa-ref-kpi-text">
+              <span className="sa-ref-kpi-label">Platform Growth</span>
+              <div className="sa-ref-kpi-val-row">
+                <span className="sa-ref-kpi-val">{platformGrowthRate}%</span>
+                <span className="sa-ref-pill-mint">&uarr; +5%</span>
               </div>
             </div>
           </div>
-          {/* Saturated Orange 5-Bar Sparkline */}
-          <div className="sa-kpi-sparkline orange">
-            <div className="sa-mini-bars">
-              <div className="sa-bar b1" />
-              <div className="sa-bar b2" />
-              <div className="sa-bar b3" />
-              <div className="sa-bar b4" />
-              <div className="sa-bar b5" />
-            </div>
+          <div className="sa-ref-mini-bars">
+            <span className="sa-mbar b1" />
+            <span className="sa-mbar b2" />
+            <span className="sa-mbar b3" />
+            <span className="sa-mbar b4" />
+            <span className="sa-mbar b5" />
           </div>
         </div>
       </section>
 
-      {/* ================= 2. Horizontal Secondary Tabs Ribbon ================= */}
-      <section className="sa-ribbon-bar">
-        <button
-          type="button"
-          className="sa-ribbon-btn primary"
-          onClick={() => navigate("/super-admin/add-supermarket")}
-        >
-          <Plus size={16} strokeWidth={2.8} />
-          <span>Add Supermarket</span>
-        </button>
-
-        <button
-          type="button"
-          className="sa-ribbon-btn"
-          onClick={() => navigate("/super-admin/supermarkets")}
-        >
-          <Store size={15} className="ribbon-icon-green" />
-          <span>Manage Supermarkets</span>
-        </button>
-
-        <button
-          type="button"
-          className="sa-ribbon-btn"
-          onClick={() => navigate("/super-admin/plans")}
-        >
-          <Crown size={15} className="ribbon-icon-purple" />
-          <span>Subscription Plans</span>
-        </button>
-
-        <button
-          type="button"
-          className="sa-ribbon-btn"
-          onClick={() => navigate("/super-admin/registered-supermarkets")}
-        >
-          <Users size={15} className="ribbon-icon-blue" />
-          <span>Registered Supermarkets</span>
-        </button>
-
-        <button
-          type="button"
-          className="sa-ribbon-btn"
-          onClick={() => navigate("/super-admin/analytics")}
-        >
-          <BarChart3 size={15} className="ribbon-icon-orange" />
-          <span>Analytics</span>
-        </button>
-      </section>
-
-      {/* ================= 3. Center Main Split Section ================= */}
-      <section className="sa-center-split-section">
-        {/* Left Card: 3D Supermarket Storefront Banner + Add New Supermarket Form */}
-        <div className="sa-split-form-card" id="sa-add-store-form">
-          {/* Left Column: 8K Photorealistic 3D Storefront Image Visual */}
-          <div className="sa-form-visual-side">
-            <div className="sa-visual-img-container">
-              <img
-                src={modernSupermarketBanner}
-                alt="3D Supermarket Storefront with Cart"
-                className="sa-visual-cover-img"
-                onError={(e) => {
-                  e.target.src = "/supermarket-storefront-banner.jpg";
-                }}
-              />
-              <div className="sa-visual-overlay-gradient" />
-              <div className="sa-visual-badge-pill">
-                <Sparkles size={14} className="sa-badge-sparkle" />
-                <span>Smart Multi-Tenant Cloud</span>
+      {/* ================= 2. Center Section: Network Overview & Sales Performance ================= */}
+      <section className="sa-ref-center-grid">
+        {/* Left Card: Supermarket Network Overview */}
+        <div className="sa-ref-card sa-ref-overview-card">
+          <div className="sa-ref-card-header">
+            <div className="sa-ref-card-title-wrap">
+              <div className="sa-ref-header-icon-mint">
+                <Share2 size={18} color="#059669" strokeWidth={2.4} />
               </div>
+              <h3>Supermarket Network Overview</h3>
             </div>
-          </div>
-
-          {/* Right Column: Add New Supermarket Form */}
-          <div className="sa-form-input-side">
-            <div className="sa-form-header">
-              <h2 className="sa-form-title">Add New Supermarket</h2>
-              <p className="sa-form-subtitle">
-                Register a new supermarket and assign admin credentials
-              </p>
-            </div>
-
-            {feedback.message && (
-              <div className={`sa-form-alert ${feedback.type}`}>
-                {feedback.type === "success" ? (
-                  <CheckCircle2 size={16} />
-                ) : (
-                  <AlertCircle size={16} />
-                )}
-                <span>{feedback.message}</span>
-              </div>
-            )}
-
-            <form
-              onSubmit={handleCreateSupermarket}
-              className="sa-registration-form"
-              autoComplete="off"
-            >
-              {/* Dummy hidden inputs to absorb browser autofill */}
-              <input
-                type="text"
-                name="fake_username_trap"
-                style={{ position: "absolute", opacity: 0, height: 0, width: 0, pointerEvents: "none" }}
-                tabIndex={-1}
-                autoComplete="username"
-              />
-              <input
-                type="password"
-                name="fake_password_trap"
-                style={{ position: "absolute", opacity: 0, height: 0, width: 0, pointerEvents: "none" }}
-                tabIndex={-1}
-                autoComplete="current-password"
-              />
-
-              {/* Field 1: Supermarket Name */}
-              <div className="sa-form-group-v2">
-                <label className="sa-field-label">
-                  Supermarket Name <span className="req-star">*</span>
-                </label>
-                <div className="sa-input-icon-box">
-                  <Store size={16} className="sa-box-icon" />
-                  <input
-                    type="text"
-                    name="supermarket_display_name"
-                    className="sa-text-input"
-                    placeholder="Enter supermarket name"
-                    value={supermarketName}
-                    onChange={(e) => setSupermarketName(e.target.value)}
-                    autoComplete="new-supermarket-name"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Field 2: Admin Username */}
-              <div className="sa-form-group-v2">
-                <label className="sa-field-label">
-                  Admin Username <span className="req-star">*</span>
-                </label>
-                <div className="sa-input-icon-box">
-                  <Users size={16} className="sa-box-icon" />
-                  <input
-                    type="text"
-                    name="supermarket_admin_new_user"
-                    className="sa-text-input"
-                    placeholder="Enter admin username"
-                    value={adminUsername}
-                    onChange={(e) => setAdminUsername(e.target.value)}
-                    autoComplete="new-admin-user"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Field 3: Password */}
-              <div className="sa-form-group-v2">
-                <label className="sa-field-label">
-                  Password <span className="req-star">*</span>
-                </label>
-                <div className="sa-input-icon-box">
-                  <Lock size={16} className="sa-box-icon" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="supermarket_admin_new_secret"
-                    className="sa-text-input"
-                    placeholder="Enter password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    autoComplete="new-password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="sa-password-eye-btn"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    title={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Field 4: Subscription Plan */}
-              <div className="sa-form-group-v2">
-                <label className="sa-field-label">Subscription Plan</label>
-                <div className="sa-input-icon-box">
-                  <Crown size={16} className="sa-box-icon" />
-                  <select
-                    className="sa-select-input"
-                    value={selectedPlan}
-                    onChange={(e) => setSelectedPlan(e.target.value)}
-                  >
-                    <option value="Basic">Basic Plan (&#8377;4,999/mo)</option>
-                    <option value="Standard">Standard Plan (&#8377;9,999/mo)</option>
-                    <option value="Business">Business Plan (&#8377;12,499/mo)</option>
-                    <option value="Premium">Premium Plan (&#8377;19,999/mo)</option>
-                    <option value="Enterprise">Enterprise Plan (&#8377;24,999/mo)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="sa-submit-pill-btn"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <RefreshCw size={16} className="spin-icon" />
-                    <span>Registering Supermarket...</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus size={16} strokeWidth={2.8} />
-                    <span>Add Supermarket</span>
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* Right Card: Multi-Tenant SaaS Platform Feature Highlights */}
-        <div className="sa-saas-platform-card">
-          <div className="sa-platform-card-header">
-            <div className="sa-platform-shield-icon">
-              <ShieldCheck size={20} strokeWidth={2.4} />
-            </div>
-            <h3 className="sa-platform-card-title">Multi-Tenant SaaS Platform</h3>
-          </div>
-
-          {/* Checklist */}
-          <div className="sa-checklist-list">
-            <div className="sa-check-item">
-              <div className="sa-check-circle">
-                <Check size={12} strokeWidth={3} />
-              </div>
-              <span>Manage Multiple Supermarkets</span>
-            </div>
-
-            <div className="sa-check-item">
-              <div className="sa-check-circle">
-                <Check size={12} strokeWidth={3} />
-              </div>
-              <span>Set Subscription Plans</span>
-            </div>
-
-            <div className="sa-check-item">
-              <div className="sa-check-circle">
-                <Check size={12} strokeWidth={3} />
-              </div>
-              <span>Track Registrations &amp; Revenue</span>
-            </div>
-
-            <div className="sa-check-item">
-              <div className="sa-check-circle">
-                <Check size={12} strokeWidth={3} />
-              </div>
-              <span>Ensure Data Isolation</span>
-            </div>
-          </div>
-
-          {/* 3D Storefront Illustration & Security Badge */}
-          <div className="sa-platform-badge-box">
-            <div className="sa-store-badge-graphic">
-              <img
-                src="/storefront-3d.jpg"
-                alt="Secure Store Architecture"
-                className="sa-store-badge-img"
-              />
-              <div className="sa-shield-green-pill">
-                <ShieldCheck size={14} />
-              </div>
-            </div>
-            <div className="sa-badge-labels">
-              <span className="sa-badge-tagline">
-                Secure &bull; Scalable &bull; Reliable
-              </span>
-              <p className="sa-badge-desc">
-                Your Complete Supermarket Management Solution
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= 4. Bottom Section: Recent Supermarkets & Quick Actions ================= */}
-      <section className="sa-bottom-row-section">
-        {/* Left 70%: Recent Supermarkets Table Card */}
-        <div className="sa-recent-stores-card">
-          <div className="sa-recent-header">
-            <div className="sa-recent-title-group">
-              <Store size={18} color="#0f172a" />
-              <h3>Recent Supermarkets</h3>
-            </div>
-            <Link to="/super-admin/registered-supermarkets" className="sa-view-all-link">
+            <Link to="/super-admin/supermarkets" className="sa-ref-view-all">
               <span>View All</span>
               <span>&rarr;</span>
             </Link>
           </div>
 
-          <div className="sa-recent-table-wrap">
-            <table className="sa-clean-table">
+          {/* 4 Inner Metric Pill Boxes */}
+          <div className="sa-ref-metric-pills-row">
+            {/* Box 1: Stores */}
+            <div className="sa-ref-stat-box">
+              <div className="sa-ref-box-icon store-green">
+                <Store size={18} color="#059669" />
+              </div>
+              <span className="sa-ref-box-main">{totalStoresCount} Stores</span>
+              <span className="sa-ref-box-sub green-dot-label">
+                <span className="sa-dot-online" /> Active &amp; Online
+              </span>
+            </div>
+
+            {/* Box 2: Catalog Products */}
+            <div className="sa-ref-stat-box">
+              <div className="sa-ref-box-icon box-orange">
+                <Boxes size={18} color="#ea580c" />
+              </div>
+              <span className="sa-ref-box-main">
+                {analytics?.summary?.totalProductsCount !== undefined
+                  ? `${analytics.summary.totalProductsCount} Items`
+                  : "20 Items"}
+              </span>
+              <span className="sa-ref-box-sub">Catalog Products</span>
+            </div>
+
+            {/* Box 3: Network Volume */}
+            <div className="sa-ref-stat-box">
+              <div className="sa-ref-box-icon box-purple">
+                <span>&#8377;</span>
+              </div>
+              <span className="sa-ref-box-main">
+                &#8377;{Number(totalPlatformRevenue).toLocaleString("en-IN")}
+              </span>
+              <span className="sa-ref-box-sub">Network Volume</span>
+            </div>
+
+            {/* Box 4: POS & Turnstiles */}
+            <div className="sa-ref-stat-box">
+              <div className="sa-ref-box-icon box-blue">
+                <Wifi size={18} color="#0284c7" />
+              </div>
+              <span className="sa-ref-box-main">12 Online</span>
+              <span className="sa-ref-box-sub">POS &amp; Turnstiles</span>
+            </div>
+          </div>
+
+          {/* Bottom Split: 3D Shopping Cart & Checklist + Button */}
+          <div className="sa-ref-overview-bottom">
+            <div className="sa-ref-cart-img-box">
+              <img
+                src="/grocery-basket-3d.jpg"
+                alt="Supermarket Shopping Cart"
+                className="sa-ref-cart-img"
+                onError={(e) => {
+                  e.currentTarget.src = "/dashboard-hero-fresh-cart.jpg";
+                }}
+              />
+            </div>
+            <div className="sa-ref-overview-desc-side">
+              <ul className="sa-ref-checklist">
+                <li>
+                  <CheckCircle2 size={16} color="#059669" className="sa-chk-ico" />
+                  <span>Real-time barcode generation &amp; stock sync across network</span>
+                </li>
+                <li>
+                  <CheckCircle2 size={16} color="#059669" className="sa-chk-ico" />
+                  <span>Dedicated tenant database isolation for every onboarded store</span>
+                </li>
+                <li>
+                  <CheckCircle2 size={16} color="#059669" className="sa-chk-ico" />
+                  <span>Customer self-checkout &amp; instant turnstile exit QR validation</span>
+                </li>
+              </ul>
+
+              <button
+                type="button"
+                className="sa-ref-onboard-btn"
+                onClick={() => navigate("/super-admin/add-supermarket")}
+              >
+                <span>+ Onboard Supermarket</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Card: Sales Performance */}
+        <div className="sa-ref-card sa-ref-sales-card">
+          <div className="sa-ref-card-header">
+            <div className="sa-ref-card-title-wrap">
+              <div className="sa-ref-header-icon-mint">
+                <BarChart2 size={18} color="#059669" strokeWidth={2.4} />
+              </div>
+              <h3>Sales Performance</h3>
+            </div>
+            <div className="sa-ref-toggle-pill-wrap">
+              <button
+                type="button"
+                className={`sa-ref-toggle-btn ${salesRange === "7d" ? "active" : ""}`}
+                onClick={() => setSalesRange("7d")}
+              >
+                7 Days
+              </button>
+              <button
+                type="button"
+                className={`sa-ref-toggle-btn ${salesRange === "30d" ? "active" : ""}`}
+                onClick={() => setSalesRange("30d")}
+              >
+                30 Days
+              </button>
+            </div>
+          </div>
+
+          {/* Area Chart matching exact visual in reference image */}
+          <div className="sa-ref-chart-container">
+            <svg
+              viewBox="0 0 540 220"
+              preserveAspectRatio="none"
+              className="sa-ref-sales-svg"
+            >
+              <defs>
+                <linearGradient id="salesGreenGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.36" />
+                  <stop offset="65%" stopColor="#10b981" stopOpacity="0.10" />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              {/* Gridlines */}
+              <line x1="40" y1="35" x2="520" y2="35" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1="40" y1="85" x2="520" y2="85" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1="40" y1="135" x2="520" y2="135" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1="40" y1="185" x2="520" y2="185" stroke="#e2e8f0" strokeWidth="1" />
+
+              {/* Y-Axis Labels */}
+              <text x="32" y="38" className="sa-chart-axis-text" textAnchor="end">&#8377;45K</text>
+              <text x="32" y="88" className="sa-chart-axis-text" textAnchor="end">&#8377;30K</text>
+              <text x="32" y="138" className="sa-chart-axis-text" textAnchor="end">&#8377;15K</text>
+              <text x="32" y="188" className="sa-chart-axis-text" textAnchor="end">&#8377;0</text>
+
+              {/* Gradient Area Fill */}
+              <path
+                d="M50,170 C100,105 130,145 180,148 C230,150 260,115 310,122 C360,130 400,155 450,135 C480,120 495,85 515,62 L515,185 L50,185 Z"
+                fill="url(#salesGreenGrad)"
+              />
+
+              {/* Green Spline Curve */}
+              <path
+                d="M50,170 C100,105 130,145 180,148 C230,150 260,115 310,122 C360,130 400,155 450,135 C480,120 495,85 515,62"
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="2.8"
+                strokeLinecap="round"
+              />
+
+              {/* Data Points */}
+              <circle cx="50" cy="170" r="3.5" fill="#047857" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="120" cy="126" r="3.5" fill="#047857" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="180" cy="148" r="3.5" fill="#047857" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="260" cy="122" r="3.5" fill="#047857" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="330" cy="128" r="3.5" fill="#047857" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="420" cy="142" r="3.5" fill="#047857" stroke="#ffffff" strokeWidth="1.5" />
+
+              {/* Active Pinned Point on Nov 14 */}
+              <circle cx="515" cy="62" r="5" fill="#047857" stroke="#ffffff" strokeWidth="2.5" />
+
+              {/* X-Axis Dates */}
+              <text x="50" y="206" className="sa-chart-date-text" textAnchor="middle">Nov 8</text>
+              <text x="120" y="206" className="sa-chart-date-text" textAnchor="middle">Nov 9</text>
+              <text x="180" y="206" className="sa-chart-date-text" textAnchor="middle">Nov 10</text>
+              <text x="260" y="206" className="sa-chart-date-text" textAnchor="middle">Nov 11</text>
+              <text x="330" y="206" className="sa-chart-date-text" textAnchor="middle">Nov 12</text>
+              <text x="420" y="206" className="sa-chart-date-text" textAnchor="middle">Nov 13</text>
+              <text x="510" y="206" className="sa-chart-date-text" textAnchor="middle">Nov 14</text>
+            </svg>
+
+            {/* Pinned Tooltip Badge matching reference */}
+            <div className="sa-ref-chart-tooltip">
+              <span className="sa-ref-tooltip-amount">&#8377;42,500</span>
+              <span className="sa-ref-tooltip-date">Nov 14</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= 3. Bottom Section: Recent Supermarkets & Quick Actions ================= */}
+      <section className="sa-ref-bottom-grid">
+        {/* Left Card: Recent Supermarkets */}
+        <div className="sa-ref-card sa-ref-table-card">
+          <div className="sa-ref-card-header">
+            <div className="sa-ref-card-title-wrap">
+              <div className="sa-ref-header-icon-mint">
+                <Store size={18} color="#059669" strokeWidth={2.4} />
+              </div>
+              <h3>Recent Supermarkets</h3>
+            </div>
+            <Link to="/super-admin/registered-supermarkets" className="sa-ref-view-all">
+              <span>View All</span>
+              <span>&rarr;</span>
+            </Link>
+          </div>
+
+          <div className="sa-ref-table-wrap">
+            <table className="sa-ref-table">
               <thead>
                 <tr>
-                  <th style={{ width: "40px" }}>#</th>
+                  <th style={{ width: "35px" }}>#</th>
                   <th>Supermarket Name</th>
                   <th>Admin</th>
                   <th>Plan</th>
                   <th>Status</th>
                   <th>Registered On</th>
-                  <th style={{ textAlign: "center", width: "70px" }}>Actions</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {recentStoresList.map((store, idx) => {
-                  const planName = store.plan || "Premium";
-                  const planClass =
-                    planName.toLowerCase() === "premium"
-                      ? "premium"
-                      : planName.toLowerCase() === "business" || planName.toLowerCase() === "standard"
-                      ? "business"
-                      : planName.toLowerCase() === "enterprise"
-                      ? "enterprise"
-                      : "basic";
-
-                  return (
-                    <tr key={store._id || idx}>
-                      <td style={{ color: "#64748b", fontWeight: 600 }}>{idx + 1}</td>
-                      <td>
-                        <span className="sa-store-name-text">{store.name}</span>
-                      </td>
-                      <td>
-                        <span className="sa-store-admin-email">
-                          {store.adminUsername || store.email || `${store.code || "store"}@grocerease.store`}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`sa-plan-pill ${planClass}`}>{planName}</span>
-                      </td>
-                      <td>
-                        <span className="sa-status-pill active">
-                          <span className="sa-green-dot" />
-                          <span>{store.status || "Active"}</span>
-                        </span>
-                      </td>
-                      <td>
-                        <span className="sa-date-cell">{formatDate(store.createdAt)}</span>
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <button
-                          type="button"
-                          className="sa-action-dots-btn"
-                          title={`Manage ${store.name}`}
-                          onClick={() => handleLaunchStore(store)}
-                        >
-                          <MoreHorizontal size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {recentStoresList.map((store, idx) => (
+                  <tr key={store._id || idx}>
+                    <td className="sa-ref-td-num">{idx + 1}</td>
+                    <td>
+                      <span className="sa-ref-store-name">{store.name}</span>
+                    </td>
+                    <td>
+                      <span className="sa-ref-admin-name">
+                        {store.adminUsername || store.email || `${store.code || "store"}@grocerease.store`}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="sa-ref-plan-name">{store.plan || "Basic"}</span>
+                    </td>
+                    <td>
+                      <span className="sa-ref-status-pill">Active</span>
+                    </td>
+                    <td>
+                      <span className="sa-ref-date-text">{formatDate(store.createdAt)}</span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <button
+                        type="button"
+                        className="sa-ref-view-btn"
+                        onClick={() => handleLaunchStore(store)}
+                      >
+                        <span>View Details</span>
+                        <span>&rarr;</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Right 30%: Quick Actions Card */}
-        <div className="sa-quick-actions-card">
-          <div className="sa-qa-header">
-            <Zap size={18} color="#0f172a" fill="#0f172a" />
-            <h3>Quick Actions</h3>
+        {/* Right Card: Quick Actions */}
+        <div className="sa-ref-card sa-ref-qa-card">
+          <div className="sa-ref-card-header">
+            <div className="sa-ref-card-title-wrap">
+              <span className="sa-ref-lightning-ico">&#9889;</span>
+              <h3>Quick Actions</h3>
+            </div>
           </div>
 
-          <div className="sa-qa-list">
-            {/* Action 1: View Platform Reports */}
-            <div
-              className="sa-qa-item"
-              onClick={() => navigate("/super-admin/analytics")}
+          <div className="sa-ref-qa-grid">
+            {/* Action 1: Add New Supermarket */}
+            <button
+              type="button"
+              className="sa-ref-qa-btn primary"
+              onClick={() => navigate("/super-admin/add-supermarket")}
             >
-              <div className="sa-qa-icon green">
-                <TrendingUp size={18} strokeWidth={2.4} />
+              <div className="sa-ref-qa-icon primary">
+                <PlusCircle size={18} strokeWidth={2.4} />
               </div>
-              <div className="sa-qa-text">
-                <span className="sa-qa-label">View Platform Reports</span>
+              <div className="sa-ref-qa-label">
+                <span>Add New Supermarket</span>
+                <span className="sa-ref-qa-arr">&rarr;</span>
               </div>
-            </div>
+            </button>
 
-            {/* Action 2: Manage Plans */}
-            <div
-              className="sa-qa-item"
+            {/* Action 2: View Platform Reports */}
+            <button
+              type="button"
+              className="sa-ref-qa-btn mint"
+              onClick={() => navigate("/super-admin/reports")}
+            >
+              <div className="sa-ref-qa-icon mint">
+                <FileText size={18} color="#059669" strokeWidth={2.2} />
+              </div>
+              <div className="sa-ref-qa-label">
+                <span>View Platform Reports</span>
+                <span className="sa-ref-qa-arr">&rarr;</span>
+              </div>
+            </button>
+
+            {/* Action 3: Manage Plans */}
+            <button
+              type="button"
+              className="sa-ref-qa-btn mint"
               onClick={() => navigate("/super-admin/plans")}
             >
-              <div className="sa-qa-icon gold">
-                <Crown size={18} strokeWidth={2.4} />
+              <div className="sa-ref-qa-icon mint">
+                <Crown size={18} color="#059669" strokeWidth={2.2} />
               </div>
-              <div className="sa-qa-text">
-                <span className="sa-qa-label">Manage Plans</span>
+              <div className="sa-ref-qa-label">
+                <span>Manage Plans</span>
+                <span className="sa-ref-qa-arr">&rarr;</span>
               </div>
-            </div>
+            </button>
 
-            {/* Action 3: Check Subscriptions */}
-            <div
-              className="sa-qa-item"
+            {/* Action 4: Check Subscriptions */}
+            <button
+              type="button"
+              className="sa-ref-qa-btn mint"
               onClick={() => navigate("/super-admin/registered-supermarkets")}
             >
-              <div className="sa-qa-icon green-alt">
-                <CreditCard size={18} strokeWidth={2.4} />
+              <div className="sa-ref-qa-icon mint">
+                <RefreshCw size={18} color="#059669" strokeWidth={2.2} />
               </div>
-              <div className="sa-qa-text">
-                <span className="sa-qa-label">Check Subscriptions</span>
+              <div className="sa-ref-qa-label">
+                <span>Check Subscriptions</span>
+                <span className="sa-ref-qa-arr">&rarr;</span>
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </section>

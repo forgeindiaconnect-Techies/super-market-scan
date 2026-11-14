@@ -41,6 +41,16 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: "",
+    },
+    forcePasswordChange: {
+      type: Boolean,
+      default: false,
+    },
     status: {
       type: String,
       enum: ["Active", "Suspended"],

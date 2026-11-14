@@ -7,6 +7,22 @@
   font-variant-numeric: normal;
 }
 
+/* Globally disable native Microsoft Edge & browser password reveal/clear icons so only custom eye buttons render */
+::-ms-reveal,
+::-ms-clear,
+*::-ms-reveal,
+*::-ms-clear,
+input::-ms-reveal,
+input::-ms-clear,
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 html,
 body {
   width: 100%;

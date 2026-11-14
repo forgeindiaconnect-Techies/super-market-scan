@@ -48,6 +48,7 @@ async function seedSaaSPlatformData() {
         status: "Active",
         plan: "Enterprise",
         themeColor: "#1455d9",
+        logoUrl: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&auto=format&fit=crop&q=80",
       });
       console.log("✓ Created Supermarket A: GrocerEase Supermarket (STR-001)");
     } else {
@@ -57,6 +58,11 @@ async function seedSaaSPlatformData() {
       storeA.adminName = "Pooja V";
       storeA.email = "poojasree@gmail.com";
       storeA.status = "Active";
+      storeA.startDate = storeA.startDate || new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+      storeA.expiryDate = storeA.expiryDate || new Date(Date.now() + 20 * 24 * 60 * 60 * 1000);
+      storeA.subscriptionAmount = 34999;
+      storeA.billingCycle = "Monthly";
+      if (!storeA.logoUrl) storeA.logoUrl = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&auto=format&fit=crop&q=80";
       await storeA.save();
     }
 
@@ -108,6 +114,7 @@ async function seedSaaSPlatformData() {
         status: "Active",
         plan: "Professional",
         themeColor: "#059669",
+        logoUrl: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=200&auto=format&fit=crop&q=80",
       });
       console.log("✓ Created Supermarket B: FreshMart Supermarket (STR-002)");
     } else {
@@ -117,6 +124,11 @@ async function seedSaaSPlatformData() {
       storeB.adminName = "Rohan Gupta";
       storeB.email = "storeb@freshmart.store";
       storeB.status = "Active";
+      storeB.startDate = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000);
+      storeB.expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // EXPIRES TOMORROW (24 hours) for real-time alert testing
+      storeB.subscriptionAmount = 9999;
+      storeB.billingCycle = "Monthly";
+      if (!storeB.logoUrl) storeB.logoUrl = "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=200&auto=format&fit=crop&q=80";
       await storeB.save();
     }
 
@@ -289,14 +301,190 @@ async function seedSaaSPlatformData() {
       console.log("✓ Seeded distinct products for Supermarket B (STR-002).");
     }
 
-    // Assign all legacy unassigned products, orders and cart activities to Pooja's Supermarket (Store A)
+    // =========================================================================
+    // 7. ENSURE SUPERMARKET AKSHAYA (SM-7087) with Exact Catalog Products (Attachment 4)
+    // =========================================================================
+    let storeAkshaya = await Supermarket.findOne({
+      $or: [{ code: "SM-7087" }, { slug: "akshaya" }, { adminUsername: "akshaya" }],
+    });
+
+    if (!storeAkshaya) {
+      storeAkshaya = await Supermarket.create({
+        name: "Akshaya",
+        code: "SM-7087",
+        slug: "akshaya",
+        tagline: "Smart Supermarket & Instant Gate Clearance",
+        address: "Begur",
+        city: "Bangalore",
+        state: "Karnataka",
+        pincode: "560001",
+        phone: "+91 6789098765",
+        email: "akshaya@gmail.com",
+        ownerName: "Akshaya",
+        contactPerson: "Akshaya Admin",
+        adminUsername: "akshaya",
+        adminPassword: "Akshaya@123",
+        adminName: "Akshaya Admin",
+        status: "Active",
+        plan: "Basic",
+        themeColor: "#16a34a",
+        logoUrl: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=200&auto=format&fit=crop&q=80",
+        subscriptionAmount: 4999,
+        billingCycle: "Monthly",
+        startDate: new Date("2026-11-14T00:00:00.000Z"),
+        expiryDate: new Date("2026-12-14T00:00:00.000Z"),
+      });
+      console.log("✓ Created Supermarket: Akshaya (SM-7087)");
+    } else {
+      storeAkshaya.name = "Akshaya";
+      storeAkshaya.code = "SM-7087";
+      storeAkshaya.ownerName = "Akshaya";
+      storeAkshaya.contactPerson = "Akshaya Admin";
+      storeAkshaya.adminName = "Akshaya Admin";
+      storeAkshaya.email = "akshaya@gmail.com";
+      storeAkshaya.phone = "+91 6789098765";
+      storeAkshaya.address = "Begur";
+      storeAkshaya.city = "Bangalore";
+      storeAkshaya.state = "Karnataka";
+      storeAkshaya.pincode = "560001";
+      storeAkshaya.plan = "Basic";
+      storeAkshaya.status = "Active";
+      await storeAkshaya.save();
+    }
+
+    // Ensure Store Admin User for Akshaya
+    let adminAkshaya = await User.findOne({ username: "akshaya" });
+    if (!adminAkshaya) {
+      adminAkshaya = await User.create({
+        name: "Akshaya Admin",
+        username: "akshaya",
+        email: "akshaya@gmail.com",
+        password: "Akshaya@123",
+        role: "STORE_ADMIN",
+        supermarket: storeAkshaya._id,
+        supermarketCode: storeAkshaya.code,
+        supermarketName: storeAkshaya.name,
+        phone: "+91 6789098765",
+        status: "Active",
+      });
+      console.log("✓ Created Store Admin for Akshaya: akshaya / Akshaya@123");
+    } else {
+      adminAkshaya.name = "Akshaya Admin";
+      adminAkshaya.supermarket = storeAkshaya._id;
+      adminAkshaya.supermarketCode = storeAkshaya.code;
+      adminAkshaya.supermarketName = storeAkshaya.name;
+      adminAkshaya.status = "Active";
+      await adminAkshaya.save();
+    }
+
+    // Ensure Akshaya Catalog Products ("Mens Wear" barcode 2002124937529 and "Power Provisions" barcode 010032289056)
+    const akshayaProducts = [
+      {
+        name: "Mens Wear",
+        category: "Mens Wear / Cinemaflex",
+        brand: "Cinemaflex",
+        barcode: "2002124937529",
+        price: 9999.0,
+        costPrice: 7500.0,
+        stock: 5,
+        lowStockThreshold: 10,
+        imageUrl: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300&auto=format&fit=crop&q=80",
+        description: "Premium casual and formal men's apparel collection.",
+        supermarket: storeAkshaya._id,
+        supermarketCode: storeAkshaya.code,
+        isActive: true,
+      },
+      {
+        name: "Power Provisions Soup Cp Chck Veg Bw Brth - CS of 6/ 1.25 OZ",
+        category: "Power Food, Beverages & Tobacco > Food Items > Soups & Broths",
+        brand: "Power Provisions",
+        barcode: "010032289056",
+        price: 506.0,
+        costPrice: 420.0,
+        stock: 10,
+        lowStockThreshold: 5,
+        imageUrl: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=300&auto=format&fit=crop&q=80",
+        description: "Chicken vegetable bone broth keto friendly instant soup cups.",
+        supermarket: storeAkshaya._id,
+        supermarketCode: storeAkshaya.code,
+        isActive: true,
+      },
+    ];
+
+    for (const prodItem of akshayaProducts) {
+      const existing = await Product.findOne({
+        $or: [
+          { barcode: prodItem.barcode },
+          { name: prodItem.name, supermarket: storeAkshaya._id },
+        ],
+      });
+
+      if (!existing) {
+        await Product.create(prodItem);
+        console.log(`✓ Seeded product: ${prodItem.name} (${prodItem.barcode}) for Akshaya.`);
+      } else {
+        existing.barcode = prodItem.barcode;
+        existing.price = prodItem.price;
+        existing.stock = prodItem.stock;
+        existing.supermarket = storeAkshaya._id;
+        existing.supermarketCode = storeAkshaya.code;
+        existing.isActive = true;
+        await existing.save();
+      }
+    }
+
+    // 8. STRICT MULTI-TENANT ISOLATION OF PRODUCTS, ORDERS AND NOTIFICATIONS
+    // Strictly isolate Akshaya products, orders and cart activities
     await Product.updateMany(
-      { $or: [{ supermarket: null }, { supermarket: { $exists: false } }] },
+      { barcode: { $in: ["2002124937529", "010032289056"] } },
+      { $set: { supermarket: storeAkshaya._id, supermarketCode: storeAkshaya.code } }
+    );
+
+    await Order.updateMany(
+      {
+        $or: [
+          { "items.barcode": { $in: ["2002124937529", "010032289056"] } },
+          { supermarketCode: "SM-7087" },
+        ],
+      },
+      {
+        $set: {
+          supermarket: storeAkshaya._id,
+          supermarketCode: storeAkshaya.code,
+          supermarketName: storeAkshaya.name,
+        },
+      }
+    );
+
+    await CartActivity.updateMany(
+      {
+        $or: [
+          { productName: { $regex: /mens wear|power provisions|soup cup/i } },
+          { supermarketCode: "SM-7087" },
+        ],
+      },
+      {
+        $set: {
+          supermarket: storeAkshaya._id,
+          supermarketCode: storeAkshaya.code,
+        },
+      }
+    );
+
+    // Assign any remaining unassigned records to Store A (Pooja / STR-001)
+    await Product.updateMany(
+      {
+        $or: [{ supermarket: null }, { supermarket: { $exists: false } }],
+        barcode: { $nin: ["2002124937529", "010032289056"] },
+      },
       { $set: { supermarket: storeA._id, supermarketCode: storeA.code } }
     );
 
     await Order.updateMany(
-      { $or: [{ supermarket: null }, { supermarket: { $exists: false } }] },
+      {
+        $or: [{ supermarket: null }, { supermarket: { $exists: false } }],
+        supermarketCode: { $ne: "SM-7087" },
+      },
       {
         $set: {
           supermarket: storeA._id,
@@ -308,7 +496,10 @@ async function seedSaaSPlatformData() {
     );
 
     await CartActivity.updateMany(
-      { $or: [{ supermarket: null }, { supermarket: { $exists: false } }] },
+      {
+        $or: [{ supermarket: null }, { supermarket: { $exists: false } }],
+        supermarketCode: { $ne: "SM-7087" },
+      },
       {
         $set: {
           supermarket: storeA._id,
@@ -319,8 +510,9 @@ async function seedSaaSPlatformData() {
 
     console.log("✓ Multi-Tenant SaaS platform seeding complete:");
     console.log("  - Super Admin: admin / Admin@123");
-    console.log("  - Supermarket A (STR-001): pooja / pooja@123 (Zero dummy orders, real-time ready)");
-    console.log("  - Supermarket B (STR-002): storeb / StoreB@123 (Zero dummy orders, real-time ready)");
+    console.log("  - Supermarket A (STR-001): pooja / pooja@123 (Pooja Admin)");
+    console.log("  - Supermarket B (STR-002): storeb / StoreB@123 (Rohan Gupta)");
+    console.log("  - Supermarket Akshaya (SM-7087): akshaya / Akshaya@123 (Akshaya Admin)");
   } catch (err) {
     console.error("Multi-tenant seeding error:", err);
   }

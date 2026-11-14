@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { io } from "socket.io-client";
 import API from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 import BarcodeSVG from "../../components/BarcodeSVG";
 import ErpPageBanner from "../../components/ErpPageBanner";
 import {
@@ -115,6 +116,21 @@ const formatNotifTime = (timestamp) => {
 
 export default function NotificationsManagement() {
   const navigate = useNavigate();
+  const { user, isSuperAdmin, currentSupermarket } = useAuth();
+
+  const tenantIdStr = currentSupermarket?._id
+    ? String(currentSupermarket._id)
+    : user?.supermarket?._id
+    ? String(user.supermarket._id)
+    : user?.supermarket
+    ? String(user.supermarket)
+    : null;
+  const tenantCodeStr = (currentSupermarket?.code || user?.supermarketCode || "").toUpperCase();
+  const storageSuffix = tenantIdStr || tenantCodeStr || "default";
+
+  const notifSoundKey = `grocerease_notif_sound_${storageSuffix}`;
+  const notifReadKey = `grocerease_notif_read_ids_${storageSuffix}`;
+  const notifDismissedKey = `grocerease_notif_dismissed_ids_${storageSuffix}`;
 
   // Data states
   const [orders, setOrders] = useState([]);
@@ -130,13 +146,13 @@ export default function NotificationsManagement() {
 
   // Preference & filter states
   const [soundEnabled, setSoundEnabled] = useState(() => {
-    const val = localStorage.getItem(NOTIF_SOUND_KEY);
+    const val = localStorage.getItem(notifSoundKey);
     return val !== null ? val === "true" : true;
   });
 
   const [readIds, setReadIds] = useState(() => {
     try {
-      const saved = localStorage.getItem(NOTIF_READ_KEY);
+      const saved = localStorage.getItem(notifReadKey);
       return saved ? JSON.parse(saved) : [];
     } catch (_) {
       return [];
@@ -145,12 +161,24 @@ export default function NotificationsManagement() {
 
   const [dismissedIds, setDismissedIds] = useState(() => {
     try {
-      const saved = localStorage.getItem(NOTIF_DISMISSED_KEY);
+      const saved = localStorage.getItem(notifDismissedKey);
       return saved ? JSON.parse(saved) : [];
     } catch (_) {
       return [];
     }
   });
+
+  // Re-sync local storage keys whenever the active supermarket changes
+  useEffect(() => {
+    try {
+      const savedRead = localStorage.getItem(notifReadKey);
+      setReadIds(savedRead ? JSON.parse(savedRead) : []);
+      const savedDismissed = localStorage.getItem(notifDismissedKey);
+      setDismissedIds(savedDismissed ? JSON.parse(savedDismissed) : []);
+      const savedSound = localStorage.getItem(notifSoundKey);
+      setSoundEnabled(savedSound !== null ? savedSound === "true" : true);
+    } catch (_) {}
+  }, [notifReadKey, notifDismissedKey, notifSoundKey]);
 
   const [activeTab, setActiveTab] = useState("ALL"); // ALL | PENDING | ORDERS | INVENTORY | ACTIVITY
   const [searchQuery, setSearchQuery] = useState("");
@@ -170,7 +198,7 @@ export default function NotificationsManagement() {
   const handleToggleSound = () => {
     const nextVal = !soundEnabled;
     setSoundEnabled(nextVal);
-    localStorage.setItem(NOTIF_SOUND_KEY, String(nextVal));
+    localStorage.setItem(notifSoundKey, String(nextVal));
     if (nextVal) {
       playToneChime();
       showToast("Audio chime enabled", "info");
@@ -182,24 +210,34 @@ export default function NotificationsManagement() {
   // Sync read/dismissed to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(NOTIF_READ_KEY, JSON.stringify(readIds));
+      localStorage.setItem(notifReadKey, JSON.stringify(readIds));
     } catch (_) {}
-  }, [readIds]);
+  }, [readIds, notifReadKey]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(NOTIF_DISMISSED_KEY, JSON.stringify(dismissedIds));
+      localStorage.setItem(notifDismissedKey, JSON.stringify(dismissedIds));
     } catch (_) {}
-  }, [dismissedIds]);
+  }, [dismissedIds, notifDismissedKey]);
 
-  // Load all data sources
+  // Load all data sources strictly scoped by tenant
   const fetchAllSources = async (showSpin = false) => {
     if (showSpin) setRefreshing(true);
     try {
       const [ordersRes, productsRes, cartRes] = await Promise.allSettled([
-        API.get("/orders"),
+        API.get("/orders", {
+          headers: {
+            "x-supermarket-id": tenantIdStr || "",
+            "x-supermarket-code": tenantCodeStr || "",
+          },
+        }),
         API.get("/products"),
-        API.get("/orders/cart-activity"),
+        API.get("/orders/cart-activity", {
+          headers: {
+            "x-supermarket-id": tenantIdStr || "",
+            "x-supermarket-code": tenantCodeStr || "",
+          },
+        }),
       ]);
 
       if (
@@ -207,7 +245,16 @@ export default function NotificationsManagement() {
         ordersRes.value.data?.success &&
         Array.isArray(ordersRes.value.data.orders)
       ) {
-        setOrders(ordersRes.value.data.orders);
+        let loadedOrders = ordersRes.value.data.orders;
+        // Strict multi-tenant isolation filter
+        loadedOrders = loadedOrders.filter((o) => {
+          const oId = o.supermarket
+            ? (typeof o.supermarket === "object" ? String(o.supermarket._id || o.supermarket) : String(o.supermarket))
+            : null;
+          const oCode = o.supermarketCode ? String(o.supermarketCode).toUpperCase() : null;
+          return (tenantIdStr && oId && tenantIdStr === oId) || (tenantCodeStr && oCode && tenantCodeStr === oCode);
+        });
+        setOrders(loadedOrders);
       }
 
       if (
@@ -226,7 +273,16 @@ export default function NotificationsManagement() {
         cartRes.value.data?.success &&
         Array.isArray(cartRes.value.data.activities)
       ) {
-        setCartActivities(cartRes.value.data.activities);
+        let loadedCart = cartRes.value.data.activities;
+        // Strict multi-tenant isolation filter
+        loadedCart = loadedCart.filter((act) => {
+          const aId = act.supermarket
+            ? (typeof act.supermarket === "object" ? String(act.supermarket._id || act.supermarket) : String(act.supermarket))
+            : null;
+          const aCode = act.supermarketCode ? String(act.supermarketCode).toUpperCase() : null;
+          return (tenantIdStr && aId && tenantIdStr === aId) || (tenantCodeStr && aCode && tenantCodeStr === aCode);
+        });
+        setCartActivities(loadedCart);
       }
     } catch (err) {
       console.warn("Notifications data load notice:", err.message);
@@ -236,14 +292,31 @@ export default function NotificationsManagement() {
     }
   };
 
-  // Socket & polling initialization
+  // Socket & polling initialization with strict tenant room joining
   useEffect(() => {
     fetchAllSources(false);
 
-    const socket = io("http://localhost:5001");
+    const socket = io("http://localhost:5001", {
+      query: {
+        supermarketId: tenantIdStr || "",
+        supermarketCode: tenantCodeStr || "",
+        role: user?.role || "STORE_ADMIN",
+      },
+      auth: {
+        supermarketId: tenantIdStr || "",
+        supermarketCode: tenantCodeStr || "",
+        role: user?.role || "STORE_ADMIN",
+      },
+    });
 
     socket.on("connect", () => {
       setSocketConnected(true);
+      socket.emit("leave-tenant", { allTenants: true });
+      socket.emit("join-tenant", {
+        supermarketId: tenantIdStr,
+        supermarketCode: tenantCodeStr,
+        role: "STORE_ADMIN",
+      });
     });
 
     socket.on("disconnect", () => {
@@ -251,6 +324,24 @@ export default function NotificationsManagement() {
     });
 
     socket.on("new-order", (data) => {
+      if (!data || !data.order) return;
+
+      // Strict tenant isolation: drop foreign events immediately
+      const orderStoreId = data.order.supermarket
+        ? (typeof data.order.supermarket === "object" ? String(data.order.supermarket._id || data.order.supermarket) : String(data.order.supermarket))
+        : (data.supermarketId ? String(data.supermarketId) : null);
+      const orderStoreCode = (data.order.supermarketCode || data.supermarketCode)
+        ? String(data.order.supermarketCode || data.supermarketCode).toUpperCase()
+        : null;
+
+      const matchesId = tenantIdStr && orderStoreId && tenantIdStr === orderStoreId;
+      const matchesCode = tenantCodeStr && orderStoreCode && tenantCodeStr === orderStoreCode;
+
+      if (!matchesId && !matchesCode) {
+        console.warn(`[Tenant Isolation] Blocked foreign order #${data.order.orderNumber} for store ${orderStoreCode || orderStoreId} from appearing in ${tenantCodeStr || tenantIdStr}`);
+        return;
+      }
+
       if (soundEnabled) playToneChime();
       showToast(`⚡ New order received: ${data.order?.orderNumber || "Just now"}!`, "order");
 
@@ -264,8 +355,28 @@ export default function NotificationsManagement() {
     });
 
     socket.on("admin:notification", (data) => {
+      if (!data) return;
+
+      // Strict tenant isolation: drop foreign events immediately
+      const notifStoreId = data.supermarketId || data.order?.supermarket;
+      const notifStoreIdStr = notifStoreId
+        ? (typeof notifStoreId === "object" ? String(notifStoreId._id || notifStoreId) : String(notifStoreId))
+        : null;
+      const notifStoreCode = (data.supermarketCode || data.order?.supermarketCode)
+        ? String(data.supermarketCode || data.order?.supermarketCode).toUpperCase()
+        : null;
+
+      const matchesId = tenantIdStr && notifStoreIdStr && tenantIdStr === notifStoreIdStr;
+      const matchesCode = tenantCodeStr && notifStoreCode && tenantCodeStr === notifStoreCode;
+
+      if (!matchesId && !matchesCode) {
+        console.warn(`[Tenant Isolation] Blocked foreign notification "${data.title}" for store ${notifStoreCode || notifStoreIdStr} from appearing in ${tenantCodeStr || tenantIdStr}`);
+        return;
+      }
+
       if (soundEnabled) playToneChime();
       showToast(`🔔 ${data.title || "New notification"}`, "info");
+      fetchAllSources(false);
     });
 
     const pollInterval = setInterval(() => {
@@ -282,16 +393,37 @@ export default function NotificationsManagement() {
       clearInterval(pollInterval);
       window.removeEventListener("grocerease_storage_updated", handleStorageUpdate);
     };
-  }, [soundEnabled]);
+  }, [soundEnabled, tenantIdStr, tenantCodeStr]);
 
-  // Aggregate unified notifications: ONLY Cart additions, Payment Pending, Payment Approved
+  // Aggregate unified notifications strictly scoped to authenticated supermarket
   const unifiedNotifications = useMemo(() => {
     const list = [];
     const dismissedSet = new Set(dismissedIds);
     const readSet = new Set(readIds);
 
+    // Strict tenant isolation guard
+    const scopedOrders = isSuperAdmin
+      ? orders
+      : orders.filter((o) => {
+          const oId = o.supermarket
+            ? (typeof o.supermarket === "object" ? String(o.supermarket._id || o.supermarket) : String(o.supermarket))
+            : null;
+          const oCode = o.supermarketCode ? String(o.supermarketCode).toUpperCase() : null;
+          return (tenantIdStr && oId && tenantIdStr === oId) || (tenantCodeStr && oCode && tenantCodeStr === oCode);
+        });
+
+    const scopedCartActivities = isSuperAdmin
+      ? cartActivities
+      : cartActivities.filter((act) => {
+          const aId = act.supermarket
+            ? (typeof act.supermarket === "object" ? String(act.supermarket._id || act.supermarket) : String(act.supermarket))
+            : null;
+          const aCode = act.supermarketCode ? String(act.supermarketCode).toUpperCase() : null;
+          return (tenantIdStr && aId && tenantIdStr === aId) || (tenantCodeStr && aCode && tenantCodeStr === aCode);
+        });
+
     // 1. Orders: ONLY "Payment Pending" and "Payment Approved"
-    orders.forEach((o) => {
+    scopedOrders.forEach((o) => {
       const notifId = `order-${o._id || o.orderNumber}`;
       if (dismissedSet.has(notifId)) return;
 

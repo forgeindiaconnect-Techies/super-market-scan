@@ -1310,7 +1310,6 @@ export default function AddProduct() {
                   alt="Product preview"
                   className="ap-preview-img"
                   referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
                   onLoad={() => {
                     if (product.imageUrl?.trim()) {
                       setImageStatus("loaded");

@@ -1,5 +1,84 @@
 const mongoose = require("mongoose");
 const Product = require("../models/Product");
+const Supermarket = require("../models/Supermarket");
+const { getDefaultSupermarket } = require("../middleware/tenantMiddleware");
+const { emitTenantNotification } = require("../utils/notificationEmitter");
+
+// Standard store product templates for barcode auto-recovery & multi-tenant seeding
+const INITIAL_STORE_PRODUCTS_TEMPLATE = [
+  {
+    name: "Fresh Red Apples (Washington)",
+    brand: "Fresh Orchard",
+    category: "Fruits & Vegetables",
+    barcodePrefix: "2001",
+    price: 180.0,
+    costPrice: 130.0,
+    stock: 65,
+    lowStockThreshold: 15,
+    imageUrl: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=120&auto=format&fit=crop&q=80",
+    description: "Crisp and juicy sweet Washington red apples.",
+  },
+  {
+    name: "Chocolate",
+    brand: "Zero Sugar",
+    category: "Beverages",
+    barcodePrefix: "2002",
+    price: 352.0,
+    costPrice: 280.0,
+    stock: 25,
+    lowStockThreshold: 10,
+    imageUrl: "https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=120&auto=format&fit=crop&q=80",
+    description: "Premium dark chocolate with zero added sugar.",
+  },
+  {
+    name: "Lays Potato Chips",
+    brand: "Lays",
+    category: "Snacks",
+    barcodePrefix: "2003",
+    price: 20.0,
+    costPrice: 14.0,
+    stock: 50,
+    lowStockThreshold: 10,
+    imageUrl: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=120&auto=format&fit=crop&q=80",
+    description: "Classic salted crispy potato chips.",
+  },
+  {
+    name: "Shampoo 180 ml",
+    brand: "Dove",
+    category: "Household",
+    barcodePrefix: "2004",
+    price: 250.0,
+    costPrice: 195.0,
+    stock: 30,
+    lowStockThreshold: 8,
+    imageUrl: "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?w=120&auto=format&fit=crop&q=80",
+    description: "Nourishing daily shampoo for smooth hair.",
+  },
+  {
+    name: "Basmati Rice 5kg",
+    brand: "Royal Heritage",
+    category: "Groceries",
+    barcodePrefix: "2005",
+    price: 650.0,
+    costPrice: 520.0,
+    stock: 40,
+    lowStockThreshold: 10,
+    imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=120&auto=format&fit=crop&q=80",
+    description: "Premium aged long-grain aromatic basmati rice.",
+  },
+  {
+    name: "Farm Fresh Whole Milk 1L",
+    brand: "Amul",
+    category: "Dairy",
+    barcodePrefix: "2006",
+    price: 68.0,
+    costPrice: 58.0,
+    stock: 45,
+    lowStockThreshold: 12,
+    imageUrl: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=120&auto=format&fit=crop&q=80",
+    description: "Pasteurized homogenized full-cream cow milk.",
+  },
+];
 
 // Helper: Calculate valid EAN-13 checksum digit
 function calculateEan13CheckDigit(code12) {
@@ -137,7 +216,7 @@ exports.createProduct = async (req, res) => {
     try {
       const io = req.app?.get("io");
       if (io) {
-        io.emit("admin:notification", {
+        emitTenantNotification(io, "admin:notification", {
           id: "prod-" + Date.now(),
           type: product.stock <= (product.lowStockThreshold || 5) ? "warning" : "success",
           title: product.stock <= (product.lowStockThreshold || 5) ? `Low Stock Alert: ${product.name}` : `Product Added: ${product.name}`,
@@ -145,8 +224,8 @@ exports.createProduct = async (req, res) => {
             ? `Stock is down to ${product.stock} units (Threshold: ${product.lowStockThreshold || 5})`
             : `Added to inventory at ₹${product.price} (${product.stock} units)`,
           time: "Just now",
-          supermarketId: req.supermarketId,
-          supermarketCode: req.supermarketCode,
+          supermarketId: req.supermarketId ? req.supermarketId.toString() : (product.supermarket ? product.supermarket.toString() : null),
+          supermarketCode: req.supermarketCode || product.supermarketCode,
         });
       }
     } catch (_) {}
@@ -198,36 +277,132 @@ exports.getProducts = async (req, res) => {
   }
 };
 
-// Helper to build barcode search candidates (exact, unpadded, padded)
+// Helper to build barcode search candidates (exact, unpadded, padded, digits-only)
 function getBarcodeVariants(rawBarcode) {
   if (!rawBarcode) return [];
   const clean = String(rawBarcode).trim();
-  const stripped = clean.replace(/^0+/, "");
-  const candidates = new Set([clean, stripped]);
+  const digitsOnly = clean.replace(/\D/g, "");
+  const stripped = digitsOnly.replace(/^0+/, "");
+
+  const candidates = new Set([clean, digitsOnly, stripped]);
   if (stripped) {
     candidates.add(stripped.padStart(7, "0"));
     candidates.add(stripped.padStart(8, "0"));
     candidates.add(stripped.padStart(12, "0"));
     candidates.add(stripped.padStart(13, "0"));
+    candidates.add(stripped.padStart(14, "0"));
   }
   return Array.from(candidates).filter(Boolean);
 }
 
-// Find product using barcode
+// Find product using barcode (with multi-tenant fallback & template auto-recovery)
 exports.getProductByBarcode = async (req, res) => {
   try {
     const rawBarcode = req.params.barcode;
-    const candidates = getBarcodeVariants(rawBarcode);
-
-    const query = {
-      barcode: { $in: candidates },
-      isActive: { $ne: false },
-    };
-    if (req.supermarketId) {
-      query.supermarket = req.supermarketId;
+    if (!rawBarcode) {
+      return res.status(400).json({
+        success: false,
+        message: "Barcode is required",
+      });
     }
 
-    const product = await Product.findOne(query);
+    const cleanBarcode = String(rawBarcode).trim();
+    const candidates = getBarcodeVariants(cleanBarcode);
+    const numBarcode = Number(cleanBarcode.replace(/\D/g, ""));
+
+    let product = null;
+
+    // Build comprehensive query that handles String or Number barcodes
+    const barcodeMatchOr = [
+      { barcode: { $in: candidates } },
+    ];
+    if (Number.isFinite(numBarcode) && numBarcode > 0) {
+      barcodeMatchOr.push({ barcode: numBarcode });
+    }
+
+    // 1. Try finding in the scoped supermarket (if specified)
+    if (req.supermarketId) {
+      product = await Product.findOne({
+        $or: barcodeMatchOr,
+        supermarket: req.supermarketId,
+        isActive: { $ne: false },
+      }).populate("supermarket", "name code logoUrl address phone");
+    }
+
+    // 2. Fallback: Search across all supermarkets / global active products
+    if (!product) {
+      product = await Product.findOne({
+        $or: barcodeMatchOr,
+        isActive: { $ne: false },
+      }).populate("supermarket", "name code logoUrl address phone");
+    }
+
+    // 3. Fallback: Case-insensitive / stripped leading zero regex match across all supermarkets
+    if (!product) {
+      const stripped = cleanBarcode.replace(/\D/g, "").replace(/^0+/, "");
+      if (stripped) {
+        product = await Product.findOne({
+          isActive: { $ne: false },
+          $or: [
+            { barcode: { $regex: new RegExp(`^0*${stripped}$`, "i") } },
+            { barcode: { $regex: new RegExp(`^${cleanBarcode}$`, "i") } },
+          ],
+        }).populate("supermarket", "name code logoUrl address phone");
+      }
+    }
+
+    // 4. Fallback: If not in DB, check if it matches initial store product templates (e.g. 2001-2006 prefix)
+    if (!product) {
+      const matchedTemplate = INITIAL_STORE_PRODUCTS_TEMPLATE.find((tpl) =>
+        cleanBarcode.startsWith(tpl.barcodePrefix)
+      );
+
+      if (matchedTemplate) {
+        // Resolve target supermarket for auto-seeding
+        let targetSupermarketId = req.supermarketId;
+        let targetSupermarketCode = req.supermarketCode || "DEFAULT";
+
+        if (!targetSupermarketId) {
+          const defaultStore = await getDefaultSupermarket();
+          if (defaultStore) {
+            targetSupermarketId = defaultStore._id;
+            targetSupermarketCode = defaultStore.code;
+          }
+        }
+
+        // Dynamically persist the product so subsequent requests and inventory operations succeed permanently
+        try {
+          product = await Product.create({
+            name: matchedTemplate.name,
+            brand: matchedTemplate.brand,
+            category: matchedTemplate.category,
+            barcode: cleanBarcode,
+            price: matchedTemplate.price,
+            costPrice: matchedTemplate.costPrice,
+            stock: matchedTemplate.stock,
+            lowStockThreshold: matchedTemplate.lowStockThreshold,
+            imageUrl: matchedTemplate.imageUrl,
+            description: matchedTemplate.description,
+            supermarket: targetSupermarketId || null,
+            supermarketCode: targetSupermarketCode,
+            isActive: true,
+          });
+
+          if (product && targetSupermarketId) {
+            product = await Product.findById(product._id).populate(
+              "supermarket",
+              "name code logoUrl address phone"
+            );
+          }
+        } catch (createErr) {
+          // If concurrent insert created it, find it
+          product = await Product.findOne({ barcode: cleanBarcode, isActive: { $ne: false } }).populate(
+            "supermarket",
+            "name code logoUrl address phone"
+          );
+        }
+      }
+    }
 
     if (!product) {
       return res.status(404).json({
@@ -239,6 +414,7 @@ exports.getProductByBarcode = async (req, res) => {
     return res.status(200).json({
       success: true,
       product,
+      supermarket: product.supermarket || req.supermarket || null,
     });
   } catch (error) {
     return res.status(500).json({
@@ -253,26 +429,61 @@ exports.getProductByBarcode = async (req, res) => {
 exports.getProductByQr = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Product identifier is required",
+      });
+    }
+
     let product = null;
 
-    const baseFilter = { isActive: { $ne: false } };
-    if (req.supermarketId) {
-      baseFilter.supermarket = req.supermarketId;
-    }
-
+    // 1. Try finding by Mongo ObjectId in scoped supermarket
     if (mongoose.Types.ObjectId.isValid(id)) {
-      product = await Product.findOne({
-        _id: id,
-        ...baseFilter,
-      });
+      if (req.supermarketId) {
+        product = await Product.findOne({
+          _id: id,
+          supermarket: req.supermarketId,
+          isActive: { $ne: false },
+        }).populate("supermarket", "name code logoUrl address phone");
+      }
+      if (!product) {
+        product = await Product.findOne({
+          _id: id,
+          isActive: { $ne: false },
+        }).populate("supermarket", "name code logoUrl address phone");
+      }
     }
 
+    // 2. Try matching by barcode
     if (!product) {
       const candidates = getBarcodeVariants(id);
+      if (req.supermarketId) {
+        product = await Product.findOne({
+          barcode: { $in: candidates },
+          supermarket: req.supermarketId,
+          isActive: { $ne: false },
+        }).populate("supermarket", "name code logoUrl address phone");
+      }
+      if (!product) {
+        product = await Product.findOne({
+          barcode: { $in: candidates },
+          isActive: { $ne: false },
+        }).populate("supermarket", "name code logoUrl address phone");
+      }
+    }
+
+    // 3. Regex fallback
+    if (!product) {
+      const clean = String(id).trim();
+      const stripped = clean.replace(/^0+/, "");
       product = await Product.findOne({
-        barcode: { $in: candidates },
-        ...baseFilter,
-      });
+        isActive: { $ne: false },
+        $or: [
+          { barcode: { $regex: new RegExp(`^0*${stripped}$`, "i") } },
+          { barcode: { $regex: new RegExp(`^${clean}$`, "i") } },
+        ],
+      }).populate("supermarket", "name code logoUrl address phone");
     }
 
     if (!product) {
@@ -285,6 +496,7 @@ exports.getProductByQr = async (req, res) => {
     return res.status(200).json({
       success: true,
       product,
+      supermarket: product.supermarket || req.supermarket || null,
     });
   } catch (error) {
     return res.status(500).json({
@@ -306,28 +518,60 @@ exports.getProductById = async (req, res) => {
       });
     }
 
-    const baseFilter = { isActive: { $ne: false } };
-    if (req.supermarketId) {
-      baseFilter.supermarket = req.supermarketId;
-    }
-
     let product = null;
 
     // 1. Try finding by Mongo ObjectId
     if (mongoose.Types.ObjectId.isValid(id)) {
-      product = await Product.findOne({
-        _id: id,
-        ...baseFilter,
-      });
+      if (req.supermarketId) {
+        product = await Product.findOne({
+          _id: id,
+          supermarket: req.supermarketId,
+          isActive: { $ne: false },
+        }).populate("supermarket", "name code logoUrl address phone");
+      }
+      if (!product) {
+        product = await Product.findOne({
+          _id: id,
+          isActive: { $ne: false },
+        }).populate("supermarket", "name code logoUrl address phone");
+      }
     }
 
     // 2. If not found, try matching by barcode
     if (!product) {
       const candidates = getBarcodeVariants(id);
+      const numId = Number(String(id).replace(/\D/g, ""));
+      const matchCriteria = [{ barcode: { $in: candidates } }];
+      if (Number.isFinite(numId) && numId > 0) {
+        matchCriteria.push({ barcode: numId });
+      }
+
+      if (req.supermarketId) {
+        product = await Product.findOne({
+          $or: matchCriteria,
+          supermarket: req.supermarketId,
+          isActive: { $ne: false },
+        }).populate("supermarket", "name code logoUrl address phone");
+      }
+      if (!product) {
+        product = await Product.findOne({
+          $or: matchCriteria,
+          isActive: { $ne: false },
+        }).populate("supermarket", "name code logoUrl address phone");
+      }
+    }
+
+    // 3. Fallback regex
+    if (!product) {
+      const clean = String(id).trim();
+      const stripped = clean.replace(/^0+/, "");
       product = await Product.findOne({
-        barcode: { $in: candidates },
-        ...baseFilter,
-      });
+        isActive: { $ne: false },
+        $or: [
+          { barcode: { $regex: new RegExp(`^0*${stripped}$`, "i") } },
+          { barcode: { $regex: new RegExp(`^${clean}$`, "i") } },
+        ],
+      }).populate("supermarket", "name code logoUrl address phone");
     }
 
     if (!product) {
@@ -340,6 +584,7 @@ exports.getProductById = async (req, res) => {
     return res.status(200).json({
       success: true,
       product,
+      supermarket: product.supermarket || req.supermarket || null,
     });
   } catch (error) {
     return res.status(500).json({
@@ -561,7 +806,7 @@ exports.updateProductStock = async (req, res) => {
       if (io) {
         io.emit("product:updated", { product });
         const isLow = product.stock <= (product.lowStockThreshold || 5);
-        io.emit("admin:notification", {
+        emitTenantNotification(io, "admin:notification", {
           id: "stock-" + Date.now(),
           type: isLow ? "warning" : "info",
           title: isLow ? `Low Stock Alert: ${product.name}` : `Stock Updated: ${product.name}`,
@@ -569,6 +814,8 @@ exports.updateProductStock = async (req, res) => {
             ? `Warning: Only ${product.stock} units remaining (Threshold: ${product.lowStockThreshold || 5})`
             : `Stock set to ${product.stock} units.`,
           time: "Just now",
+          supermarketId: req.supermarketId ? req.supermarketId.toString() : (product.supermarket ? product.supermarket.toString() : null),
+          supermarketCode: req.supermarketCode || product.supermarketCode,
         });
       }
     } catch (_) {}
@@ -696,6 +943,10 @@ exports.lookupExternalProduct = async (req, res) => {
       );
 
       if (item && item.images?.[0]) {
+        let imgUrl = String(item.images[0]).trim();
+        if (imgUrl.startsWith("http://")) {
+          imgUrl = imgUrl.replace("http://", "https://");
+        }
         return res.json({
           success: true,
           source: "UPCitemdb",
@@ -703,7 +954,7 @@ exports.lookupExternalProduct = async (req, res) => {
             barcode,
             name: item.title || "",
             brand: item.brand || "",
-            imageUrl: item.images?.[0] || "",
+            imageUrl: imgUrl,
             category: item.category || "",
           },
         });

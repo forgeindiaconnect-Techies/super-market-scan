@@ -1,0 +1,24 @@
+{
+  "watch": [
+    "server.js",
+    "routes/",
+    "controllers/",
+    "models/",
+    "middleware/",
+    "config/",
+    "utils/",
+    ".env"
+  ],
+  "ext": "js,mjs,cjs,env",
+  "ignore": [
+    "*.json",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "node_modules/",
+    "../frontend/",
+    "../mobile-app/"
+  ],
+  "delay": 1000
+}
+

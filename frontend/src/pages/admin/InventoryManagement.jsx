@@ -520,11 +520,26 @@ export default function InventoryManagement() {
                       <td>
                         <div className="pm-cell-details">
                           <div className="pm-thumb-box">
-                            {p.imageUrl ? (
-                              <img src={p.imageUrl} alt={p.name} className="pm-product-img" />
-                            ) : (
-                              <span className="pm-thumb-fallback">📦</span>
-                            )}
+                            {p.imageUrl && p.imageUrl.trim() ? (
+                              <img
+                                src={p.imageUrl.trim()}
+                                alt={p.name}
+                                className="pm-product-img"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  if (e.currentTarget.nextSibling) {
+                                    e.currentTarget.nextSibling.style.display = "flex";
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            <span
+                              className="pm-thumb-fallback"
+                              style={{ display: p.imageUrl && p.imageUrl.trim() ? "none" : "flex" }}
+                            >
+                              📦
+                            </span>
                           </div>
                           <div className="pm-details-text">
                             <span className="pm-name-main">{p.name}</span>

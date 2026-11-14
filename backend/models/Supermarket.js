@@ -70,15 +70,84 @@ const supermarketSchema = new mongoose.Schema(
       default: "Store Admin",
       trim: true,
     },
+    ownerName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    contactPerson: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    gstNumber: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    storeType: {
+      type: String,
+      default: "Grocery & Supermarket",
+      trim: true,
+    },
+    billingCycle: {
+      type: String,
+      enum: ["Monthly", "Yearly"],
+      default: "Monthly",
+    },
+    subscriptionAmount: {
+      type: Number,
+      default: 19999,
+    },
+    startDate: {
+      type: Date,
+      default: Date.now,
+    },
+    expiryDate: {
+      type: Date,
+    },
+    trialPeriodDays: {
+      type: Number,
+      default: 0,
+    },
+    autoRenewal: {
+      type: Boolean,
+      default: true,
+    },
+    planFeatures: [
+      {
+        type: String,
+      },
+    ],
+    branchesCount: {
+      type: Number,
+      default: 1,
+    },
+    maxStaffUsers: {
+      type: Number,
+      default: 15,
+    },
+    timeZone: {
+      type: String,
+      default: "Asia/Kolkata",
+    },
+    forcePasswordChange: {
+      type: Boolean,
+      default: true,
+    },
+    sendCredentialsEmail: {
+      type: Boolean,
+      default: true,
+    },
     status: {
       type: String,
-      enum: ["Active", "Suspended", "Trial"],
+      enum: ["Active", "Inactive", "Suspended", "Trial"],
       default: "Active",
     },
     plan: {
       type: String,
-      enum: ["Starter", "Professional", "Enterprise"],
-      default: "Enterprise",
+      default: "Premium",
+      trim: true,
     },
     maxProducts: {
       type: Number,

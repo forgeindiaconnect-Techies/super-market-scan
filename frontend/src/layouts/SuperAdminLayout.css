@@ -4,22 +4,24 @@
   --sa-green-dark: #15803d;
   --sa-green-light: #ecfdf5;
   --sa-green-accent: #22c55e;
-  --sa-sidebar-bg: #042617;
-  --sa-sidebar-hover: #0a3d24;
+  --sa-sidebar-bg: #063d2e;
+  --sa-sidebar-hover: #084c39;
+  --sa-sidebar-active: #0c5c45;
   --sa-sidebar-border: rgba(255, 255, 255, 0.08);
   --sa-sidebar-text: #94a3b8;
   --sa-sidebar-text-bright: #e2e8f0;
-  --sa-bg: #f8fafc;
+  --sa-bg: #f2f7f4;
   --sa-card-bg: #ffffff;
-  --sa-text-main: #0f172a;
+  --sa-heading: #172b24;
+  --sa-text-main: #172b24;
   --sa-text-muted: #64748b;
   --sa-border: #e2e8f0;
   --sa-radius-sm: 8px;
   --sa-radius-md: 12px;
   --sa-radius-lg: 16px;
-  --sa-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --sa-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
-  --sa-shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.12);
+  --sa-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --sa-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --sa-shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.08);
 }
 
 .super-admin-container {
@@ -341,66 +343,270 @@
   overflow-x: hidden;
   height: 100vh;
   max-height: 100vh;
-  background-color: #f8fafc;
+  background-color: var(--sa-bg, #eef7f2);
 }
 
 .sa-top-header {
-  background: #ffffff;
-  border-bottom: 1px solid var(--sa-border);
-  padding: 0.9rem 1.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   position: sticky;
   top: 0;
-  z-index: 90;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
-}
-
-.sa-header-left {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.sa-mobile-menu-btn {
-  display: none;
-  background: none;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 6px;
-  color: #334155;
-  cursor: pointer;
-}
-
-.sa-header-welcome {
+  z-index: 999;
+  width: 100%;
+  background-color: var(--sa-bg, #eef7f2);
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
 }
 
-.sa-welcome-title {
+.sa-exact-header-banner-box {
+  position: relative;
+  width: 100%;
+  height: 68px;
+  background: #ffffff;
+  border-radius: 0;
+  overflow: hidden;
+  border: none;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  line-height: 0;
+}
+
+.sa-exact-header-banner-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 0;
+  object-fit: fill;
+  image-rendering: -webkit-optimize-contrast;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Foreground Vector Crystal-Clear Typography & Controls */
+.sa-banner-vector-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  padding: 0 1.5rem 0 1.25rem;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 5;
 }
 
-.sa-wave-emoji {
-  font-size: 1.25rem;
+.sa-banner-brand-cluster {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  pointer-events: auto;
 }
 
-.sa-welcome-title h2 {
-  font-size: 1.15rem;
+.sa-banner-logo-block {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.sa-banner-cart-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(22, 163, 74, 0.35));
+}
+
+.sa-cart-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.sa-banner-brand-names {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.sa-brand-main {
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: #052e16;
+  letter-spacing: -0.03em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.sa-brand-sub {
+  font-size: 0.76rem;
   font-weight: 800;
-  color: #0f172a;
-  margin: 0;
+  color: #14532d;
   letter-spacing: -0.01em;
+  margin-top: 1px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.sa-welcome-subtitle {
-  font-size: 0.78rem;
-  color: #64748b;
-  margin: 2px 0 0 0;
-  font-weight: 500;
+.sa-banner-divider-line {
+  width: 2px;
+  height: 38px;
+  background: #22c55e;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.sa-banner-slogan-block {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  padding-bottom: 5px;
+}
+
+.sa-slogan-line1 {
+  font-size: 1.05rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #09090b;
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.sa-slogan-line2 {
+  font-size: 1.05rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #15803d;
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.sa-slogan-swoosh {
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 9px;
+}
+
+/* Hotspot Overlay Container covering the single bell and Super Admin pill */
+.sa-banner-hotspot-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.sa-hotspot-bell-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: calc(12% + 140px);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.sa-hotspot-bell-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  min-width: 17px;
+  height: 17px;
+  line-height: 17px;
+  border-radius: 9999px;
+  text-align: center;
+  padding: 0 3px;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.4);
+}
+
+.sa-hotspot-profile-pill {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 4.5%;
+  width: 145px;
+  height: 38px;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.sa-banner-dropdown-pos {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 4.5%;
+  z-index: 1001;
+}
+
+/* Mobile Menu Hamburger (Visible on small screens) */
+.sa-banner-mobile-toggle {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px;
+  color: #1e293b;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.sa-banner-mobile-toggle:hover {
+  background: #f8fafc;
+}
+
+@media (max-width: 1180px) {
+  .sa-banner-slogan-block {
+    display: none;
+  }
+  .sa-banner-divider-line {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .sa-banner-mobile-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sa-top-header {
+    padding: 0.5rem 0.75rem 0.25rem 0.75rem;
+  }
+  .sa-banner-brand-cluster {
+    margin-left: 2.2rem;
+  }
+  .sa-banner-profile-info {
+    display: none;
+  }
 }
 
 .sa-header-right {
@@ -408,6 +614,7 @@
   align-items: center;
   gap: 1rem;
   position: relative;
+  z-index: 2;
 }
 
 .sa-header-bell-btn {
@@ -485,7 +692,7 @@
 .sa-user-title {
   font-size: 0.8rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--sa-heading, #172b24);
 }
 
 .sa-user-sub {
@@ -562,7 +769,8 @@
 /* Page Canvas Content Container */
 .sa-page-content {
   flex: 1;
-  padding: 1.5rem 1.75rem 2.5rem 1.75rem;
+  padding: 1.2rem 1.4rem 2.5rem 1.4rem;
+  background-color: var(--sa-bg, #eef7f2);
 }
 
 /* ================= Responsive Rules ================= */

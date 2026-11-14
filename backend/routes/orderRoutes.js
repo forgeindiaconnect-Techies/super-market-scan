@@ -12,6 +12,7 @@ const {
   logCartActivity,
   getCartActivity,
   getReports,
+  getNotifications,
 } = require("../controllers/orderController");
 
 // Public/Customer routes
@@ -37,6 +38,9 @@ router.get("/stats", getAdminStats);
 
 // Reports Management
 router.get("/reports", getReports);
+
+// Dedicated isolated notifications query
+router.get("/notifications", getNotifications);
 
 // Orders query
 router.get("/", getOrders);

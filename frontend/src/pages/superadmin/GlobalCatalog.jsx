@@ -263,17 +263,42 @@ export default function GlobalCatalog() {
                   <tr key={item._id}>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
+                        {item.imageUrl && item.imageUrl.trim() ? (
+                          <img
+                            src={item.imageUrl.trim()}
+                            alt={item.name}
+                            referrerPolicy="no-referrer"
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              objectFit: "cover",
+                              borderRadius: "8px",
+                              border: "1px solid #e2e8f0",
+                            }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              if (e.currentTarget.nextSibling) {
+                                e.currentTarget.nextSibling.style.display = "flex";
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div
                           style={{
+                            display: item.imageUrl && item.imageUrl.trim() ? "none" : "flex",
                             width: "40px",
                             height: "40px",
-                            objectFit: "cover",
                             borderRadius: "8px",
+                            background: "#f1f5f9",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "18px",
                             border: "1px solid #e2e8f0",
+                            flexShrink: 0,
                           }}
-                        />
+                        >
+                          📦
+                        </div>
                         <div>
                           <strong style={{ display: "block", color: "#0f172a" }}>{item.name}</strong>
                           <span style={{ fontSize: "11px", color: "#64748b" }}>Brand: {item.brand}</span>

@@ -41,17 +41,52 @@ export default function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const { user, isSuperAdmin, currentSupermarket, logout } = useAuth();
 
+  const storeName = currentSupermarket?.name || "GrocerEase";
+  const storeSub = currentSupermarket?.code
+    ? `${currentSupermarket.code} • ${currentSupermarket.city || "Store"}`
+    : "Smart Supermarket";
+  const storeLogo = currentSupermarket?.logoUrl;
+  const storeTagline = currentSupermarket?.tagline || "Smart Shopping";
+
   return (
     <aside className={`admin-sidebar ${isOpen ? "open" : ""}`}>
-      {/* 1. GrocerEase Brand Header */}
+      {/* 1. Dynamic Supermarket Brand Header */}
       <div className="sidebar-brand-header">
-        <Link to="/admin" className="sidebar-brand-link" onClick={onClose}>
+        <Link to="/admin" className="sidebar-brand-link" onClick={onClose} title={`${storeName} (${storeSub})`}>
           <div className="sidebar-brand-icon">
-            <ShoppingCart size={18} color="#FFFFFF" strokeWidth={2.4} />
+            {storeLogo ? (
+              <img
+                src={storeLogo}
+                alt={storeName}
+                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px" }}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  if (e.currentTarget.nextSibling) {
+                    e.currentTarget.nextSibling.style.display = "flex";
+                  }
+                }}
+              />
+            ) : null}
+            <div
+              style={{
+                display: storeLogo ? "none" : "flex",
+                width: "100%",
+                height: "100%",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 800,
+                color: "#ffffff",
+                fontSize: "14px",
+              }}
+            >
+              {storeName ? storeName[0].toUpperCase() : <ShoppingCart size={18} color="#FFFFFF" strokeWidth={2.4} />}
+            </div>
           </div>
           <div className="sidebar-brand-text">
-            <h2 className="sidebar-brand-title">GrocerEase</h2>
-            <span className="sidebar-brand-sub">Smart Supermarket</span>
+            <h2 className="sidebar-brand-title" style={{ maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {storeName}
+            </h2>
+            <span className="sidebar-brand-sub">{storeSub}</span>
           </div>
         </Link>
         <button
@@ -89,21 +124,34 @@ export default function Sidebar({ isOpen, onClose }) {
         })}
       </nav>
 
-      {/* 3. Bottom 3D Supermarket Showcase Card */}
+      {/* 3. Bottom Supermarket Showcase Card */}
       <div className="sidebar-promo-wrap">
         <div className="sidebar-store-card">
           <div className="store-basket-art">
-            <img
-              src={storefrontImg}
-              alt="Smart Shopping"
-              className="store-basket-art-img"
-            />
+            {storeLogo ? (
+              <img
+                src={storeLogo}
+                alt={storeName}
+                className="store-basket-art-img"
+                onError={(e) => {
+                  e.currentTarget.src = storefrontImg;
+                }}
+              />
+            ) : (
+              <img
+                src={storefrontImg}
+                alt={storeName}
+                className="store-basket-art-img"
+              />
+            )}
           </div>
 
           <div className="store-card-text">
-            <h4 className="store-card-heading">Smart Shopping</h4>
-            <p className="store-card-sub">Better Living</p>
-            <span className="store-card-script">Together Always...</span>
+            <h4 className="store-card-heading" style={{ maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {storeName}
+            </h4>
+            <p className="store-card-sub">{currentSupermarket?.city ? `${currentSupermarket.city} Branch` : "Active Supermarket"}</p>
+            <span className="store-card-script">{storeTagline}</span>
           </div>
         </div>
 
@@ -112,6 +160,7 @@ export default function Sidebar({ isOpen, onClose }) {
           type="button"
           className="nav-item sidebar-logout-btn"
           onClick={logout}
+          title="Sign out of Admin Portal"
         >
           <div className="nav-icon-wrap">
             <LogOut size={16} strokeWidth={2.2} />
@@ -120,7 +169,7 @@ export default function Sidebar({ isOpen, onClose }) {
         </button>
 
         <div className="sidebar-version-pill">
-          <span>v1.0.0 | GrocerEase &copy; 2026</span>
+          <span>{storeName} &bull; {currentSupermarket?.code || "Portal"}</span>
         </div>
       </div>
     </aside>

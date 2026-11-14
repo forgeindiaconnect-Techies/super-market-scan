@@ -61,6 +61,26 @@ export default function Header({ onMenuClick }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isSuperAdmin, currentSupermarket, logout } = useAuth();
+
+  const headerAdminName = useMemo(() => {
+    if (isSuperAdmin) return "Super Admin";
+    if (currentSupermarket?.code === "SM-7087") {
+      return (user?.role === "STORE_ADMIN" && user?.supermarketCode === "SM-7087" && user?.name)
+        ? user.name
+        : (currentSupermarket?.adminName || "Akshaya Admin");
+    }
+    if (currentSupermarket?.code === "STR-002") {
+      return (user?.role === "STORE_ADMIN" && user?.supermarketCode === "STR-002" && user?.name)
+        ? user.name
+        : (currentSupermarket?.adminName || "Rohan Gupta");
+    }
+    if (currentSupermarket?.code === "STR-001") {
+      return (user?.role === "STORE_ADMIN" && user?.supermarketCode === "STR-001" && user?.name)
+        ? user.name
+        : (currentSupermarket?.adminName || "Pooja V");
+    }
+    return currentSupermarket?.adminName || currentSupermarket?.ownerName || (user?.role === "STORE_ADMIN" ? user?.name : "Store Admin");
+  }, [isSuperAdmin, user, currentSupermarket]);
   const [backendOnline, setBackendOnline] = useState(true);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
@@ -232,9 +252,22 @@ export default function Header({ onMenuClick }) {
   // Load ONLY real-time customer cart, pending payment, and approved payment notifications
   const loadRealNotifications = async () => {
     try {
+      const activeStoreId = currentSupermarket?._id ? String(currentSupermarket._id) : (user?.supermarket?._id ? String(user.supermarket._id) : null);
+      const activeStoreCode = (currentSupermarket?.code || user?.supermarketCode || "").toUpperCase();
+
       const [ordersRes, cartRes] = await Promise.allSettled([
-        API.get("/orders"),
-        API.get("/orders/cart-activity"),
+        API.get("/orders", {
+          headers: {
+            "x-supermarket-id": activeStoreId || "",
+            "x-supermarket-code": activeStoreCode || "",
+          },
+        }),
+        API.get("/orders/cart-activity", {
+          headers: {
+            "x-supermarket-id": activeStoreId || "",
+            "x-supermarket-code": activeStoreCode || "",
+          },
+        }),
       ]);
 
       let readSet = new Set();
@@ -244,13 +277,23 @@ export default function Header({ onMenuClick }) {
 
       const items = [];
 
-      // 1. Orders: ONLY "Payment Pending" and "Payment Approved"
+      // 1. Orders: ONLY "Payment Pending" and "Payment Approved" strictly filtered by tenant
       if (
         ordersRes.status === "fulfilled" &&
         ordersRes.value.data?.success &&
         Array.isArray(ordersRes.value.data.orders)
       ) {
-        ordersRes.value.data.orders.forEach((o) => {
+        let orderList = ordersRes.value.data.orders;
+        // Strict tenant isolation guard
+        orderList = orderList.filter((o) => {
+          const oId = o.supermarket ? (typeof o.supermarket === "object" ? String(o.supermarket._id || o.supermarket) : String(o.supermarket)) : null;
+          const oCode = o.supermarketCode ? String(o.supermarketCode).toUpperCase() : null;
+          const matchId = activeStoreId && oId && activeStoreId === oId;
+          const matchCode = activeStoreCode && oCode && activeStoreCode === oCode;
+          return matchId || matchCode;
+        });
+
+        orderList.forEach((o) => {
           const custName = o.customer?.name || "Mobile Shopper";
           const amount = Number(o.totalAmount || 0).toFixed(2);
           const method = o.paymentMethod || "UPI";
@@ -285,13 +328,23 @@ export default function Header({ onMenuClick }) {
         });
       }
 
-      // 2. Customer Add to Cart: ONLY "Cart Item Added"
+      // 2. Customer Add to Cart: ONLY "Cart Item Added" strictly filtered by tenant
       if (
         cartRes.status === "fulfilled" &&
         cartRes.value.data?.success &&
         Array.isArray(cartRes.value.data.activities)
       ) {
-        cartRes.value.data.activities.forEach((act) => {
+        let actList = cartRes.value.data.activities;
+        // Strict tenant isolation guard
+        actList = actList.filter((act) => {
+          const aId = act.supermarket ? (typeof act.supermarket === "object" ? String(act.supermarket._id || act.supermarket) : String(act.supermarket)) : null;
+          const aCode = act.supermarketCode ? String(act.supermarketCode).toUpperCase() : null;
+          const matchId = activeStoreId && aId && activeStoreId === aId;
+          const matchCode = activeStoreCode && aCode && activeStoreCode === aCode;
+          return matchId || matchCode;
+        });
+
+        actList.forEach((act) => {
           const custName = act.customerName || "Mobile Shopper";
           const prodName = act.productName || "Product";
           const notifId = `cart-${act._id || Math.random()}`;
@@ -319,12 +372,38 @@ export default function Header({ onMenuClick }) {
   };
 
   useEffect(() => {
+    const activeStoreId = currentSupermarket?._id ? String(currentSupermarket._id) : (user?.supermarket?._id ? String(user.supermarket._id) : null);
+    const activeStoreCode = (currentSupermarket?.code || user?.supermarketCode || "").toUpperCase();
+
+    // Clear notifications on store switch so no foreign notifications bleed
+    setNotifications([]);
     loadRealNotifications();
 
-    const socket = io("http://localhost:5001");
+    const socket = io("http://localhost:5001", {
+      transports: ["websocket", "polling"],
+      query: {
+        supermarketId: activeStoreId || "",
+        supermarketCode: activeStoreCode || "",
+        role: "STORE_ADMIN",
+      },
+      auth: {
+        token: localStorage.getItem("grocerease_auth_token") || "",
+        supermarketId: activeStoreId || "",
+        supermarketCode: activeStoreCode || "",
+        role: "STORE_ADMIN",
+      },
+    });
 
     socket.on("connect", () => {
       setSocketConnected(true);
+      socket.emit("leave-tenant", { allTenants: true });
+      if (activeStoreId || activeStoreCode) {
+        socket.emit("join-tenant", {
+          supermarketId: activeStoreId || "",
+          supermarketCode: activeStoreCode || "",
+          role: "STORE_ADMIN",
+        });
+      }
     });
 
     socket.on("disconnect", () => {
@@ -334,12 +413,21 @@ export default function Header({ onMenuClick }) {
     // Real-Time Socket Event when Customer Adds to Cart, Places Order, or Payment is Approved
     socket.on("admin:notification", (data) => {
       if (!data) return;
-      if (
-        currentSupermarket &&
-        data.supermarketId &&
-        String(data.supermarketId) !== String(currentSupermarket._id) &&
-        String(data.supermarketCode) !== String(currentSupermarket.code)
-      ) {
+
+      // Strict tenant isolation guard
+      const notifStoreId = data.supermarketId || data.order?.supermarket;
+      const notifStoreIdStr = notifStoreId
+        ? (typeof notifStoreId === "object" ? String(notifStoreId._id || notifStoreId) : String(notifStoreId))
+        : null;
+      const notifStoreCode = (data.supermarketCode || data.order?.supermarketCode)
+        ? String(data.supermarketCode || data.order?.supermarketCode).toUpperCase()
+        : null;
+
+      const matchesId = activeStoreId && notifStoreIdStr && activeStoreId === notifStoreIdStr;
+      const matchesCode = activeStoreCode && notifStoreCode && activeStoreCode === notifStoreCode;
+
+      if (!matchesId && !matchesCode) {
+        // Foreign store event - reject immediately
         return;
       }
 
@@ -375,14 +463,19 @@ export default function Header({ onMenuClick }) {
     socket.on("new-order", (data) => {
       if (!data || !data.order) return;
       const order = data.order;
-      if (
-        currentSupermarket &&
-        order.supermarket &&
-        String(order.supermarket) !== String(currentSupermarket._id) &&
-        String(order.supermarketCode) !== String(currentSupermarket.code)
-      ) {
+
+      // Strict tenant isolation guard
+      const orderIdStr = order.supermarket ? (typeof order.supermarket === "object" ? String(order.supermarket._id || order.supermarket) : String(order.supermarket)) : null;
+      const orderCodeStr = order.supermarketCode ? String(order.supermarketCode).toUpperCase() : null;
+
+      const matchesId = activeStoreId && orderIdStr && activeStoreId === orderIdStr;
+      const matchesCode = activeStoreCode && orderCodeStr && activeStoreCode === orderCodeStr;
+
+      if (!matchesId && !matchesCode) {
+        // Foreign store order - reject immediately
         return;
       }
+
       const custName = order.customer?.name || "Shopper";
 
       setNotifications((prev) => {
@@ -409,7 +502,7 @@ export default function Header({ onMenuClick }) {
       socket.disconnect();
       clearInterval(interval);
     };
-  }, [currentSupermarket]);
+  }, [currentSupermarket?._id, currentSupermarket?.code, user?.supermarketCode]);
 
   const unreadCount = notifications.filter((item) => !item.read).length;
 
@@ -655,11 +748,22 @@ export default function Header({ onMenuClick }) {
                         onClick={() => handleSelectProduct(p)}
                       >
                         <div className="search-thumb">
-                          {p.imageUrl ? (
-                            <img src={p.imageUrl} alt={p.name} />
-                          ) : (
-                            <span>🏷️</span>
-                          )}
+                          {p.imageUrl && p.imageUrl.trim() ? (
+                            <img
+                              src={p.imageUrl.trim()}
+                              alt={p.name}
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                if (e.currentTarget.nextSibling) {
+                                  e.currentTarget.nextSibling.style.display = "inline";
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <span style={{ display: p.imageUrl && p.imageUrl.trim() ? "none" : "inline" }}>
+                            🏷️
+                          </span>
                         </div>
                         <div className="search-info">
                           <strong className="search-name">{p.name}</strong>
@@ -793,6 +897,59 @@ export default function Header({ onMenuClick }) {
 
       {/* Header Right Controls */}
       <div className="header-right">
+        {/* Active Supermarket Badge Pill */}
+        {currentSupermarket && (
+          <div
+            className="header-store-badge-pill"
+            title={`Active Store: ${currentSupermarket.name} (${currentSupermarket.code})`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "7px",
+              background: "#ffffff",
+              border: "1px solid #dcfce7",
+              borderRadius: "9999px",
+              padding: "2px 10px 2px 3px",
+              boxShadow: "0 1px 3px rgba(16,163,74,0.08)",
+            }}
+          >
+            {currentSupermarket.logoUrl ? (
+              <img
+                src={currentSupermarket.logoUrl}
+                alt={currentSupermarket.name}
+                style={{ width: "22px", height: "22px", borderRadius: "50%", objectFit: "cover", border: "1px solid #86efac" }}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = "flex";
+                }}
+              />
+            ) : null}
+            <div
+              style={{
+                display: currentSupermarket.logoUrl ? "none" : "flex",
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                background: "#f0fdf4",
+                color: "#16a34a",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "10px",
+                fontWeight: 800,
+                border: "1px solid #bbf7d0",
+              }}
+            >
+              {currentSupermarket.name ? currentSupermarket.name[0].toUpperCase() : "S"}
+            </div>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "#166534", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {currentSupermarket.name}
+            </span>
+            <span style={{ fontSize: "10px", fontWeight: 800, color: "#15803d", background: "#dcfce7", padding: "1px 5px", borderRadius: "4px", fontFamily: "monospace" }}>
+              {currentSupermarket.code}
+            </span>
+          </div>
+        )}
+
         {/* System Online Status Pill */}
         <div
           className={`backend-status-pill ${backendOnline ? "online" : "offline"}`}
@@ -914,8 +1071,8 @@ export default function Header({ onMenuClick }) {
             <span className="avatar-online-dot" />
           </div>
           <div className="user-meta">
-            <span className="user-name">{user?.name || "Pooja V"}</span>
-            <span className="user-role">{isSuperAdmin ? "Super Admin" : "Admin"}</span>
+            <span className="user-name">{headerAdminName}</span>
+            <span className="user-role">{isSuperAdmin ? "Super Admin" : "Store Admin"}</span>
           </div>
           <ChevronDown size={13} className="user-chevron" />
 
@@ -926,8 +1083,8 @@ export default function Header({ onMenuClick }) {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="profile-dropdown-header">
-                <strong>{user?.name || "Pooja V"}</strong>
-                <span>{user?.username ? `@${user.username}` : "admin@grocerease.store"}</span>
+                <strong>{headerAdminName}</strong>
+                <span>{user?.username ? `@${user.username}` : `${String(currentSupermarket?.code || "store").toLowerCase()}@grocerease.store`}</span>
               </div>
               <hr className="profile-dropdown-divider" />
               {isSuperAdmin && (

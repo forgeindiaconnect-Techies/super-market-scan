@@ -69,7 +69,9 @@ export default function App() {
             <Route path="supermarkets" element={<SupermarketsManagement />} />
             <Route path="manage-supermarkets" element={<SupermarketsManagement />} />
             <Route path="registered-supermarkets" element={<RegisteredSupermarkets />} />
-            <Route path="plans" element={<SaaSPlans />} />
+            <Route path="plans" element={<SaaSPlans defaultTab="manage" />} />
+            <Route path="create-plan" element={<SaaSPlans defaultTab="create" />} />
+            <Route path="manage-plans" element={<SaaSPlans defaultTab="manage" />} />
             <Route path="analytics" element={<PlatformReports />} />
             <Route path="product-sales" element={<ProductWiseSalesReport />} />
             <Route path="catalog" element={<GlobalCatalog />} />

@@ -643,20 +643,26 @@ export default function ProductManagement() {
                     <td>
                       <div className="pm-cell-details">
                         <div className="pm-thumb-box">
-                          {p.imageUrl ? (
+                          {p.imageUrl && p.imageUrl.trim() ? (
                             <img
-                              src={p.imageUrl}
+                              src={p.imageUrl.trim()}
                               alt={p.name}
                               className="pm-product-img"
                               referrerPolicy="no-referrer"
-                              crossOrigin="anonymous"
                               onError={(e) => {
                                 e.currentTarget.style.display = "none";
+                                if (e.currentTarget.nextSibling) {
+                                  e.currentTarget.nextSibling.style.display = "flex";
+                                }
                               }}
                             />
-                          ) : (
-                            <div className="pm-thumb-fallback">🍫</div>
-                          )}
+                          ) : null}
+                          <div
+                            className="pm-thumb-fallback"
+                            style={{ display: p.imageUrl && p.imageUrl.trim() ? "none" : "flex" }}
+                          >
+                            🍫
+                          </div>
                         </div>
                         <div className="pm-details-text">
                           <span className="pm-name-main">{p.name}</span>
@@ -871,17 +877,30 @@ export default function ProductManagement() {
 
             <div style={{ padding: "20px 24px", textAlign: "center" }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
-                {viewProduct.imageUrl ? (
+                {viewProduct.imageUrl && viewProduct.imageUrl.trim() ? (
                   <img
-                    src={viewProduct.imageUrl}
+                    src={viewProduct.imageUrl.trim()}
                     alt={viewProduct.name}
                     referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
                     style={{ width: 100, height: 100, borderRadius: 12, objectFit: "contain" }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                      if (e.currentTarget.nextSibling) {
+                        e.currentTarget.nextSibling.style.display = "flex";
+                      }
+                    }}
                   />
-                ) : (
-                  <div style={{ fontSize: 48 }}>🛍️</div>
-                )}
+                ) : null}
+                <div
+                  style={{
+                    display: viewProduct.imageUrl && viewProduct.imageUrl.trim() ? "none" : "flex",
+                    fontSize: 48,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  🛍️
+                </div>
               </div>
 
               <h4 style={{ fontSize: 18, color: "#0F172A", margin: "0 0 4px" }}>

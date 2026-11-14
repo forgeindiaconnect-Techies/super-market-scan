@@ -475,15 +475,35 @@ export default function ProductWiseSalesReport() {
 
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        {item.imageUrl ? (
+                        {item.imageUrl && item.imageUrl.trim() ? (
                           <img
-                            src={item.imageUrl}
+                            src={item.imageUrl.trim()}
                             alt={item.productName}
+                            referrerPolicy="no-referrer"
                             style={{ width: "34px", height: "34px", borderRadius: "8px", objectFit: "cover" }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              if (e.currentTarget.nextSibling) {
+                                e.currentTarget.nextSibling.style.display = "flex";
+                              }
+                            }}
                           />
-                        ) : (
-                          <div style={{ width: "34px", height: "34px", borderRadius: "8px", background: "#f1f5f9" }} />
-                        )}
+                        ) : null}
+                        <div
+                          style={{
+                            display: item.imageUrl && item.imageUrl.trim() ? "none" : "flex",
+                            width: "34px",
+                            height: "34px",
+                            borderRadius: "8px",
+                            background: "#f1f5f9",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "14px",
+                            flexShrink: 0,
+                          }}
+                        >
+                          📦
+                        </div>
                         <span style={{ fontWeight: 600, color: "#0f172a" }}>{item.productName}</span>
                       </div>
                     </td>

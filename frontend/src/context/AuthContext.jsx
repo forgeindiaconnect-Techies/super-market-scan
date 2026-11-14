@@ -13,6 +13,13 @@ const DEFAULT_SUPERMARKET_STORE1 = {
   plan: "Enterprise",
   adminUsername: "pooja",
   adminName: "Pooja V",
+  email: "poojasree@gmail.com",
+  phone: "+91 98450 12345",
+  subscriptionAmount: 34999,
+  billingCycle: "Monthly",
+  startDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+  expiryDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
+  logoUrl: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&auto=format&fit=crop&q=80",
 };
 
 const DEFAULT_SUPERMARKET_STORE2 = {
@@ -22,14 +29,45 @@ const DEFAULT_SUPERMARKET_STORE2 = {
   tagline: "Farm Fresh Groceries & Express Clearance",
   city: "Bangalore",
   status: "Active",
-  plan: "Professional",
+  plan: "Standard Business",
   adminUsername: "storeb",
   adminName: "Rohan Gupta",
+  email: "storeb@freshmart.store",
+  phone: "+91 98451 98765",
+  subscriptionAmount: 9999,
+  billingCycle: "Monthly",
+  startDate: new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString(),
+  expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // EXPIRES TOMORROW
+  logoUrl: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=200&auto=format&fit=crop&q=80",
+};
+
+const DEFAULT_SUPERMARKET_AKSHAYA = {
+  _id: "store-real-akshaya",
+  name: "Akshaya",
+  code: "SM-7087",
+  slug: "akshaya",
+  tagline: "Smart Supermarket & Instant Gate Clearance",
+  city: "Bangalore",
+  address: "Begur",
+  status: "Active",
+  plan: "Basic",
+  ownerName: "Akshaya",
+  contactPerson: "Akshaya Admin",
+  adminUsername: "akshaya",
+  adminName: "Akshaya Admin",
+  email: "akshaya@gmail.com",
+  phone: "+91 6789098765",
+  subscriptionAmount: 4999,
+  billingCycle: "Monthly",
+  startDate: "2026-11-14T00:00:00.000Z",
+  expiryDate: "2026-12-14T00:00:00.000Z",
+  logoUrl: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=200&auto=format&fit=crop&q=80",
 };
 
 export const INITIAL_SUPERMARKETS_CATALOG = [
   DEFAULT_SUPERMARKET_STORE1,
   DEFAULT_SUPERMARKET_STORE2,
+  DEFAULT_SUPERMARKET_AKSHAYA,
 ];
 
 export function AuthProvider({ children }) {
@@ -204,6 +242,31 @@ export function AuthProvider({ children }) {
         setCurrentSupermarket(DEFAULT_SUPERMARKET_STORE2);
         window.dispatchEvent(new Event("grocerease_storage_updated"));
         return { success: true, user: storeBUser };
+      }
+
+      // 4. Store Admin Akshaya: username "akshaya" / password "Akshaya@123"
+      if (
+        (cleanU === "akshaya" || cleanU === "akshaya@gmail.com" || cleanU === "sm-7087" || cleanU.includes("akshaya")) &&
+        (p === "akshaya@123" || p === "akshaya123" || p === "akshaya")
+      ) {
+        const akshayaUser = {
+          _id: "user-akshaya-admin",
+          name: "Akshaya Admin",
+          username: "akshaya",
+          email: "akshaya@gmail.com",
+          role: "STORE_ADMIN",
+          supermarket: DEFAULT_SUPERMARKET_AKSHAYA,
+          supermarketCode: "SM-7087",
+          supermarketName: "Akshaya",
+        };
+        localStorage.setItem("grocerease_auth_token", "mock_akshaya_token");
+        localStorage.setItem("grocerease_user", JSON.stringify(akshayaUser));
+        localStorage.setItem("grocerease_current_supermarket", JSON.stringify(DEFAULT_SUPERMARKET_AKSHAYA));
+        setToken("mock_akshaya_token");
+        setUser(akshayaUser);
+        setCurrentSupermarket(DEFAULT_SUPERMARKET_AKSHAYA);
+        window.dispatchEvent(new Event("grocerease_storage_updated"));
+        return { success: true, user: akshayaUser };
       }
 
       const msg = err.response?.data?.message || err.message || "Invalid credentials.";

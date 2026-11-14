@@ -158,6 +158,9 @@ export default function SecurePaymentScreen() {
     try {
       if (!API_URL) throw new Error("API URL missing in configuration.");
 
+      const resolvedStoreId = cart[0]?.supermarket ? String(cart[0].supermarket) : undefined;
+      const resolvedStoreCode = cart[0]?.supermarketCode ? String(cart[0].supermarketCode) : undefined;
+
       const payload = {
         items: cart.map((it) => ({
           productId: it._id,
@@ -170,11 +173,19 @@ export default function SecurePaymentScreen() {
           phone: effectivePhone,
           address: effectiveAddress,
         },
+        supermarketId: resolvedStoreId,
+        supermarketCode: resolvedStoreCode,
       };
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (resolvedStoreId) headers["x-supermarket-id"] = resolvedStoreId;
+      if (resolvedStoreCode) headers["x-supermarket-code"] = resolvedStoreCode;
 
       const res = await safeFetch(`${API_URL}/orders/checkout`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
       }, 8000);
 

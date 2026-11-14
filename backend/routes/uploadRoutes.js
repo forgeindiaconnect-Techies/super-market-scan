@@ -117,6 +117,42 @@ async function resolveAndFetchImageBuffer(rawUrl) {
 }
 
 /**
+ * @route   GET /api/upload/proxy
+ * @desc    Proxy external images to bypass CORS or hotlink protection
+ */
+router.get("/proxy", async (req, res) => {
+  try {
+    const rawUrl = req.query.url;
+    if (!rawUrl) {
+      return res.status(400).send("URL parameter is required");
+    }
+
+    const response = await fetch(rawUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "image/*,*/*;q=0.8",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).send("Failed to fetch upstream image");
+    }
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+
+    const buffer = await response.arrayBuffer();
+    return res.send(Buffer.from(buffer));
+  } catch (err) {
+    return res.status(502).send("Image proxy error: " + err.message);
+  }
+});
+
+/**
  * @route   GET /api/upload/status
  * @desc    Test Cloudinary connection status
  */
