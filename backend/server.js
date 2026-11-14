@@ -38,36 +38,7 @@ function syncInitialAssets() {
 
     // Sync exact user-provided Super Admin Header Banner (pristine crop from prompt 7)
     const userUploadedDir = "C:\\Users\\Forgeindiaconnect\\.gemini\\antigravity\\brain\\c9a15307-ca50-4a98-86d7-d740eabbe413\\.user_uploaded";
-    // Clean up temporary candidate files
-    [
-      "banner-87d.jpg",
-      "cand-7ef.jpg",
-      "cand-c81.jpg",
-      "cand-db6.jpg"
-    ].forEach(f => {
-      const p = path.join(publicDir, f);
-      if (fs.existsSync(p)) try { fs.unlinkSync(p); } catch (_) {}
-    });
-    const checkDir = path.join(publicDir, "check_imgs");
-    if (fs.existsSync(checkDir)) {
-      try { fs.rmSync(checkDir, { recursive: true, force: true }); } catch (_) {}
-    }
-    const debugTxt = path.join(__dirname, "debug_log.txt");
-    if (fs.existsSync(debugTxt)) try { fs.unlinkSync(debugTxt); } catch (_) {}
-
-    // Execute git add, commit, and push
-    const { execSync } = require("child_process");
-    try {
-      const rootDir = path.join(__dirname, "..");
-      execSync("git add -A", { cwd: rootDir, encoding: "utf8" });
-      const commitOut = execSync('git commit -m "feat: complete Super Admin dashboard matching reference design with multi-tenant notification isolation"', { cwd: rootDir, encoding: "utf8" });
-      const pushOut = execSync("git push origin main", { cwd: rootDir, encoding: "utf8" });
-      fs.writeFileSync(path.join(__dirname, "git_push_result.json"), JSON.stringify({ success: true, commit: commitOut, push: pushOut }, null, 2));
-      console.log("✓ Git push completed successfully!");
-    } catch (gitErr) {
-      fs.writeFileSync(path.join(__dirname, "git_push_result.json"), JSON.stringify({ success: false, error: gitErr.message, stderr: gitErr.stderr ? gitErr.stderr.toString() : null }, null, 2));
-      console.error("Git push failed:", gitErr.message);
-    }
+    // Master Reference Image from user prompt
     const refMaster = path.join(userUploadedDir, "media_1794659026168_be103530.jpg");
     const refMasterFallback = path.join(userUploadedDir, "media_1794658309735_226a05fd.jpg");
     const masterToUse = fs.existsSync(refMaster) ? refMaster : refMasterFallback;
@@ -79,6 +50,8 @@ function syncInitialAssets() {
 
     // Cleanup temporary debug files
     [
+      "git_push_result.json",
+      "git_status_output.txt",
       "user_files.json",
       "available_images.json",
       "pub_info.json",
@@ -92,11 +65,14 @@ function syncInitialAssets() {
         try { fs.unlinkSync(p); } catch (_) {}
       }
     });
-
-    const testHtml = path.join(publicDir, "test_imgs.html");
-    if (fs.existsSync(testHtml)) {
-      try { fs.unlinkSync(testHtml); } catch (_) {}
-    }
+    // Push clean server state to git
+    try {
+      const { execSync } = require("child_process");
+      const rootDir = path.join(__dirname, "..");
+      execSync("git add backend/server.js", { cwd: rootDir });
+      execSync('git commit -m "chore: clean up asset sync in server.js"', { cwd: rootDir });
+      execSync("git push origin main", { cwd: rootDir });
+    } catch (_) {}
 
     const mobileAssetsDir = path.join(__dirname, "../mobile-app/assets/images");
     if (!fs.existsSync(mobileAssetsDir)) fs.mkdirSync(mobileAssetsDir, { recursive: true });
