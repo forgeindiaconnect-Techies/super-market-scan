@@ -36,23 +36,8 @@ async function seedSaaSPlatformData() {
     // If the database has already been initialized, DO NOT recreate any
     // supermarkets, products, or orders that the user has deleted!
     // =========================================================================
-    let seedMarker = await DeletedRecord.findOne({ identifier: "SYSTEM_INITIAL_SEED_COMPLETED" });
-    if (!seedMarker) {
-      const existingStoresCount = await Supermarket.countDocuments();
-      if (existingStoresCount > 0) {
-        await DeletedRecord.create({
-          entityType: "SYSTEM",
-          identifier: "SYSTEM_INITIAL_SEED_COMPLETED",
-          name: "Existing Database Detected - Seed Marked Complete",
-        });
-        seedMarker = true;
-      }
-    }
-
-    if (seedMarker) {
-      console.log("✓ System initial seed is already complete. Preserving permanent deletions.");
-      return;
-    }
+    const deletedRecords = await DeletedRecord.find({ entityType: "SUPERMARKET" });
+    const deletedStoreCodes = new Set(deletedRecords.map((r) => r.identifier));
 
     // =========================================================================
     // 2. STORE 1: GrocerEase Supermarket (STR-001) - Enterprise (Pooja Admin)
@@ -547,10 +532,89 @@ async function seedSaaSPlatformData() {
       },
     ];
 
+    const storeFreshmartCatalog = [
+      {
+        name: "Amul Salted Butter 500g",
+        brand: "Amul",
+        category: "Dairy",
+        barcode: "2006738192049",
+        price: 275.0,
+        costPrice: 220.0,
+        stock: 30,
+        lowStockThreshold: 8,
+        imageUrl: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=120&auto=format&fit=crop&q=80",
+        description: "Delicious creamy salted pasteurized butter.",
+        supermarket: storeFreshmart._id,
+        supermarketCode: storeFreshmart.code,
+        isActive: true,
+      },
+      {
+        name: "Tropicana 100% Real Orange Juice 1L",
+        brand: "Tropicana",
+        category: "Beverages",
+        barcode: "8901020304082",
+        price: 145.0,
+        costPrice: 115.0,
+        stock: 40,
+        lowStockThreshold: 10,
+        imageUrl: "https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=120&auto=format&fit=crop&q=80",
+        description: "100% pure squeezed orange juice with natural pulp.",
+        supermarket: storeFreshmart._id,
+        supermarketCode: storeFreshmart.code,
+        isActive: true,
+      },
+      {
+        name: "Aashirvaad Superior MP Whole Wheat Atta 5kg",
+        brand: "Aashirvaad",
+        category: "Groceries",
+        barcode: "8901030405091",
+        price: 290.0,
+        costPrice: 240.0,
+        stock: 35,
+        lowStockThreshold: 10,
+        imageUrl: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=120&auto=format&fit=crop&q=80",
+        description: "100% pure whole wheat stone-ground chakki fresh atta.",
+        supermarket: storeFreshmart._id,
+        supermarketCode: storeFreshmart.code,
+        isActive: true,
+      },
+      {
+        name: "Tata Tea Gold 500g",
+        brand: "Tata",
+        category: "Beverages",
+        barcode: "8901050607082",
+        price: 320.0,
+        costPrice: 260.0,
+        stock: 25,
+        lowStockThreshold: 6,
+        imageUrl: "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=120&auto=format&fit=crop&q=80",
+        description: "Exquisite tea blend of CTC tea with gently rolled long leaves.",
+        supermarket: storeFreshmart._id,
+        supermarketCode: storeFreshmart.code,
+        isActive: true,
+      },
+      {
+        name: "Fortune Sunlite Refined Sunflower Oil 1L",
+        brand: "Fortune",
+        category: "Groceries",
+        barcode: "8901070809012",
+        price: 165.0,
+        costPrice: 135.0,
+        stock: 50,
+        lowStockThreshold: 12,
+        imageUrl: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=120&auto=format&fit=crop&q=80",
+        description: "Light and healthy refined sunflower cooking oil.",
+        supermarket: storeFreshmart._id,
+        supermarketCode: storeFreshmart.code,
+        isActive: true,
+      },
+    ];
+
     const allStoreCatalogs = [
       ...storeACatalog,
       ...storeBCatalog,
       ...storeAkshayaCatalog,
+      ...storeFreshmartCatalog,
     ];
 
     for (const prodItem of allStoreCatalogs) {
@@ -573,173 +637,116 @@ async function seedSaaSPlatformData() {
     }
     console.log("✓ Guaranteed Catalog SKUs for system demonstration supermarkets.");
 
-    // Guarantee that user-created supermarkets (e.g. SM-3662 or any newly onboarded store)
-    // strictly have ZERO SKUs ("if I add the new supermarket it's no need to show anything")
     try {
-      const deletedUserProds = await Product.deleteMany({
-        $or: [
-          { supermarketCode: "SM-3662" },
-          { supermarketCode: { $nin: ["STR-001", "STR-002", "SM-7087"] } },
-        ],
-      });
-      if (deletedUserProds?.deletedCount > 0) {
-        console.log(`✓ Cleaned ${deletedUserProds.deletedCount} default products from newly added user supermarkets.`);
-      }
+      await Product.deleteMany({ supermarketCode: "SM-3662" });
     } catch (cleanErr) {
       console.warn("Product cleanup notice:", cleanErr.message);
     }
 
     // =========================================================================
-    // 7. ENSURE REALISTIC COMPLETED ORDERS & SALES LEDGER (₹76,066 Network Volume)
+    // 7. ENSURE REALISTIC COMPLETED ORDERS & SALES LEDGER IN MONGODB
     // =========================================================================
-    const existingOrdersCount = await Order.countDocuments();
-    if (existingOrdersCount === 0) {
-      // 1. Akshaya Orders: Nov 14 Peak (2x Mens Wear + 2x Soup = ₹21,010)
-      const nov14 = new Date("2026-11-14T14:30:00.000Z");
-      const order1 = {
-        orderId: "ORD-7087-001",
-        orderNumber: "ORD-7087-001",
-        supermarket: storeAkshaya._id,
-        supermarketCode: storeAkshaya.code,
-        supermarketName: storeAkshaya.name,
-        customerName: "Venkatesh Rao",
-        customerPhone: "+91 98450 77112",
-        totalAmount: 21010,
-        paymentMethod: "UPI",
-        paymentStatus: "Completed",
-        gateStatus: "Turnstile Verified & Exited",
-        items: [
-          {
-            name: "Mens Wear",
-            category: "Mens Wear / Cinemaflex",
-            barcode: "2002124937529",
-            price: 9999,
-            quantity: 2,
-            subtotal: 19998,
-          },
-          {
-            name: "Power Provisions Soup Cp Chck Veg Bw Brth - CS of 6/ 1.25 OZ",
-            category: "Power Food, Beverages & Tobacco > Food Items > Soups & Broths",
-            barcode: "010032289056",
-            price: 506,
-            quantity: 2,
-            subtotal: 1012,
-          },
+    const storesForOrders = [
+      {
+        store: storeA,
+        customer: { name: "Pooja V", phone: "+91 98450 12345", email: "poojasree@gmail.com" },
+        method: "Card",
+        date: new Date("2026-11-12T11:20:00.000Z"),
+      },
+      {
+        store: storeB,
+        customer: { name: "Rohan Gupta", phone: "+91 98451 98765", email: "storeb@freshmart.store" },
+        method: "UPI",
+        date: new Date("2026-11-13T16:45:00.000Z"),
+      },
+      {
+        store: storeAkshaya,
+        customer: { name: "Venkatesh Rao", phone: "+91 98450 77112", email: "akshaya@gmail.com" },
+        method: "UPI",
+        date: new Date("2026-11-14T14:30:00.000Z"),
+      },
+      {
+        store: storeFreshmart,
+        customer: { name: "Agila", phone: "+91 98452 33445", email: "agila.demo@grocerease.store" },
+        method: "UPI",
+        date: new Date("2026-11-15T09:10:00.000Z"),
+      },
+    ];
+
+    for (const target of storesForOrders) {
+      if (!target.store) continue;
+
+      const storeMatchQuery = {
+        $or: [
+          { supermarket: target.store._id },
+          { supermarketCode: target.store.code },
         ],
-        createdAt: nov14,
-        updatedAt: nov14,
       };
 
-      // 2. GrocerEase Supermarket Order (Fresh Apples + Chocolate = ₹15,336)
-      const nov12 = new Date("2026-11-12T11:20:00.000Z");
-      const order2 = {
-        orderId: "ORD-001-002",
-        orderNumber: "ORD-001-002",
-        supermarket: storeA._id,
-        supermarketCode: storeA.code,
-        supermarketName: storeA.name,
-        customerName: "Pooja V",
-        customerPhone: "+91 98450 12345",
-        totalAmount: 15336,
-        paymentMethod: "Card",
-        paymentStatus: "Completed",
-        gateStatus: "Turnstile Verified & Exited",
-        items: [
-          {
-            name: "Fresh Red Apples (Washington)",
-            category: "Fruits & Vegetables",
-            barcode: "2001849201948",
-            price: 180,
-            quantity: 50,
-            subtotal: 9000,
-          },
-          {
-            name: "Cadbury Dairy Milk Chocolate",
-            category: "Beverages",
-            barcode: "87654367",
-            price: 352,
-            quantity: 18,
-            subtotal: 6336,
-          },
-        ],
-        createdAt: nov12,
-        updatedAt: nov12,
-      };
+      const existingCount = await Order.countDocuments(storeMatchQuery);
+      if (existingCount === 0) {
+        const storeProducts = await Product.find({
+          ...storeMatchQuery,
+          isActive: { $ne: false },
+        });
 
-      // 3. FreshMart Supermarket Order (Almonds + Apples = ₹9,120)
-      const nov13 = new Date("2026-11-13T16:45:00.000Z");
-      const order3 = {
-        orderId: "ORD-002-003",
-        orderNumber: "ORD-002-003",
-        supermarket: storeB._id,
-        supermarketCode: storeB.code,
-        supermarketName: storeB.name,
-        customerName: "Rohan Gupta",
-        customerPhone: "+91 98451 98765",
-        totalAmount: 9120,
-        paymentMethod: "UPI",
-        paymentStatus: "Completed",
-        gateStatus: "Turnstile Verified & Exited",
-        items: [
-          {
-            name: "Fresh Red Apples (Washington)",
-            category: "Fruits & Vegetables",
-            barcode: "2001739104829",
-            price: 180,
-            quantity: 24,
-            subtotal: 4320,
-          },
-          {
-            name: "California Roasted Almonds 500g",
-            category: "Snacks",
-            barcode: "8901020304075",
-            price: 480,
-            quantity: 10,
-            subtotal: 4800,
-          },
-        ],
-        createdAt: nov13,
-        updatedAt: nov13,
-      };
+        if (storeProducts && storeProducts.length >= 2) {
+          const p1 = storeProducts[0];
+          const p2 = storeProducts[1];
+          const q1 = p1.price > 1000 ? 2 : 15;
+          const q2 = p2.price > 1000 ? 2 : 10;
+          const sub1 = p1.price * q1;
+          const sub2 = p2.price * q2;
+          const totalAmt = sub1 + sub2;
+          const totalItemsCount = q1 + q2;
 
-      // 4. 24/7 Freshmart Order (Butter + Orange Juice = ₹9,125)
-      const nov15 = new Date("2026-11-15T09:10:00.000Z");
-      const order4 = {
-        orderId: "ORD-003-004",
-        orderNumber: "ORD-003-004",
-        supermarket: storeFreshmart._id,
-        supermarketCode: storeFreshmart.code,
-        supermarketName: storeFreshmart.name,
-        customerName: "Agila",
-        customerPhone: "+91 98452 33445",
-        totalAmount: 9125,
-        paymentMethod: "UPI",
-        paymentStatus: "Completed",
-        gateStatus: "Turnstile Verified & Exited",
-        items: [
-          {
-            name: "Amul Salted Butter 500g",
-            category: "Dairy",
-            barcode: "2006738192049",
-            price: 275,
-            quantity: 20,
-            subtotal: 5500,
-          },
-          {
-            name: "Tropicana 100% Real Orange Juice 1L",
-            category: "Beverages",
-            barcode: "8901020304082",
-            price: 145,
-            quantity: 25,
-            subtotal: 3625,
-          },
-        ],
-        createdAt: nov15,
-        updatedAt: nov15,
-      };
+          const seededOrder = {
+            orderNumber: `ORD-${target.store.code.replace(/[^A-Z0-9]/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`,
+            supermarket: target.store._id,
+            supermarketCode: target.store.code,
+            supermarketName: target.store.name,
+            customerName: target.customer.name,
+            customerPhone: target.customer.phone,
+            customer: target.customer,
+            totalItems: totalItemsCount,
+            subtotalAmount: totalAmt,
+            discountAmount: 0,
+            taxAmount: 0,
+            totalAmount: totalAmt,
+            paymentMethod: target.method,
+            paymentStatus: "Completed",
+            gateStatus: "Turnstile Verified & Exited",
+            exitBarcode: `EXIT-${target.store.code}-${Date.now().toString().slice(-6)}`,
+            items: [
+              {
+                product: p1._id,
+                name: p1.name,
+                category: p1.category || "General",
+                barcode: p1.barcode || "",
+                imageUrl: p1.imageUrl || "",
+                price: p1.price,
+                quantity: q1,
+                subtotal: sub1,
+              },
+              {
+                product: p2._id,
+                name: p2.name,
+                category: p2.category || "General",
+                barcode: p2.barcode || "",
+                imageUrl: p2.imageUrl || "",
+                price: p2.price,
+                quantity: q2,
+                subtotal: sub2,
+              },
+            ],
+            createdAt: target.date,
+            updatedAt: target.date,
+          };
 
-      await Order.insertMany([order1, order2, order3, order4]);
-      console.log("✓ Seeded realistic historical orders across all 4 supermarkets.");
+          await Order.create(seededOrder);
+          console.log(`✓ Seeded valid MongoDB order for ${target.store.name} (${target.store.code}): ₹${totalAmt}`);
+        }
+      }
     }
 
     // =========================================================================

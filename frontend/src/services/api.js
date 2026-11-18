@@ -11,13 +11,10 @@ const isLocalhost =
 const LIVE_BACKEND_URL = "https://super-market-scan.onrender.com";
 const LOCAL_BACKEND_URL = "http://localhost:5001";
 
-const DEFAULT_BACKEND_URL = isLocalhost ? LOCAL_BACKEND_URL : LIVE_BACKEND_URL;
-
-// Determine clean root URL without trailing slashes or /api
-const rawBase =
-  import.meta.env.VITE_BACKEND_URL ||
-  import.meta.env.VITE_API_URL ||
-  DEFAULT_BACKEND_URL;
+// On localhost / dev machine, default to local backend (http://localhost:5001); on cloud (Vercel), use live Render backend
+const rawBase = isLocalhost
+  ? (import.meta.env.VITE_LOCAL_BACKEND_URL || LOCAL_BACKEND_URL)
+  : (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || LIVE_BACKEND_URL);
 
 export const BACKEND_URL = String(rawBase)
   .trim()
